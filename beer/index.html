@@ -35,6 +35,15 @@ body.view-only #lightboxCaption{display:none!important}
 .photo-grid .ph .date{position:absolute;left:0;right:0;bottom:0;background:linear-gradient(transparent,rgba(0,0,0,.75));color:#fff;font-size:10px;padding:14px 6px 4px;text-align:center;font-weight:600;letter-spacing:.04em}
 .photo-grid .empty{grid-column:1/-1;color:var(--muted);font-size:13px;font-style:italic;text-align:center;padding:18px}
 
+/* ── Ferment chart ── */
+.ferment-chart text{fill:var(--ink-soft);font-size:10px}
+.ferment-chart .axis{stroke:var(--line)}
+.ferment-chart .grid{stroke:var(--line2);stroke-dasharray:3,3}
+.ferment-chart .line{fill:none;stroke:var(--accent);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.ferment-chart .dot{fill:var(--accent);stroke:var(--panel);stroke-width:2;cursor:default}
+.ferment-chart .dot:hover{r:5}
+.ferment-chart .empty{fill:var(--muted);font-size:13px;font-style:italic}
+
 /* ── Beer mobile ── */
 @media (max-width:700px){
   table,thead,tbody,tr,th,td{display:block;width:100%}
@@ -200,6 +209,12 @@ body.view-only #lightboxCaption{display:none!important}
     <div class="info-section" id="infoFermentSection">
       <h3>Fermentation</h3>
       <div class="info-grid" id="infoFerment"></div>
+      <div id="fermentChart" style="margin-top:14px"></div>
+      <div id="fermentLogForm" class="edit-row" style="margin-top:10px;display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        <input type="number" id="fermentTempInput" placeholder="°F" step="0.1" style="width:70px">
+        <button id="fermentLogBtn" class="ghost tiny">Log temp</button>
+        <span id="fermentLogStatus" style="font-size:12px;color:var(--muted)"></span>
+      </div>
     </div>
 
     <div class="info-section" id="infoNotesSection">
@@ -350,6 +365,7 @@ const TABS = {
   brew_hops:  841404772,
   brew_yeast: 2057134984,
   brew_photos: 1135128185,
+  brew_ferment_temps: 748291536,
 };
 
 /* ── R2 config ── */
@@ -372,23 +388,25 @@ async function fetchTab(gid){
 }
 
 /* ── State ── */
-const state = { brews:[], grains:[], hops:[], yeast:[], photos:[] };
+const state = { brews:[], grains:[], hops:[], yeast:[], photos:[], fermentTemps:[] };
 
 async function loadData(){
   setSyncStatus('loading…','');
   try{
-    const [brewRows, grainRows, hopRows, yeastRows, photoRows] = await Promise.all([
+    const [brewRows, grainRows, hopRows, yeastRows, photoRows, tempRows] = await Promise.all([
       fetchTab(TABS.brews),
       fetchTab(TABS.brew_grains),
       fetchTab(TABS.brew_hops),
       fetchTab(TABS.brew_yeast),
       fetchTab(TABS.brew_photos).catch(()=>[]),
+      fetchTab(TABS.brew_ferment_temps).catch(()=>[]),
     ]);
     state.brews = csvToObjects(brewRows);
     state.grains = csvToObjects(grainRows);
     state.hops = csvToObjects(hopRows);
     state.yeast = csvToObjects(yeastRows);
     state.photos = csvToObjects(photoRows);
+    state.fermentTemps = csvToObjects(tempRows);
     setSyncStatus(`${state.brews.length} brews loaded`, 'ok');
     buildStyleFilter();
     renderBrews();
@@ -698,8 +716,10 @@ function openInfo(id){
     ['Ferment Temp', b.fermentTemp ? b.fermentTemp+'°F' : ''],
     ['Ferment Time', b.fermentTime],
   ].filter(([,v])=>v);
-  $('#infoFermentSection').style.display = fermFields.length ? '' : 'none';
+  const hasTemps = fermentTempsFor(id).length > 0;
+  $('#infoFermentSection').style.display = (fermFields.length || hasTemps || isGsAuthed()) ? '' : 'none';
   $('#infoFerment').innerHTML = fermFields.map(([k,v])=>`<dt>${escapeHtml(k)}</dt><dd>${escapeHtml(v)}</dd>`).join('');
+  renderFermentChart(id);
 
   showNotes('#infoNotesSection', '#infoBrewNotes', b.brewNotes);
   showNotes('#infoTastingSection', '#infoTastingNotes', b.tastingNotes);
@@ -725,6 +745,75 @@ function renderBrewPhotos(brewId){
       ${p.date ? `<div class="date">${escapeHtml(p.date)}</div>` : ''}
     </div>
   `).join('');
+}
+
+function fermentTempsFor(id){ return state.fermentTemps.filter(t=>t.brew_id===id); }
+
+function renderFermentChart(brewId){
+  const el = $('#fermentChart');
+  const readings = fermentTempsFor(brewId)
+    .map(r=>({ ts: new Date(r.timestamp), temp: parseFloat(r.temp_f) }))
+    .filter(r=>!isNaN(r.ts.getTime()) && !isNaN(r.temp))
+    .sort((a,b)=>a.ts-b.ts);
+
+  if(!readings.length){
+    el.innerHTML = '';
+    return;
+  }
+
+  const w=460, h=200, padL=40, padR=16, padT=16, padB=36;
+  const cw=w-padL-padR, ch=h-padT-padB;
+
+  const minT = Math.floor(Math.min(...readings.map(r=>r.temp))-1);
+  const maxT = Math.ceil(Math.max(...readings.map(r=>r.temp))+1);
+  const tRange = maxT-minT || 1;
+
+  const t0 = readings[0].ts.getTime();
+  const t1 = readings[readings.length-1].ts.getTime();
+  const tSpan = t1-t0 || 1;
+
+  const x = r=> padL + ((r.ts.getTime()-t0)/tSpan)*cw;
+  const y = r=> padT + ch - ((r.temp-minT)/tRange)*ch;
+
+  const gridLines = [];
+  const step = tRange <= 6 ? 1 : tRange <= 15 ? 2 : 5;
+  for(let v=Math.ceil(minT/step)*step; v<=maxT; v+=step){
+    const yy = padT + ch - ((v-minT)/tRange)*ch;
+    gridLines.push(`<line class="grid" x1="${padL}" y1="${yy.toFixed(1)}" x2="${w-padR}" y2="${yy.toFixed(1)}"/>`);
+    gridLines.push(`<text x="${padL-6}" y="${(yy+3).toFixed(1)}" text-anchor="end">${v}°</text>`);
+  }
+
+  const xLabels = [];
+  const days = (t1-t0)/86400000;
+  const uniqueDays = [...new Set(readings.map(r=>r.ts.toLocaleDateString()))];
+  const maxLabels = Math.min(uniqueDays.length, 7);
+  const labelStep = Math.max(1, Math.floor(uniqueDays.length/maxLabels));
+  for(let i=0; i<uniqueDays.length; i+=labelStep){
+    const dayReadings = readings.filter(r=>r.ts.toLocaleDateString()===uniqueDays[i]);
+    if(dayReadings.length){
+      const r = dayReadings[0];
+      const lx = x(r);
+      const label = days > 14
+        ? r.ts.toLocaleDateString(undefined,{month:'short',day:'numeric'})
+        : r.ts.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'});
+      xLabels.push(`<text x="${lx.toFixed(1)}" y="${h-4}" text-anchor="middle">${label}</text>`);
+    }
+  }
+
+  const points = readings.map(r=>`${x(r).toFixed(1)},${y(r).toFixed(1)}`).join(' ');
+  const dots = readings.map(r=>{
+    const label = `${r.temp}°F — ${r.ts.toLocaleDateString()} ${r.ts.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}`;
+    return `<circle class="dot" cx="${x(r).toFixed(1)}" cy="${y(r).toFixed(1)}" r="3.5"><title>${escapeHtml(label)}</title></circle>`;
+  }).join('');
+
+  el.innerHTML = `<svg class="ferment-chart" viewBox="0 0 ${w} ${h}" width="100%" preserveAspectRatio="xMidYMid meet">
+    <line class="axis" x1="${padL}" y1="${padT}" x2="${padL}" y2="${h-padB}"/>
+    <line class="axis" x1="${padL}" y1="${h-padB}" x2="${w-padR}" y2="${h-padB}"/>
+    ${gridLines.join('')}
+    ${xLabels.join('')}
+    <polyline class="line" points="${points}"/>
+    ${dots}
+  </svg>`;
 }
 
 function showNotes(sectionSel, contentSel, text){
@@ -1095,6 +1184,42 @@ async function gsDeletePhotoRow(brewId, key){
   });
 }
 
+/* ── Auto-create sheet tab ── */
+async function gsEnsureTab(tabName, gid, headers){
+  const token = localStorage.getItem(GS_TOKEN_KEY);
+  if (!token) throw new Error('Not signed in to Google');
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`;
+  const r = await fetch(url, {
+    method:'POST',
+    headers:{ Authorization:'Bearer '+token, 'Content-Type':'application/json' },
+    body: JSON.stringify({ requests:[
+      { addSheet:{ properties:{ sheetId: gid, title: tabName }}},
+    ]}),
+  });
+  if (!r.ok){
+    const txt = await r.text();
+    if (txt.includes('already exists')) return;
+    throw new Error(`Create tab failed: ${txt.slice(0,200)}`);
+  }
+  if (headers.length){
+    const valUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(tabName)}!A1:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`;
+    await fetch(valUrl, {
+      method:'POST',
+      headers:{ Authorization:'Bearer '+token, 'Content-Type':'application/json' },
+      body: JSON.stringify({ values: [headers] }),
+    });
+  }
+}
+
+/* ── Ferment temp logging ── */
+async function logFermentTemp(brewId, tempF){
+  if (!isGsAuthed()) throw new Error('Sign in to Google first');
+  await gsEnsureTab('brew_ferment_temps', TABS.brew_ferment_temps, ['brew_id','timestamp','temp_f']);
+  const ts = new Date().toISOString();
+  await gsAppendRow(TABS.brew_ferment_temps, [brewId, ts, String(tempF)]);
+  state.fermentTemps.push({ brew_id: brewId, timestamp: ts, temp_f: String(tempF) });
+}
+
 /* ── Photo upload ── */
 function ymd(d){ return d.toISOString().slice(0,10); }
 
@@ -1138,6 +1263,30 @@ async function deleteBrewPhoto(brewId, key){
   state.photos = state.photos.filter(p => !(p.brew_id===brewId && p.key===key));
   if (isGsAuthed()) await gsDeletePhotoRow(brewId, key).catch(e=>console.warn('Sheet delete failed:', e));
 }
+
+/* ── Photo upload handler ── */
+/* ── Ferment temp log handler ── */
+$('#fermentLogBtn').onclick = async ()=>{
+  const brewId = state._currentBrewId;
+  if (!brewId) return;
+  const input = $('#fermentTempInput');
+  const temp = parseFloat(input.value);
+  if (isNaN(temp)){ input.focus(); return; }
+  const st = $('#fermentLogStatus');
+  st.textContent = 'Logging…';
+  try {
+    await logFermentTemp(brewId, temp);
+    input.value = '';
+    st.textContent = `Logged ${temp}°F`;
+    renderFermentChart(brewId);
+    setTimeout(()=>{ st.textContent = ''; }, 2000);
+  } catch(e){
+    st.textContent = e.message;
+  }
+};
+$('#fermentTempInput').addEventListener('keydown', e=>{
+  if(e.key==='Enter') $('#fermentLogBtn').click();
+});
 
 /* ── Photo upload handler ── */
 $('#photoUploadInput').addEventListener('change', async function(){

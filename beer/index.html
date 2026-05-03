@@ -19,7 +19,20 @@
 .notes-block{background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:12px;font-size:14px;line-height:1.6;white-space:pre-wrap;margin-top:6px}
 
 body.view-only #addBrewBtn,
-body.view-only .edit-row{display:none!important}
+body.view-only .edit-row,
+body.view-only #photoUploadInput + span,
+body.view-only label:has(#photoUploadInput),
+body.view-only #lightboxDelete,
+body.view-only #lightboxCaption{display:none!important}
+
+/* ── Photo grid ── */
+.photo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+@media (max-width:480px){.photo-grid{grid-template-columns:repeat(2,1fr)}}
+.photo-grid .ph{position:relative;aspect-ratio:1;background:var(--bg2);border:1px solid var(--line2);border-radius:8px;overflow:hidden;cursor:pointer}
+.photo-grid .ph img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .2s}
+.photo-grid .ph:hover img{transform:scale(1.04)}
+.photo-grid .ph .date{position:absolute;left:0;right:0;bottom:0;background:linear-gradient(transparent,rgba(0,0,0,.75));color:#fff;font-size:10px;padding:14px 6px 4px;text-align:center;font-weight:600;letter-spacing:.04em}
+.photo-grid .empty{grid-column:1/-1;color:var(--muted);font-size:13px;font-style:italic;text-align:center;padding:18px}
 
 /* ── Beer mobile ── */
 @media (max-width:700px){
@@ -202,6 +215,35 @@ body.view-only .edit-row{display:none!important}
       <h3>What I'd Change</h3>
       <div class="notes-block" id="infoChanges"></div>
     </div>
+
+    <div class="info-section" id="infoPhotosSection">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <h3 style="margin:0">Photos</h3>
+        <label style="cursor:pointer">
+          <input type="file" id="photoUploadInput" accept="image/*,.heic,.heif" multiple style="display:none">
+          <span class="ghost tiny" style="pointer-events:none">+ Add</span>
+        </label>
+      </div>
+      <div id="photoStatus" style="display:none;font-size:12px;color:var(--muted);margin-bottom:6px"></div>
+      <div id="infoPhotos" class="photo-grid"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Lightbox -->
+<div class="modal-back" id="lightbox" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:60;align-items:center;justify-content:center">
+  <div style="display:flex;flex-direction:column;align-items:center;gap:10px;max-width:90vw;max-height:90vh;width:800px;padding:20px 0">
+    <button class="close" id="lightboxClose" style="position:absolute;top:12px;right:12px;color:#fff;font-size:28px;background:rgba(0,0,0,.4);border-radius:50%;width:36px;height:36px;line-height:1;z-index:1;border:none;cursor:pointer">&times;</button>
+    <img id="lightboxImg" style="flex:1 1 auto;min-height:0;width:100%;object-fit:contain;border-radius:8px;background:#0a0a0a">
+    <div id="lightboxMeta" style="flex:none;color:#ddd;font-size:13px;text-align:center;max-width:100%;padding:0 4px">
+      <span id="lightboxDate" style="display:inline-block;color:#fff;font-weight:600;padding:5px 10px"></span>
+      <input type="text" id="lightboxCaption" placeholder="add caption…" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:6px;padding:6px 10px;margin-top:6px;width:280px;max-width:90vw">
+      <div style="display:flex;gap:8px;justify-content:center;margin-top:10px">
+        <button id="lightboxPrev" class="ghost tiny" style="color:#fff;border-color:rgba(255,255,255,.2)">&lsaquo; Prev</button>
+        <button id="lightboxNext" class="ghost tiny" style="color:#fff;border-color:rgba(255,255,255,.2)">Next &rsaquo;</button>
+        <button id="lightboxDelete" class="ghost tiny" style="color:#f59a8a;border-color:rgba(245,154,138,.3)">Delete</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -219,6 +261,19 @@ body.view-only .edit-row{display:none!important}
     <div style="margin-bottom:16px">
       <div class="small" style="color:var(--muted);margin-bottom:6px">Google Sheets sync</div>
       <button id="gsSaveTokenBtn" class="ghost tiny">Sign in with Google</button>
+    </div>
+
+    <div style="margin-bottom:16px">
+      <h3 style="margin:0 0 8px">Photo storage (Cloudflare R2)</h3>
+      <div class="small" style="color:var(--muted);margin-bottom:6px">Credentials are stored locally on this device only.</div>
+      <input type="text" id="r2KeyInput" placeholder="Access Key ID" style="width:100%;margin-bottom:6px">
+      <input type="password" id="r2SecretInput" placeholder="Secret Access Key" style="width:100%">
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+        <button id="r2SaveBtn" class="ghost tiny">Save</button>
+        <button id="r2TestBtn" class="ghost tiny">Test</button>
+        <button id="r2ClearBtn" class="ghost tiny" style="color:#f59a8a">Forget</button>
+      </div>
+      <div class="small" id="r2Status" style="margin-top:6px;color:var(--muted)">Not configured.</div>
     </div>
 
     <div style="text-align:right;margin-top:20px">
@@ -293,7 +348,16 @@ const TABS = {
   brew_grains: 584354729,
   brew_hops:  841404772,
   brew_yeast: 2057134984,
+  brew_photos: 1135128185,
 };
+
+/* ── R2 config ── */
+const R2_CONFIG = {
+  bucket: 'plant-photos',
+  accountId: '5321847b835f166ceacebf2c8c142610',
+  publicUrl: 'https://pub-59a926166fd84970bea75caf38a52d27.r2.dev',
+};
+const R2_CREDS_KEY = 'beerDashboard.r2creds';
 
 function sheetCsvUrl(gid){
   return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${gid}`;
@@ -307,21 +371,23 @@ async function fetchTab(gid){
 }
 
 /* ── State ── */
-const state = { brews:[], grains:[], hops:[], yeast:[] };
+const state = { brews:[], grains:[], hops:[], yeast:[], photos:[] };
 
 async function loadData(){
   setSyncStatus('loading…','');
   try{
-    const [brewRows, grainRows, hopRows, yeastRows] = await Promise.all([
+    const [brewRows, grainRows, hopRows, yeastRows, photoRows] = await Promise.all([
       fetchTab(TABS.brews),
       fetchTab(TABS.brew_grains),
       fetchTab(TABS.brew_hops),
       fetchTab(TABS.brew_yeast),
+      fetchTab(TABS.brew_photos).catch(()=>[]),
     ]);
     state.brews = csvToObjects(brewRows);
     state.grains = csvToObjects(grainRows);
     state.hops = csvToObjects(hopRows);
     state.yeast = csvToObjects(yeastRows);
+    state.photos = csvToObjects(photoRows);
     setSyncStatus(`${state.brews.length} brews loaded`, 'ok');
     buildStyleFilter();
     renderBrews();
@@ -342,6 +408,8 @@ function setSyncStatus(msg, cls){
 function grainsFor(id){ return state.grains.filter(g=>g.brew_id===id); }
 function hopsFor(id){ return state.hops.filter(h=>h.brew_id===id); }
 function yeastFor(id){ return state.yeast.filter(y=>y.brew_id===id); }
+function photosFor(id){ return state.photos.filter(p=>p.brew_id===id); }
+function r2PublicUrl(key){ return `${R2_CONFIG.publicUrl}/${key}`; }
 
 /* ── Style filter ── */
 function buildStyleFilter(){
@@ -636,8 +704,26 @@ function openInfo(id){
   showNotes('#infoTastingSection', '#infoTastingNotes', b.tastingNotes);
   showNotes('#infoChangesSection', '#infoChanges', b.changes);
 
+  renderBrewPhotos(id);
+  state._currentBrewId = id;
+
   $('#infoOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
+}
+
+function renderBrewPhotos(brewId){
+  const photos = photosFor(brewId).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+  const grid = $('#infoPhotos');
+  if(!photos.length){
+    grid.innerHTML = '<div class="empty">No photos yet.</div>';
+    return;
+  }
+  grid.innerHTML = photos.map((p,i)=>`
+    <div class="ph" data-idx="${i}">
+      <img src="${r2PublicUrl(p.key)}" loading="lazy" alt="">
+      ${p.date ? `<div class="date">${escapeHtml(p.date)}</div>` : ''}
+    </div>
+  `).join('');
 }
 
 function showNotes(sectionSel, contentSel, text){
@@ -657,6 +743,7 @@ $('#infoOverlay').addEventListener('click', e=>{
 });
 document.addEventListener('keydown', e=>{
   if(e.key==='Escape'){
+    if($('#lightbox').style.display==='flex') { $('#lightbox').style.display='none'; return; }
     if($('#settingsOverlay').classList.contains('open')) closeSettings();
     else if($('#infoOverlay').classList.contains('open')) closeInfo();
   }
@@ -827,6 +914,357 @@ function handleOAuthReturn(){
 }
 
 $('#gsSaveTokenBtn').onclick = startGsAuth;
+
+/* ── R2 credentials ── */
+function getR2Creds(){ try { return JSON.parse(localStorage.getItem(R2_CREDS_KEY) || '{}'); } catch(e){ return {}; } }
+function setR2Creds(c){
+  if (c && c.accessKey && c.secretKey) localStorage.setItem(R2_CREDS_KEY, JSON.stringify(c));
+  else localStorage.removeItem(R2_CREDS_KEY);
+}
+
+/* ── SigV4 signing ── */
+async function sha256hex(data){
+  const buf = typeof data === 'string' ? new TextEncoder().encode(data) : data;
+  const hash = await crypto.subtle.digest('SHA-256', buf);
+  return [...new Uint8Array(hash)].map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+async function hmacRaw(key, data){
+  const k = typeof key === 'string' ? new TextEncoder().encode(key) : key;
+  const d = typeof data === 'string' ? new TextEncoder().encode(data) : data;
+  const ck = await crypto.subtle.importKey('raw', k, {name:'HMAC', hash:'SHA-256'}, false, ['sign']);
+  return new Uint8Array(await crypto.subtle.sign('HMAC', ck, d));
+}
+async function hmacHex(key, data){
+  const sig = await hmacRaw(key, data);
+  return [...sig].map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+async function sigv4Request({method, key, body, contentType}){
+  const creds = getR2Creds();
+  if (!creds.accessKey || !creds.secretKey) throw new Error('R2 credentials not set');
+  const host = `${R2_CONFIG.accountId}.r2.cloudflarestorage.com`;
+  const path = `/${R2_CONFIG.bucket}/${key.split('/').map(encodeURIComponent).join('/')}`;
+  const url = `https://${host}${path}`;
+  const region = 'auto', service = 's3';
+  const now = new Date();
+  const amzDate = now.toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');
+  const date = amzDate.slice(0,8);
+  const payload = body ? (body instanceof ArrayBuffer ? new Uint8Array(body) : body) : new Uint8Array();
+  const payloadHash = await sha256hex(payload);
+  const headers = { host, 'x-amz-content-sha256': payloadHash, 'x-amz-date': amzDate };
+  if (contentType) headers['content-type'] = contentType;
+  const sortedHeaderNames = Object.keys(headers).sort();
+  const canonicalHeaders = sortedHeaderNames.map(n=>`${n}:${headers[n]}`).join('\n') + '\n';
+  const signedHeaders = sortedHeaderNames.join(';');
+  const canonicalRequest = `${method}\n${path}\n\n${canonicalHeaders}\n${signedHeaders}\n${payloadHash}`;
+  const crHash = await sha256hex(canonicalRequest);
+  const credentialScope = `${date}/${region}/${service}/aws4_request`;
+  const stringToSign = `AWS4-HMAC-SHA256\n${amzDate}\n${credentialScope}\n${crHash}`;
+  const kDate    = await hmacRaw('AWS4' + creds.secretKey, date);
+  const kRegion  = await hmacRaw(kDate, region);
+  const kService = await hmacRaw(kRegion, service);
+  const kSigning = await hmacRaw(kService, 'aws4_request');
+  const signature = await hmacHex(kSigning, stringToSign);
+  const auth = `AWS4-HMAC-SHA256 Credential=${creds.accessKey}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
+  const fetchHeaders = { ...headers, Authorization: auth };
+  delete fetchHeaders.host;
+  const r2 = await fetch(url, { method, headers: fetchHeaders, body: body || undefined });
+  if (!r2.ok){
+    const txt = await r2.text();
+    throw new Error(`R2 ${method} ${r2.status}: ${txt.slice(0,200)}`);
+  }
+  return r2;
+}
+
+/* ── HEIC / EXIF / Resize ── */
+function isHeic(file){
+  return /^image\/hei[cf]/i.test(file.type || '') || /\.hei[cf]$/i.test(file.name || '');
+}
+let _heic2anyPromise = null;
+function loadHeic2Any(){
+  if (_heic2anyPromise) return _heic2anyPromise;
+  _heic2anyPromise = new Promise((resolve, reject) => {
+    if (window.heic2any) return resolve(window.heic2any);
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js';
+    s.onload = () => window.heic2any ? resolve(window.heic2any) : reject(new Error('heic2any global missing'));
+    s.onerror = () => { _heic2anyPromise = null; reject(new Error('Failed to load HEIC converter (offline?)')); };
+    document.head.appendChild(s);
+  });
+  return _heic2anyPromise;
+}
+
+async function exifDateFromFile(file){
+  try {
+    const buf = await file.slice(0, 256 * 1024).arrayBuffer();
+    const view = new DataView(buf);
+    if (view.getUint16(0) !== 0xFFD8) return null;
+    let offset = 2;
+    while (offset < view.byteLength - 4){
+      if (view.getUint8(offset) !== 0xFF) return null;
+      const marker = view.getUint8(offset + 1);
+      const size = view.getUint16(offset + 2);
+      if (marker === 0xE1){
+        const headerStart = offset + 4;
+        if (view.getUint32(headerStart) === 0x45786966 && view.getUint16(headerStart + 4) === 0x0000){
+          const tiffStart = headerStart + 6;
+          const endian = view.getUint16(tiffStart);
+          if (endian !== 0x4949 && endian !== 0x4D4D) return null;
+          const little = endian === 0x4949;
+          const get16 = (o) => view.getUint16(o, little);
+          const get32 = (o) => view.getUint32(o, little);
+          if (get16(tiffStart + 2) !== 0x002A) return null;
+          const ifd0Offset = tiffStart + get32(tiffStart + 4);
+          const numEntries = get16(ifd0Offset);
+          let exifIfdOffset = null;
+          for (let i = 0; i < numEntries; i++){
+            const e = ifd0Offset + 2 + i * 12;
+            if (get16(e) === 0x8769){ exifIfdOffset = tiffStart + get32(e + 8); break; }
+          }
+          if (!exifIfdOffset) return null;
+          const numExifEntries = get16(exifIfdOffset);
+          for (let i = 0; i < numExifEntries; i++){
+            const e = exifIfdOffset + 2 + i * 12;
+            const tag = get16(e);
+            if (tag === 0x9003 || tag === 0x9004){
+              const valOffset = tiffStart + get32(e + 8);
+              const bytes = new Uint8Array(buf, valOffset, 19);
+              const str = new TextDecoder().decode(bytes);
+              const m = str.match(/^(\d{4}):(\d{2}):(\d{2})/);
+              if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+            }
+          }
+        }
+      }
+      offset += 2 + size;
+    }
+  } catch(e){ console.warn('EXIF parse error:', e); }
+  return null;
+}
+
+async function resizeImage(file, maxDim=1600, quality=0.85){
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((res,rej)=>{
+      const i = new Image(); i.onload = ()=>res(i); i.onerror = rej; i.src = url;
+    });
+    const ratio = Math.min(1, maxDim / Math.max(img.width, img.height));
+    const w = Math.max(1, Math.round(img.width * ratio));
+    const h = Math.max(1, Math.round(img.height * ratio));
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+    return await new Promise(res => canvas.toBlob(res, 'image/jpeg', quality));
+  } finally { URL.revokeObjectURL(url); }
+}
+
+/* ── Sheets API append ── */
+async function gsAppendRow(gid, values){
+  const token = localStorage.getItem(GS_TOKEN_KEY);
+  if (!token) throw new Error('Not signed in to Google');
+  const sheetName = Object.keys(TABS).find(k=>TABS[k]===gid);
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(sheetName)}!A1:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`;
+  const r = await fetch(url, {
+    method:'POST',
+    headers:{ Authorization:'Bearer '+token, 'Content-Type':'application/json' },
+    body: JSON.stringify({ values: [values] }),
+  });
+  if (!r.ok) throw new Error(`Sheets append ${r.status}: ${(await r.text()).slice(0,200)}`);
+}
+
+async function gsDeletePhotoRow(brewId, key){
+  const token = localStorage.getItem(GS_TOKEN_KEY);
+  if (!token) return;
+  const sheetName = 'brew_photos';
+  const getUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(sheetName)}?majorDimension=ROWS`;
+  const gr = await fetch(getUrl, { headers:{ Authorization:'Bearer '+token } });
+  if (!gr.ok) return;
+  const data = await gr.json();
+  const rows = data.values || [];
+  let rowIdx = -1;
+  for (let i=1; i<rows.length; i++){
+    if (rows[i][0]===brewId && rows[i][1]===key){ rowIdx = i; break; }
+  }
+  if (rowIdx < 0) return;
+  const delUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`;
+  await fetch(delUrl, {
+    method:'POST',
+    headers:{ Authorization:'Bearer '+token, 'Content-Type':'application/json' },
+    body: JSON.stringify({ requests:[{ deleteDimension:{ range:{ sheetId: TABS.brew_photos, dimension:'ROWS', startIndex: rowIdx, endIndex: rowIdx+1 }}}]}),
+  });
+}
+
+/* ── Photo upload ── */
+function ymd(d){ return d.toISOString().slice(0,10); }
+
+async function uploadBrewPhoto(brewId, file, onStatus){
+  const creds = getR2Creds();
+  if (!creds.accessKey || !creds.secretKey) throw new Error('Save R2 credentials first (Settings → Photo storage)');
+  let exifDate = await exifDateFromFile(file);
+  let workingFile = file;
+  if (isHeic(file)){
+    if (onStatus) onStatus('Converting HEIC…');
+    const heic2any = await loadHeic2Any();
+    const jpegBlob = await heic2any({ blob: file, toType:'image/jpeg', quality: 0.92 });
+    workingFile = new File([jpegBlob], (file.name || 'photo').replace(/\.hei[cf]$/i, '.jpg'), { type: 'image/jpeg' });
+    if (!exifDate) exifDate = await exifDateFromFile(workingFile);
+  }
+  if (onStatus) onStatus('Resizing…');
+  const blob = await resizeImage(workingFile);
+  const buf = await blob.arrayBuffer();
+  const slug = brewId.replace(/[^a-zA-Z0-9_-]/g, '_');
+  let photoDate = exifDate;
+  if (!photoDate && file.lastModified){
+    const d = new Date(file.lastModified);
+    if (d.getFullYear() >= 2000 && d <= new Date()) photoDate = ymd(d);
+  }
+  photoDate = photoDate || ymd(new Date());
+  const rand = Math.random().toString(36).slice(2,8);
+  const key = `beer-photos/${slug}/${photoDate}-${rand}.jpg`;
+  if (onStatus) onStatus('Uploading…');
+  await sigv4Request({ method:'PUT', key, body: buf, contentType:'image/jpeg' });
+  const photo = { brew_id: brewId, key, date: photoDate, caption: '' };
+  state.photos.push(photo);
+  if (isGsAuthed()){
+    if (onStatus) onStatus('Syncing…');
+    await gsAppendRow(TABS.brew_photos, [brewId, key, photoDate, '']);
+  }
+  return key;
+}
+
+async function deleteBrewPhoto(brewId, key){
+  await sigv4Request({ method:'DELETE', key });
+  state.photos = state.photos.filter(p => !(p.brew_id===brewId && p.key===key));
+  if (isGsAuthed()) await gsDeletePhotoRow(brewId, key).catch(e=>console.warn('Sheet delete failed:', e));
+}
+
+/* ── Photo upload handler ── */
+$('#photoUploadInput').addEventListener('change', async function(){
+  const files = this.files;
+  if (!files.length) return;
+  const brewId = state._currentBrewId;
+  if (!brewId) return;
+  const statusEl = $('#photoStatus');
+  statusEl.style.display = '';
+  let ok = 0;
+  for (let i=0; i<files.length; i++){
+    try {
+      statusEl.textContent = `Uploading ${i+1}/${files.length}…`;
+      await uploadBrewPhoto(brewId, files[i], msg => statusEl.textContent = `${i+1}/${files.length}: ${msg}`);
+      ok++;
+    } catch(e){
+      console.error('Upload failed:', e);
+      statusEl.textContent = `Failed: ${e.message}`;
+    }
+  }
+  this.value = '';
+  if (ok){
+    statusEl.textContent = `${ok} photo${ok>1?'s':''} uploaded.`;
+    renderBrewPhotos(brewId);
+  }
+  setTimeout(()=>{ statusEl.style.display = 'none'; }, 3000);
+});
+
+/* ── Photo grid click → lightbox ── */
+let lightboxIdx = 0;
+$('#infoPhotos').addEventListener('click', e=>{
+  const ph = e.target.closest('.ph');
+  if (!ph) return;
+  const brewId = state._currentBrewId;
+  const photos = photosFor(brewId).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+  if (!photos.length) return;
+  state._lightboxPhotos = photos;
+  lightboxIdx = parseInt(ph.dataset.idx) || 0;
+  $('#lightbox').style.display = 'flex';
+  showLightboxIdx();
+});
+
+function showLightboxIdx(){
+  const photos = state._lightboxPhotos || [];
+  const ph = photos[lightboxIdx]; if (!ph) return;
+  $('#lightboxImg').src = r2PublicUrl(ph.key);
+  $('#lightboxDate').textContent = ph.date || '';
+  $('#lightboxCaption').value = ph.caption || '';
+}
+
+$('#lightboxClose').onclick = ()=> $('#lightbox').style.display='none';
+$('#lightbox').addEventListener('click', e=>{ if(e.target.id==='lightbox') $('#lightbox').style.display='none'; });
+$('#lightboxPrev').onclick = ()=>{ const n=(state._lightboxPhotos||[]).length; lightboxIdx=(lightboxIdx-1+n)%n; showLightboxIdx(); };
+$('#lightboxNext').onclick = ()=>{ const n=(state._lightboxPhotos||[]).length; lightboxIdx=(lightboxIdx+1)%n; showLightboxIdx(); };
+
+$('#lightboxCaption').addEventListener('change', async ()=>{
+  const ph = (state._lightboxPhotos||[])[lightboxIdx]; if (!ph) return;
+  const target = state.photos.find(p=>p.key===ph.key);
+  if (target) target.caption = $('#lightboxCaption').value;
+});
+
+$('#lightboxDelete').onclick = async ()=>{
+  const ph = (state._lightboxPhotos||[])[lightboxIdx]; if (!ph) return;
+  if (!confirm('Delete this photo?')) return;
+  try {
+    await deleteBrewPhoto(ph.brew_id || state._currentBrewId, ph.key);
+    state._lightboxPhotos = (state._lightboxPhotos||[]).filter((_,i)=>i!==lightboxIdx);
+    renderBrewPhotos(state._currentBrewId);
+    if (!state._lightboxPhotos.length){
+      $('#lightbox').style.display='none';
+    } else {
+      lightboxIdx = Math.min(lightboxIdx, state._lightboxPhotos.length-1);
+      showLightboxIdx();
+    }
+  } catch(e){
+    alert('Delete failed: '+e.message);
+  }
+};
+
+document.addEventListener('keydown', e=>{
+  if ($('#lightbox').style.display==='flex'){
+    if(e.key==='ArrowLeft') $('#lightboxPrev').click();
+    else if(e.key==='ArrowRight') $('#lightboxNext').click();
+  }
+});
+
+/* ── R2 settings handlers ── */
+function refreshR2Input(){
+  const c = getR2Creds();
+  const key = $('#r2KeyInput'), sec = $('#r2SecretInput'), st = $('#r2Status');
+  if (!key) return;
+  key.value = c.accessKey || '';
+  sec.value = c.secretKey ? '••••••••' + c.secretKey.slice(-4) : '';
+  st.textContent = c.accessKey && c.secretKey ? 'Configured.' : 'Not configured.';
+  st.style.color = c.accessKey && c.secretKey ? 'var(--accent)' : 'var(--muted)';
+}
+$('#r2SaveBtn').onclick = ()=>{
+  const k = $('#r2KeyInput').value.trim();
+  let s = $('#r2SecretInput').value.trim();
+  if (s.startsWith('•')) s = (getR2Creds().secretKey || '');
+  if (!k || !s){ alert('Paste both Access Key ID and Secret Access Key.'); return; }
+  setR2Creds({ accessKey: k, secretKey: s });
+  refreshR2Input();
+};
+$('#r2TestBtn').onclick = async ()=>{
+  const st = $('#r2Status');
+  st.textContent = 'Testing…'; st.style.color = 'var(--muted)';
+  try {
+    const txt = `test ${new Date().toISOString()}`;
+    const buf = new TextEncoder().encode(txt);
+    await sigv4Request({ method:'PUT', key:'beer-photos/_dashboard-test.txt', body: buf, contentType:'text/plain' });
+    await sigv4Request({ method:'DELETE', key:'beer-photos/_dashboard-test.txt' });
+    st.textContent = 'Upload + delete OK.'; st.style.color = 'var(--accent)';
+  } catch(e){
+    st.textContent = 'Test failed: '+e.message; st.style.color = '#e8a06a';
+  }
+};
+$('#r2ClearBtn').onclick = ()=>{
+  if (!confirm('Forget R2 credentials on this device?')) return;
+  setR2Creds(null); refreshR2Input();
+};
+
+/* ── Update openSettings to refresh R2 ── */
+const _origOpenSettings = openSettings;
+openSettings = function(){
+  _origOpenSettings();
+  refreshR2Input();
+};
 
 /* ── Init ── */
 handleOAuthReturn();

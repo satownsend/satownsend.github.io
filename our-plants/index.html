@@ -11,157 +11,8 @@
 <title>Our Plants</title>
 <link rel="preconnect" href="https://use.typekit.net" crossorigin>
 <link rel="stylesheet" href="https://use.typekit.net/twp1irx.css">
+<link rel="stylesheet" href="/shared/styles.css">
 <style>
-  /* Default = Teal Dark (the original) */
-  :root{
-    --bg:#08191c;            /* deep teal, near-black */
-    --bg2:#0d2629;           /* lifted panels behind */
-    --panel:#102d31;         /* card */
-    --panel2:#163a3f;        /* nested */
-    --ink:#e3eef0;           /* cool moonlight text */
-    --ink-soft:#c2d6d9;
-    --muted:#7e9598;         /* sea fog */
-    --line:#1f3f44;          /* deep teal border */
-    --line2:#2a5159;
-    --accent:#4dd0c1;        /* turquoise */
-    --accent-deep:#2ba294;   /* darker teal */
-    --accent2:#f0a868;       /* warm bark — kept as contrast */
-    --warn:#e08a4a;          /* copper warning */
-    --cool:#7ec4cc;
-    --chip:#163a3f;
-    --chip-line:#2a5159;
-    --gradient-1:#163b41;    /* top-right radial origin */
-    --gradient-2:#0c2528;    /* bottom-left radial origin */
-    --shadow:0 1px 2px rgba(0,0,0,.4), 0 12px 36px rgba(0,0,0,.45);
-  }
-  /* Cream Light — kept as the existing light option */
-  [data-theme="light"]{
-    --bg:#e6f1f2;
-    --bg2:#f3f9fa;
-    --panel:#ffffff;
-    --panel2:#ecf5f6;
-    --ink:#172a2c;
-    --ink-soft:#33484b;
-    --muted:#6c8488;
-    --line:#cbdcde;
-    --line2:#aec3c6;
-    --accent:#118a7d;
-    --accent-deep:#0c6e63;
-    --accent2:#a86528;
-    --warn:#9c4a18;
-    --cool:#2c6e7a;
-    --chip:#deeef0;
-    --chip-line:#c2d6d9;
-    --gradient-1:#e7dfc6;
-    --gradient-2:#ece5d0;
-    --shadow:0 1px 2px rgba(0,0,0,.04), 0 8px 22px rgba(0,0,0,.08);
-  }
-  /* Dawn Redwood — light green bg, fresh-foliage green primary, rust contrast */
-  [data-theme="redwood"]{
-    --bg:#dde9d4;
-    --bg2:#e8f0e0;
-    --panel:#f2f7ee;
-    --panel2:#d4e2ca;
-    --ink:#1c1410;
-    --ink-soft:#3a2c20;
-    --muted:#6a7a5a;
-    --line:#b8ccaa;
-    --line2:#9ab888;
-    --accent:#5a8a32;        /* fresh dawn redwood foliage green */
-    --accent-deep:#477226;
-    --accent2:#c06030;       /* branch / autumn rust */
-    --warn:#b86a28;
-    --cool:#9b7350;          /* warm bark */
-    --chip:#d0e0c4;
-    --chip-line:#b8ccaa;
-    --gradient-1:#c8d9bc;
-    --gradient-2:#dde9d4;
-    --shadow:0 1px 2px rgba(0,0,0,.06), 0 8px 22px rgba(0,0,0,.10);
-  }
-  /* Slate — neutral cool grey, restrained accent */
-  [data-theme="slate"]{
-    --bg:#13171b;
-    --bg2:#1a1f24;
-    --panel:#1f242a;
-    --panel2:#272d34;
-    --ink:#e6eaef;
-    --ink-soft:#bcc3cb;
-    --muted:#838c96;
-    --line:#2c333b;
-    --line2:#3a424c;
-    --accent:#9aafc4;        /* cool grey-blue */
-    --accent-deep:#6f8499;
-    --accent2:#d4a574;       /* warm contrast */
-    --warn:#d49060;
-    --cool:#9aafc4;
-    --chip:#272d34;
-    --chip-line:#3a424c;
-    --gradient-1:#2c3741;
-    --gradient-2:#13191f;
-    --shadow:0 1px 2px rgba(0,0,0,.4), 0 12px 36px rgba(0,0,0,.45);
-  }
-  /* Maple — deep burgundy bg + Bloodgood red accent */
-  [data-theme="maple"]{
-    --bg:#16080a;
-    --bg2:#1f0e10;
-    --panel:#251218;
-    --panel2:#321a22;
-    --ink:#f0dcdf;
-    --ink-soft:#d4b6bd;
-    --muted:#998087;
-    --line:#3a1f28;
-    --line2:#4a2c34;
-    --accent:#d2554a;        /* Bloodgood red */
-    --accent-deep:#993028;
-    --accent2:#f0a84a;       /* autumn gold */
-    --warn:#f0a84a;
-    --cool:#b08090;
-    --chip:#321a22;
-    --chip-line:#4a2c34;
-    --gradient-1:#3a1822;
-    --gradient-2:#1a0a0d;
-    --shadow:0 1px 2px rgba(0,0,0,.4), 0 12px 36px rgba(0,0,0,.45);
-  }
-  /* Forest — original pre-teal green */
-  [data-theme="forest"]{
-    --bg:#0d1611;
-    --bg2:#11201a;
-    --panel:#16241d;
-    --panel2:#1c2e25;
-    --ink:#e8e4d3;
-    --ink-soft:#cdc8b3;
-    --muted:#8a9483;
-    --line:#243730;
-    --line2:#2e463c;
-    --accent:#8fc06a;        /* fresh leaf */
-    --accent-deep:#5d8a3e;
-    --accent2:#d49858;
-    --warn:#e08a4a;
-    --cool:#7ec0c4;
-    --chip:#1f3128;
-    --chip-line:#2c4438;
-    --gradient-1:#1a3025;
-    --gradient-2:#0f231b;
-    --shadow:0 1px 2px rgba(0,0,0,.4), 0 12px 36px rgba(0,0,0,.45);
-  }
-  *{box-sizing:border-box}
-  html,body{margin:0;padding:0;overflow-x:hidden;overflow-wrap:break-word;-webkit-overflow-scrolling:touch;
-    background:
-      radial-gradient(1200px 600px at 80% -10%, var(--gradient-1) 0%, transparent 60%),
-      radial-gradient(900px 500px at 0% 100%, var(--gradient-2) 0%, transparent 55%),
-      var(--bg);
-    background-attachment:fixed;
-    color:var(--ink);
-    font:15px/1.5 -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif;}
-  a{color:var(--accent);text-decoration:none}
-  .wrap{max-width:1200px;margin:0 auto;padding:24px 20px 80px}
-  header{display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px}
-  h1{font:700 30px/1.1 "clother", -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;margin:0;letter-spacing:-.015em;color:var(--accent)}
-  h2{font:600 14px/1 "SF Pro Display",sans-serif;margin:0 0 12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
-  .sub{color:var(--muted);font-size:13px}
-  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-  .grid > *{min-width:0}
-  @media (max-width:900px){.grid{grid-template-columns:1fr}}
   .stats-row{display:grid;grid-template-columns:repeat(auto-fit, minmax(min(280px,100%), 1fr));gap:24px;align-items:start}
   .upcoming-alerts{margin-top:12px;padding-top:12px;border-top:1px solid var(--line2);display:flex;flex-direction:column;gap:6px}
   .upcoming-alerts:empty{display:none}
@@ -208,67 +59,17 @@
   .gallery-nav.next{right:10px}
   .gallery-stage:hover .gallery-nav{opacity:1}
   @media (hover:none){.gallery-nav{opacity:.7}}
-  .stats-legend{display:flex;flex-direction:column;gap:4px;font-size:13px;max-height:200px;overflow-y:auto}
-  .stats-legend .lr{display:grid;grid-template-columns:12px 1fr auto;gap:8px;align-items:center}
-  .stats-legend .dot{width:10px;height:10px;border-radius:2px}
-  .stats-legend .num{color:var(--muted);font-variant-numeric:tabular-nums}
-  .stats-pie{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
-  .stats-pie svg .pie-slice{cursor:default;transition:opacity .15s ease, stroke-width .15s ease}
-  .stats-pie svg:hover .pie-slice{opacity:.55}
-  .stats-pie svg .pie-slice:hover{opacity:1;stroke-width:2.5}
-  .stats-empty{color:var(--muted);font-size:13px;padding:20px 0}
-  .stats-total{margin-top:6px;padding-top:6px;border-top:1px solid var(--line2);font-size:12px;color:var(--ink-soft);font-variant-numeric:tabular-nums;text-align:right}
-  .stats-total:empty{display:none}
-  .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;box-shadow:var(--shadow)}
-  .panel.full{grid-column:1/-1}
-  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-  .chip{display:inline-flex;align-items:center;gap:6px;background:var(--chip);color:var(--ink-soft);border:1px solid var(--chip-line);
-    border-radius:999px;padding:3px 10px;font-size:12px}
   .chip.warn{background:#3a2418;border-color:#5a3a23;color:#e8a06a}
   .chip.cool{background:#1a2e30;border-color:#2c4548;color:var(--cool)}
   .chip.ok{background:#1f3a25;border-color:#2f5235;color:var(--accent)}
   .chip.muted{background:#222;border-color:#333;color:#888}
-  button,select,input,textarea{font:inherit;color:inherit}
-  button{background:var(--accent);color:#0d1611;border:0;border-radius:8px;padding:7px 12px;cursor:pointer;font-weight:600}
-  button:hover{background:#a3d07c}
-  button.ghost{background:transparent;color:var(--ink);border:1px solid var(--line2);font-weight:400}
-  button.ghost:hover{background:var(--panel2);border-color:var(--accent-deep)}
-  button.tiny{padding:3px 8px;font-size:12px;font-weight:400}
-  input[type=text],input[type=date],input[type=number],select,textarea{
-    background:var(--bg2);border:1px solid var(--line2);border-radius:8px;padding:7px 10px;width:100%;color:var(--ink)}
-  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent-deep);background:#152821}
-  textarea{min-height:60px;resize:vertical}
-  table{width:100%;border-collapse:separate;border-spacing:0}
-  th,td{text-align:left;padding:11px 10px;border-bottom:1px solid var(--line);vertical-align:top}
-  thead th{position:sticky;top:0;background:var(--panel);z-index:2;
-    font:600 11px/1.2 "SF Pro Display",sans-serif;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);
-    padding-top:13px;padding-bottom:11px;border-bottom:1px solid var(--line2);box-shadow:0 1px 0 var(--line)}
-  th[data-sort]{cursor:pointer;user-select:none}
-  th[data-sort]:hover{color:var(--accent)}
+  /* Plants-specific input/table overrides */
+  input:focus,select:focus,textarea:focus{background:#152821}
   th[data-sort].sort-active{color:var(--accent)}
   th[data-sort].sort-active::after{content:" ▲";font-size:9px;letter-spacing:0}
   th[data-sort].sort-active.sort-desc::after{content:" ▼"}
-  td .meta{color:var(--muted);font-size:12px}
-  /* Zebra rows + sticky first column */
-  tbody tr:nth-child(odd) td{background:var(--panel)}
-  tbody tr:nth-child(even) td{background:var(--bg2)}
-  tbody td:first-child, thead th:first-child{position:sticky;left:0;z-index:1}
-  thead th:first-child{z-index:3}
-  tbody tr td:first-child{font-weight:600}
-  tbody tr td:first-child a.namelink{color:var(--ink);font-weight:700;font-size:14px;border-bottom:none}
-  tbody tr td:first-child a.namelink:hover{color:var(--accent)}
-  /* Hover overrides zebra */
-  tbody tr:hover td{background:rgba(143,192,106,.10)}
-  [data-theme="light"] tbody tr:hover td{background:rgba(61,107,34,.08)}
-  /* Edit row uses panel bg, no zebra */
-  tbody tr.edit-row td, tbody tr.edit-row td:first-child{background:var(--panel2);font-weight:400}
-  /* Make table panel wrap horizontal-scroll-aware so sticky kicks in when narrow */
-  .table-scroll{overflow-x:auto;max-width:100%;margin:0 -4px}
   .table-scroll table{min-width:760px}
-  /* Mobile: don't bother with sticky / scroll, cards layout takes over */
   @media (max-width:700px){
-    .table-scroll{overflow-x:visible;margin:0}
-    .table-scroll table{min-width:0}
     tbody td:first-child, thead th:first-child{position:static}
   }
   .tasks li{padding:10px 12px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px;background:var(--panel2);list-style:none}
@@ -501,11 +302,9 @@
   .topline{font-size:18px;line-height:1.4;margin:0 0 8px}
   .ghost-input{border:none;background:transparent;padding:0;font:inherit;color:inherit;width:auto}
   .empty{color:var(--muted);font-size:13px;font-style:italic}
-  hr{border:0;border-top:1px solid var(--line);margin:14px 0}
   .right{margin-left:auto}
   .small{font-size:12px;color:var(--muted)}
-  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
-  @media (max-width:700px){.grid3{grid-template-columns:1fr}.forecast{grid-template-columns:repeat(3,1fr)}}
+  @media (max-width:700px){.forecast{grid-template-columns:repeat(3,1fr)}}
 
   /* ---------- mobile (≤700px) ---------- */
   @media (max-width:700px){
@@ -583,11 +382,7 @@
     .forecast{grid-template-columns:repeat(2,1fr)}
     h1{font-size:18px}
   }
-  /* Light-mode overrides for elements with non-variable colors */
-  [data-theme="light"] button:not(.ghost){color:#fff}
-  [data-theme="light"] button:not(.ghost):hover{background:var(--accent-deep)}
-  [data-theme="light"] button.ghost{color:var(--ink);border-color:var(--line2)}
-  [data-theme="light"] button.ghost:hover{background:var(--panel2);color:var(--accent-deep);border-color:var(--accent)}
+  /* Light-mode overrides for plants-specific elements */
   [data-theme="light"] tr.dead td{color:#a09a8a;text-decoration-color:#bbb}
   [data-theme="light"] tr.dead td a.namelink{color:#a09a8a}
   [data-theme="light"] .pill.rip{background:#f5efde;color:#7a7466;border-color:#c7bfa6}
@@ -609,10 +404,6 @@
   [data-theme="light"] .tasks .tag.move{background:#f0d8d8;color:#8a3d3d}
   [data-theme="light"] tr:hover td{background:rgba(61,107,34,.05)}
   [data-theme="light"] .modal-back{background:rgba(80,70,50,.45)}
-  /* iOS safe area */
-  @supports (padding:max(0px)){
-    .wrap{padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right))}
-  }
   /* ---------- Print inventory ---------- */
   #printSheet{display:none}
   @media print{

@@ -1,0 +1,1101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#08191c">
+<title>Beer</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍺</text></svg>">
+<link rel="preconnect" href="https://use.typekit.net" crossorigin>
+<link rel="stylesheet" href="https://use.typekit.net/twp1irx.css">
+<style>
+/* Default = Teal Dark */
+:root{
+  --bg:#08191c;
+  --bg2:#0d2629;
+  --panel:#102d31;
+  --panel2:#163a3f;
+  --ink:#e3eef0;
+  --ink-soft:#c2d6d9;
+  --muted:#7e9598;
+  --line:#1f3f44;
+  --line2:#2a5159;
+  --accent:#4dd0c1;
+  --accent-deep:#2ba294;
+  --accent2:#f0a868;
+  --warn:#e08a4a;
+  --cool:#7ec4cc;
+  --chip:#163a3f;
+  --chip-line:#2a5159;
+  --gradient-1:#163b41;
+  --gradient-2:#0c2528;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 12px 36px rgba(0,0,0,.45);
+}
+/* Cream Light */
+[data-theme="light"]{
+  --bg:#e6f1f2;
+  --bg2:#f3f9fa;
+  --panel:#ffffff;
+  --panel2:#ecf5f6;
+  --ink:#172a2c;
+  --ink-soft:#33484b;
+  --muted:#6c8488;
+  --line:#cbdcde;
+  --line2:#aec3c6;
+  --accent:#118a7d;
+  --accent-deep:#0c6e63;
+  --accent2:#a86528;
+  --warn:#9c4a18;
+  --cool:#2c6e7a;
+  --chip:#deeef0;
+  --chip-line:#c2d6d9;
+  --gradient-1:#e7dfc6;
+  --gradient-2:#ece5d0;
+  --shadow:0 1px 2px rgba(0,0,0,.04), 0 8px 22px rgba(0,0,0,.08);
+}
+/* Dawn Redwood */
+[data-theme="redwood"]{
+  --bg:#dde9d4;
+  --bg2:#e8f0e0;
+  --panel:#f2f7ee;
+  --panel2:#d4e2ca;
+  --ink:#1c1410;
+  --ink-soft:#3a2c20;
+  --muted:#6a7a5a;
+  --line:#b8ccaa;
+  --line2:#9ab888;
+  --accent:#5a8a32;
+  --accent-deep:#477226;
+  --accent2:#c06030;
+  --warn:#b86a28;
+  --cool:#9b7350;
+  --chip:#d0e0c4;
+  --chip-line:#b8ccaa;
+  --gradient-1:#c8d9bc;
+  --gradient-2:#dde9d4;
+  --shadow:0 1px 2px rgba(0,0,0,.06), 0 8px 22px rgba(0,0,0,.10);
+}
+/* Slate */
+[data-theme="slate"]{
+  --bg:#13171b;
+  --bg2:#1a1f24;
+  --panel:#1f242a;
+  --panel2:#272d34;
+  --ink:#e6eaef;
+  --ink-soft:#bcc3cb;
+  --muted:#838c96;
+  --line:#2c333b;
+  --line2:#3a424c;
+  --accent:#9aafc4;
+  --accent-deep:#6f8499;
+  --accent2:#d4a574;
+  --warn:#d49060;
+  --cool:#9aafc4;
+  --chip:#272d34;
+  --chip-line:#3a424c;
+  --gradient-1:#2c3741;
+  --gradient-2:#13191f;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 12px 36px rgba(0,0,0,.45);
+}
+/* Maple */
+[data-theme="maple"]{
+  --bg:#16080a;
+  --bg2:#1f0e10;
+  --panel:#251218;
+  --panel2:#321a22;
+  --ink:#f0dcdf;
+  --ink-soft:#d4b6bd;
+  --muted:#998087;
+  --line:#3a1f28;
+  --line2:#4a2c34;
+  --accent:#d2554a;
+  --accent-deep:#993028;
+  --accent2:#f0a84a;
+  --warn:#f0a84a;
+  --cool:#b08090;
+  --chip:#321a22;
+  --chip-line:#4a2c34;
+  --gradient-1:#3a1822;
+  --gradient-2:#1a0a0d;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 12px 36px rgba(0,0,0,.45);
+}
+/* Forest */
+[data-theme="forest"]{
+  --bg:#0d1611;
+  --bg2:#11201a;
+  --panel:#16241d;
+  --panel2:#1c2e25;
+  --ink:#e8e4d3;
+  --ink-soft:#cdc8b3;
+  --muted:#8a9483;
+  --line:#243730;
+  --line2:#2e463c;
+  --accent:#8fc06a;
+  --accent-deep:#5d8a3e;
+  --accent2:#d49858;
+  --warn:#e08a4a;
+  --cool:#7ec0c4;
+  --chip:#1f3128;
+  --chip-line:#2c4438;
+  --gradient-1:#1a3025;
+  --gradient-2:#0f231b;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 12px 36px rgba(0,0,0,.45);
+}
+
+/* ── Base ── */
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;overflow-x:hidden;overflow-wrap:break-word;-webkit-overflow-scrolling:touch;
+  background:
+    radial-gradient(1200px 600px at 80% -10%, var(--gradient-1) 0%, transparent 60%),
+    radial-gradient(900px 500px at 0% 100%, var(--gradient-2) 0%, transparent 55%),
+    var(--bg);
+  background-attachment:fixed;
+  color:var(--ink);
+  font:15px/1.5 -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif;}
+a{color:var(--accent);text-decoration:none}
+.wrap{max-width:1200px;margin:0 auto;padding:24px 20px 80px}
+header{display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+h1{font:700 30px/1.1 "clother", -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;margin:0;letter-spacing:-.015em;color:var(--accent)}
+h2{font:600 14px/1 "SF Pro Display",sans-serif;margin:0 0 12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.sub{color:var(--muted);font-size:13px}
+.meta{color:var(--muted);font-size:13px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;box-shadow:var(--shadow)}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:6px;background:var(--chip);color:var(--ink-soft);border:1px solid var(--chip-line);
+  border-radius:999px;padding:3px 10px;font-size:12px}
+.pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;background:var(--chip);border:1px solid var(--chip-line);color:var(--ink-soft);white-space:nowrap}
+button,select,input,textarea{font:inherit;color:inherit}
+button{background:var(--accent);color:#0d1611;border:0;border-radius:8px;padding:7px 12px;cursor:pointer;font-weight:600}
+button:hover{background:var(--accent-deep);color:#fff}
+button.ghost{background:transparent;color:var(--ink);border:1px solid var(--line2);font-weight:400}
+button.ghost:hover{background:var(--panel2);border-color:var(--accent-deep)}
+button.tiny{padding:3px 8px;font-size:12px;font-weight:400}
+input[type=text],input[type=date],input[type=number],input[type=search],select,textarea{
+  background:var(--bg2);border:1px solid var(--line2);border-radius:8px;padding:7px 10px;width:100%;color:var(--ink)}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent-deep)}
+
+/* ── Grids ── */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+
+/* ── Sync status ── */
+.sync-row{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted);margin-bottom:12px;flex-wrap:wrap}
+.sync-dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex-shrink:0}
+.sync-dot.ok{background:var(--accent)}
+.sync-dot.err{background:var(--warn)}
+
+/* ── Search / filter ── */
+.filter-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.filter-row input[type="search"]{flex:1;min-width:160px}
+.filter-row select{min-width:120px}
+
+/* ── Table ── */
+.table-scroll{overflow-x:auto;max-width:100%;margin:0 -4px}
+.table-scroll table{min-width:700px}
+table{width:100%;border-collapse:separate;border-spacing:0}
+th,td{text-align:left;padding:11px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+thead th{position:sticky;top:0;background:var(--panel);z-index:2;
+  font:600 11px/1.2 "SF Pro Display",sans-serif;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);
+  padding-top:13px;padding-bottom:11px;border-bottom:1px solid var(--line2);box-shadow:0 1px 0 var(--line);
+  cursor:pointer;user-select:none;white-space:nowrap}
+thead th:hover{color:var(--accent)}
+thead th .sort-arrow{font-size:10px;margin-left:3px;opacity:.5}
+tbody tr:nth-child(odd) td{background:var(--panel)}
+tbody tr:nth-child(even) td{background:var(--bg2)}
+tbody td:first-child, thead th:first-child{position:sticky;left:0;z-index:1}
+thead th:first-child{z-index:3}
+tbody tr td:first-child{font-weight:600}
+tbody tr td:first-child a.namelink{color:var(--ink);font-weight:700;font-size:14px;border-bottom:none}
+tbody tr td:first-child a.namelink:hover{color:var(--accent)}
+tbody tr:hover td{background:rgba(77,208,193,.08)}
+[data-theme="light"] tbody tr:hover td{background:rgba(17,138,125,.08)}
+[data-theme="redwood"] tbody tr:hover td{background:rgba(90,138,50,.08)}
+[data-theme="slate"] tbody tr:hover td{background:rgba(154,175,196,.08)}
+[data-theme="maple"] tbody tr:hover td{background:rgba(210,85,74,.08)}
+[data-theme="forest"] tbody tr:hover td{background:rgba(143,192,106,.08)}
+
+/* ── Stats ── */
+.stat-card{text-align:center;padding:16px}
+.stat-card .stat-num{font-size:28px;font-weight:700;color:var(--accent)}
+.stat-card .stat-label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
+.stats-pie{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.stats-pie svg{flex-shrink:0}
+.stats-pie svg .pie-slice{cursor:default;transition:opacity .15s ease, stroke-width .15s ease}
+.stats-pie svg:hover .pie-slice{opacity:.55}
+.stats-pie svg .pie-slice:hover{opacity:1;stroke-width:2.5}
+.stats-legend{display:flex;flex-direction:column;gap:4px;font-size:13px;max-height:200px;overflow-y:auto}
+.stats-legend .lr{display:grid;grid-template-columns:12px 1fr auto;gap:8px;align-items:center}
+.stats-legend .dot{width:10px;height:10px;border-radius:2px}
+.stats-legend .num{color:var(--muted);font-variant-numeric:tabular-nums}
+.stats-total{margin-top:6px;padding-top:6px;border-top:1px solid var(--line2);font-size:12px;color:var(--ink-soft);font-variant-numeric:tabular-nums;text-align:right}
+.stats-total:empty{display:none}
+.stats-chart-label{font-size:13px;color:var(--muted);margin-bottom:6px}
+
+/* ── SRM color swatch ── */
+.srm-swatch{display:inline-block;width:16px;height:16px;border-radius:4px;vertical-align:middle;margin-right:4px;border:1px solid var(--line)}
+
+/* ── Brew detail (info panel) ── */
+.info-overlay{position:fixed;inset:0;background:rgba(5,5,5,.7);backdrop-filter:blur(3px);display:none;z-index:40;overflow-y:auto;padding:20px}
+.info-overlay.open{display:flex;justify-content:center;align-items:flex-start}
+.info-card{background:var(--panel);border:1px solid var(--line2);border-radius:14px;max-width:700px;width:100%;padding:24px;margin:40px auto;box-shadow:var(--shadow);position:relative}
+.info-card h2{margin:0 0 4px;font-size:20px;color:var(--ink);text-transform:none;letter-spacing:0}
+.info-card .info-style{color:var(--accent);font-size:14px;font-weight:600}
+.info-close{position:absolute;top:12px;right:16px;background:none;border:none;font-size:22px;color:var(--muted);cursor:pointer;padding:4px 8px}
+.info-close:hover{color:var(--ink)}
+.info-section{margin-top:18px}
+.info-section h3{margin:0 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700}
+.info-grid{display:grid;grid-template-columns:auto 1fr;gap:4px 16px;font-size:14px}
+.info-grid dt{color:var(--muted);font-weight:600;white-space:nowrap}
+.info-grid dd{margin:0;color:var(--ink)}
+.hop-stage{display:inline-block;padding:1px 6px;border-radius:4px;font-size:11px;font-weight:600;background:var(--chip);border:1px solid var(--chip-line);margin-left:6px;color:var(--muted)}
+.ingredient-list{list-style:none;padding:0;margin:0;display:flex;flex-wrap:wrap;gap:6px}
+.ingredient-list li{background:var(--chip);border:1px solid var(--chip-line);padding:4px 10px;border-radius:6px;font-size:13px}
+.notes-block{background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:12px;font-size:14px;line-height:1.6;white-space:pre-wrap;margin-top:6px}
+
+/* ── Settings ── */
+.settings-overlay{position:fixed;inset:0;background:rgba(5,5,5,.7);backdrop-filter:blur(3px);display:none;z-index:50;overflow-y:auto;padding:20px}
+.settings-overlay.open{display:flex;justify-content:center;align-items:flex-start}
+.settings-card{background:var(--panel);border:1px solid var(--line2);border-radius:14px;max-width:440px;width:100%;padding:24px;margin:60px auto;box-shadow:var(--shadow);position:relative}
+.settings-card h2{margin:0 0 16px;font-size:18px;text-transform:none;letter-spacing:0;color:var(--ink)}
+.settings-card label{display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:14px;cursor:pointer}
+.theme-swatches{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.theme-swatch{width:48px;height:32px;border-radius:8px;cursor:pointer;border:2px solid transparent;overflow:hidden;display:flex;transition:border-color .15s}
+.theme-swatch:hover,.theme-swatch.active{border-color:var(--accent)}
+.theme-swatch .ts-left{flex:1}
+.theme-swatch .ts-right{flex:1}
+.small{font-size:13px}
+
+/* ── View-only ── */
+body.view-only #addBrewBtn,
+body.view-only .edit-row{display:none!important}
+
+/* ── Mobile ── */
+@media (max-width:700px){
+  .wrap{padding:10px}
+  .panel{padding:14px;border-radius:10px}
+  .grid2,.grid3{grid-template-columns:1fr}
+  .table-scroll{overflow-x:visible;margin:0}
+  .table-scroll table{min-width:0}
+  table,thead,tbody,tr,th,td{display:block;width:100%}
+  thead{display:none}
+  tbody tr{padding:12px 14px;margin-bottom:8px;border:1px solid var(--line);border-radius:10px;background:var(--panel);position:relative;display:block}
+  tbody td{padding:2px 0;white-space:normal;border:none;background:transparent!important}
+  tbody td:before{content:attr(data-label);display:inline-block;width:80px;color:var(--muted);font-size:12px;font-weight:600}
+  tbody td[data-col="name"]{font-size:16px;margin-bottom:4px}
+  tbody td[data-col="name"]:before{display:none}
+  tbody td[data-col="style"]{font-size:12px;color:var(--muted);margin-top:-4px}
+  tbody td[data-col="style"]:before{display:none}
+  tbody td[data-col]:not([data-col="name"]):not([data-col="style"]):not([data-col="abv"]):not([data-col="brewDate"]){display:none}
+  .info-card{margin:10px auto;padding:16px}
+  h1{font-size:22px}
+}
+
+/* ── Print ── */
+@media print{
+  body{background:#fff!important;color:#000}
+  header,.filter-row,.sync-row,.settings-overlay,.info-overlay,button{display:none!important}
+  .panel{box-shadow:none;border-color:#ccc;break-inside:avoid}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- Header -->
+  <header>
+    <div>
+      <div style="display:flex;align-items:baseline;gap:16px;flex-wrap:wrap">
+        <h1>🍺 Beer</h1>
+        <nav style="display:flex;gap:4px;font-size:13px">
+          <a href="/our-plants" style="color:var(--muted);text-decoration:none;padding:4px 10px;border:1px solid var(--line);border-radius:6px;transition:color .15s,border-color .15s">Plants</a>
+          <a href="/" style="color:var(--muted);text-decoration:none;padding:4px 10px;border:1px solid var(--line);border-radius:6px;transition:color .15s,border-color .15s">Home</a>
+        </nav>
+      </div>
+    </div>
+    <div class="row">
+      <span style="position:relative">
+        <span class="chip" id="themechip" title="Pick theme" style="cursor:pointer">◐ theme</span>
+        <div id="themePop" style="display:none;position:absolute;right:0;top:110%;background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:10px;z-index:30;box-shadow:var(--shadow);min-width:160px"></div>
+      </span>
+      <button class="ghost tiny" id="settingsBtn">Settings</button>
+    </div>
+  </header>
+
+  <!-- Sync status -->
+  <div class="sync-row">
+    <span class="sync-dot" id="syncDot"></span>
+    <span id="syncText">loading…</span>
+  </div>
+
+  <!-- Brew list -->
+  <div class="panel">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+      <h2 style="margin:0">Brew Log</h2>
+      <button id="addBrewBtn" class="tiny">+ New Brew</button>
+    </div>
+    <div class="filter-row">
+      <input type="search" id="searchBox" placeholder="Search brews…">
+      <select id="styleFilter"><option value="">All styles</option></select>
+    </div>
+    <div class="table-scroll">
+      <table id="brewTable">
+        <thead><tr>
+          <th data-sort="name" data-col="name">Name <span class="sort-arrow"></span></th>
+          <th data-sort="style" data-col="style">Style <span class="sort-arrow"></span></th>
+          <th data-sort="version" data-col="version">V <span class="sort-arrow"></span></th>
+          <th data-sort="brewDate" data-col="brewDate">Date <span class="sort-arrow"></span></th>
+          <th data-sort="abv" data-col="abv">ABV <span class="sort-arrow"></span></th>
+          <th data-sort="sg" data-col="sg">OG <span class="sort-arrow"></span></th>
+          <th data-sort="fg" data-col="fg">FG <span class="sort-arrow"></span></th>
+          <th data-sort="colorSrm" data-col="colorSrm">SRM <span class="sort-arrow"></span></th>
+          <th data-sort="brewAgain" data-col="brewAgain">Again? <span class="sort-arrow"></span></th>
+        </tr></thead>
+        <tbody id="brewBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="panel" id="statsPanel" style="margin-top:16px">
+    <h2>Stats</h2>
+    <div class="grid3" id="statsCards"></div>
+    <div class="grid3" style="margin-top:20px">
+      <div>
+        <div class="stats-chart-label">Styles brewed</div>
+        <div id="chartStyles"></div>
+      </div>
+      <div>
+        <div class="stats-chart-label">Most used hops (all)</div>
+        <div id="chartHops"></div>
+      </div>
+      <div>
+        <div class="stats-chart-label">Most used grains</div>
+        <div id="chartGrains"></div>
+      </div>
+    </div>
+    <div class="grid2" style="margin-top:20px">
+      <div>
+        <div class="stats-chart-label">Bittering hops</div>
+        <div id="chartHopsBittering"></div>
+      </div>
+      <div>
+        <div class="stats-chart-label">Hopstand hops</div>
+        <div id="chartHopsHopstand"></div>
+      </div>
+    </div>
+    <div class="grid2" style="margin-top:20px">
+      <div>
+        <div class="stats-chart-label">Dry hop</div>
+        <div id="chartHopsDryhop"></div>
+      </div>
+      <div>
+        <div class="stats-chart-label">Mash hops</div>
+        <div id="chartHopsMash"></div>
+      </div>
+    </div>
+    <div class="grid2" style="margin-top:20px">
+      <div>
+        <div class="stats-chart-label">Brews per year</div>
+        <div id="chartBrewsYear"></div>
+      </div>
+      <div>
+        <div class="stats-chart-label">Yeast strains</div>
+        <div id="chartYeast"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom settings -->
+  <div style="text-align:center;margin:24px 0 8px">
+    <button class="ghost tiny" id="settingsBtnBottom">Settings</button>
+  </div>
+
+  <div style="text-align:center" class="meta">Data synced with Google Sheets.</div>
+</div>
+
+<!-- Info overlay -->
+<div class="info-overlay" id="infoOverlay">
+  <div class="info-card">
+    <button class="info-close" id="infoClose">&times;</button>
+    <h2 id="infoName"></h2>
+    <div id="infoStyle" class="info-style"></div>
+
+    <div class="info-section">
+      <h3>Brew Details</h3>
+      <div class="info-grid" id="infoDetails"></div>
+    </div>
+
+    <div class="info-section">
+      <h3>Grain Bill</h3>
+      <ul class="ingredient-list" id="infoGrains"></ul>
+    </div>
+
+    <div class="info-section">
+      <h3>Hops</h3>
+      <div id="infoHops"></div>
+    </div>
+
+    <div class="info-section">
+      <h3>Yeast</h3>
+      <div id="infoYeast"></div>
+    </div>
+
+    <div class="info-section" id="infoWaterSection">
+      <h3>Water Chemistry</h3>
+      <div class="info-grid" id="infoWater"></div>
+    </div>
+
+    <div class="info-section" id="infoFermentSection">
+      <h3>Fermentation</h3>
+      <div class="info-grid" id="infoFerment"></div>
+    </div>
+
+    <div class="info-section" id="infoNotesSection">
+      <h3>Brew Notes</h3>
+      <div class="notes-block" id="infoBrewNotes"></div>
+    </div>
+
+    <div class="info-section" id="infoTastingSection">
+      <h3>Tasting Notes</h3>
+      <div class="notes-block" id="infoTastingNotes"></div>
+    </div>
+
+    <div class="info-section" id="infoChangesSection">
+      <h3>What I'd Change</h3>
+      <div class="notes-block" id="infoChanges"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Settings overlay -->
+<div class="settings-overlay" id="settingsOverlay">
+  <div class="settings-card">
+    <button class="info-close" id="settingsClose">&times;</button>
+    <h2>Settings</h2>
+
+    <div style="margin-bottom:16px">
+      <div class="small" style="color:var(--muted);margin-bottom:6px">Theme</div>
+      <div class="theme-swatches" id="themeSwatches"></div>
+    </div>
+
+    <div style="margin-bottom:16px">
+      <div class="small" style="color:var(--muted);margin-bottom:6px">Google Sheets sync</div>
+      <button id="gsSaveTokenBtn" class="ghost tiny">Sign in with Google</button>
+    </div>
+
+    <div style="text-align:right;margin-top:20px">
+      <button class="ghost tiny" id="settingsDone">Done</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ── Helpers ── */
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+
+function escapeHtml(s){
+  const d = document.createElement('div'); d.textContent = s; return d.innerHTML;
+}
+
+/* ── SRM to color mapping ── */
+function srmToColor(srm){
+  const n = parseFloat(srm);
+  if(isNaN(n)) return null;
+  const colors = [
+    [2,'#F8F4B4'],[3,'#F6E98F'],[4,'#EDCB39'],[6,'#E4A70A'],[8,'#D18A00'],
+    [10,'#BF7300'],[13,'#A45E00'],[17,'#8A4B00'],[20,'#723800'],[24,'#5A2D00'],
+    [29,'#461F00'],[35,'#321400'],[40,'#1E0A00'],
+  ];
+  for(let i=0;i<colors.length;i++){
+    if(n <= colors[i][0]) return colors[i][1];
+  }
+  return '#0A0000';
+}
+
+/* ── CSV parser ── */
+function parseCSV(text){
+  const rows=[]; let row=[]; let cell=''; let inQ=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(inQ){
+      if(c==='"'&&text[i+1]==='"'){cell+='"';i++}
+      else if(c==='"') inQ=false;
+      else cell+=c;
+    } else {
+      if(c==='"') inQ=true;
+      else if(c===','){row.push(cell);cell=''}
+      else if(c==='\n'||c==='\r'){
+        if(c==='\r'&&text[i+1]==='\n') i++;
+        row.push(cell);cell='';
+        if(row.length>1||row[0]!=='') rows.push(row);
+        row=[];
+      } else cell+=c;
+    }
+  }
+  row.push(cell);
+  if(row.length>1||row[0]!=='') rows.push(row);
+  return rows;
+}
+
+function csvToObjects(rows){
+  if(!rows.length) return [];
+  const hdr=rows[0];
+  return rows.slice(1).map(r=>{
+    const o={};
+    hdr.forEach((h,i)=> o[h]=r[i]||'');
+    return o;
+  });
+}
+
+/* ── Sheet config ── */
+const SHEET_ID = '1BXFTqV6xCZU63IutRAeAFPrZKLyDPkuGQ-SykIdAy_k';
+const TABS = {
+  brews:      0,
+  brew_grains: 584354729,
+  brew_hops:  841404772,
+  brew_yeast: 2057134984,
+};
+
+function sheetCsvUrl(gid){
+  return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${gid}`;
+}
+
+async function fetchTab(gid){
+  const r = await fetch(sheetCsvUrl(gid), {cache:'no-store'});
+  if(!r.ok) throw new Error(`Sheet fetch failed: HTTP ${r.status}`);
+  const text = (await r.text()).replace(/^﻿/, '');
+  return parseCSV(text);
+}
+
+/* ── State ── */
+const state = { brews:[], grains:[], hops:[], yeast:[] };
+
+async function loadData(){
+  setSyncStatus('loading…','');
+  try{
+    const [brewRows, grainRows, hopRows, yeastRows] = await Promise.all([
+      fetchTab(TABS.brews),
+      fetchTab(TABS.brew_grains),
+      fetchTab(TABS.brew_hops),
+      fetchTab(TABS.brew_yeast),
+    ]);
+    state.brews = csvToObjects(brewRows);
+    state.grains = csvToObjects(grainRows);
+    state.hops = csvToObjects(hopRows);
+    state.yeast = csvToObjects(yeastRows);
+    setSyncStatus(`${state.brews.length} brews loaded`, 'ok');
+    buildStyleFilter();
+    renderBrews();
+    renderStats();
+  } catch(e){
+    console.error(e);
+    setSyncStatus('failed to load data', 'err');
+  }
+}
+
+/* ── Sync status ── */
+function setSyncStatus(msg, cls){
+  $('#syncText').textContent = msg;
+  $('#syncDot').className = 'sync-dot' + (cls ? ' '+cls : '');
+}
+
+/* ── Grains/hops/yeast for a brew ── */
+function grainsFor(id){ return state.grains.filter(g=>g.brew_id===id); }
+function hopsFor(id){ return state.hops.filter(h=>h.brew_id===id); }
+function yeastFor(id){ return state.yeast.filter(y=>y.brew_id===id); }
+
+/* ── Style filter ── */
+function buildStyleFilter(){
+  const styles = [...new Set(state.brews.map(b=>b.style).filter(Boolean))].sort();
+  const sel = $('#styleFilter');
+  sel.innerHTML = '<option value="">All styles</option>' +
+    styles.map(s=>`<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
+}
+
+/* ── Sort state ── */
+let sortCol = 'brewDate';
+let sortDir = -1;
+
+/* ── Render brew table ── */
+function renderBrews(){
+  const q = $('#searchBox').value.toLowerCase().trim();
+  const styleFilt = $('#styleFilter').value;
+
+  let brews = state.brews.filter(b=>{
+    if(styleFilt && b.style !== styleFilt) return false;
+    if(q){
+      const hay = `${b.name} ${b.style} ${b.brewNotes} ${b.tastingNotes}`.toLowerCase();
+      if(!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  brews.sort((a,b)=>{
+    let va = a[sortCol]||'', vb = b[sortCol]||'';
+    const na = parseFloat(va), nb = parseFloat(vb);
+    if(!isNaN(na) && !isNaN(nb)) return (na-nb)*sortDir;
+    return va.localeCompare(vb)*sortDir;
+  });
+
+  $$('#brewTable thead th').forEach(th=>{
+    const arrow = th.querySelector('.sort-arrow');
+    if(th.dataset.sort === sortCol){
+      arrow.textContent = sortDir > 0 ? '▲' : '▼';
+      arrow.style.opacity = '1';
+    } else {
+      arrow.textContent = '';
+    }
+  });
+
+  const tbody = $('#brewBody');
+  tbody.innerHTML = '';
+
+  for(const b of brews){
+    const tr = document.createElement('tr');
+    tr.dataset.id = b.id;
+    tr.style.cursor = 'pointer';
+    const srmColor = srmToColor(b.colorSrm);
+    const srmCell = srmColor
+      ? `<span class="srm-swatch" style="background:${srmColor}"></span>${escapeHtml(b.colorSrm)}`
+      : escapeHtml(b.colorSrm||'—');
+    const abvDisplay = b.abv && b.abv !== '-' ? b.abv + (b.abv.includes('%') ? '' : '%') : '—';
+    const againDisplay = b.brewAgain || '—';
+
+    tr.innerHTML = `
+      <td data-col="name"><a href="#" class="namelink" data-info="${b.id}">${escapeHtml(b.name)}</a>${b.version && b.version!=='1' ? ` <span class="pill">v${escapeHtml(b.version)}</span>`:''}</td>
+      <td data-col="style" data-label="Style">${escapeHtml(b.style||'—')}</td>
+      <td data-col="version" data-label="Version">${escapeHtml(b.version||'1')}</td>
+      <td data-col="brewDate" data-label="Date">${escapeHtml(b.brewDate||'—')}</td>
+      <td data-col="abv" data-label="ABV">${abvDisplay}</td>
+      <td data-col="sg" data-label="OG">${escapeHtml(b.sg||'—')}</td>
+      <td data-col="fg" data-label="FG">${escapeHtml(b.fg||'—')}</td>
+      <td data-col="colorSrm" data-label="SRM">${srmCell}</td>
+      <td data-col="brewAgain" data-label="Again?">${escapeHtml(againDisplay)}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+}
+
+/* ── Render stats ── */
+function renderStats(){
+  const brews = state.brews;
+  const total = brews.length;
+
+  const styleCounts = {};
+  brews.forEach(b=>{ if(b.style) styleCounts[b.style] = (styleCounts[b.style]||0)+1; });
+  const topStyle = Object.entries(styleCounts).sort((a,b)=>b[1]-a[1])[0];
+
+  const uniqueHops = new Set(state.hops.map(h=>h.hop));
+
+  const abvs = brews.map(b=>parseFloat(b.abv)).filter(n=>!isNaN(n));
+  const avgAbv = abvs.length ? (abvs.reduce((a,b)=>a+b,0)/abvs.length).toFixed(1) : '—';
+
+  const hopCounts = {};
+  state.hops.forEach(h=>{ hopCounts[h.hop] = (hopCounts[h.hop]||0)+1; });
+  const topHop = Object.entries(hopCounts).sort((a,b)=>b[1]-a[1])[0];
+
+  const grainCounts = {};
+  state.grains.forEach(g=>{ grainCounts[g.grain] = (grainCounts[g.grain]||0)+1; });
+  const topGrain = Object.entries(grainCounts).sort((a,b)=>b[1]-a[1])[0];
+
+  $('#statsCards').innerHTML = `
+    <div class="stat-card"><div class="stat-num">${total}</div><div class="stat-label">Total Brews</div></div>
+    <div class="stat-card"><div class="stat-num">${avgAbv}%</div><div class="stat-label">Avg ABV</div></div>
+    <div class="stat-card"><div class="stat-num">${uniqueHops.size}</div><div class="stat-label">Unique Hops</div></div>
+    <div class="stat-card"><div class="stat-num">${topStyle ? escapeHtml(topStyle[0]) : '—'}</div><div class="stat-label">Top Style (${topStyle ? topStyle[1] : 0})</div></div>
+    <div class="stat-card"><div class="stat-num">${topHop ? escapeHtml(topHop[0]) : '—'}</div><div class="stat-label">Top Hop (${topHop ? topHop[1] : 0})</div></div>
+    <div class="stat-card"><div class="stat-num">${topGrain ? escapeHtml(topGrain[0]) : '—'}</div><div class="stat-label">Top Grain (${topGrain ? topGrain[1] : 0})</div></div>
+  `;
+
+  drawPie('#chartStyles', new Map(Object.entries(styleCounts)));
+  drawPie('#chartHops', new Map(Object.entries(hopCounts)));
+  drawPie('#chartGrains', new Map(Object.entries(grainCounts)));
+
+  const hopsByStage = {bittering:{}, hopstand:{}, dryhop:{}, mash:{}};
+  state.hops.forEach(h=>{ if(hopsByStage[h.stage]) hopsByStage[h.stage][h.hop] = (hopsByStage[h.stage][h.hop]||0)+1; });
+  drawPie('#chartHopsBittering', new Map(Object.entries(hopsByStage.bittering)));
+  drawPie('#chartHopsHopstand', new Map(Object.entries(hopsByStage.hopstand)));
+  drawPie('#chartHopsDryhop', new Map(Object.entries(hopsByStage.dryhop)));
+  drawPie('#chartHopsMash', new Map(Object.entries(hopsByStage.mash)));
+
+  const yeastCounts = {};
+  state.yeast.forEach(y=>{ const k = y.strain||y.manufacturer; if(k) yeastCounts[k]=(yeastCounts[k]||0)+1; });
+  drawPie('#chartYeast', new Map(Object.entries(yeastCounts)));
+
+  const brewsByYear = new Map();
+  brews.forEach(b=>{
+    const y = parseInt((b.brewDate||'').slice(0,4), 10);
+    if(y && y>1900) brewsByYear.set(y, (brewsByYear.get(y)||0)+1);
+  });
+  drawYearBars('#chartBrewsYear', brewsByYear);
+}
+
+/* ── Chart helpers ── */
+const palette = ['#4dd0c1','#f0a868','#7ec4cc','#e08a4a','#8fc06a','#d2554a','#9aafc4','#d49858','#b08090','#5d8a3e','#c2d6d9','#993028'];
+
+function drawPie(target, counts){
+  const el = typeof target==='string' ? $(target) : target;
+  if(!el) return;
+  if(!counts.size){ el.innerHTML = '<span class="meta">No data</span>'; return; }
+  const sorted = [...counts.entries()].sort((a,b)=>b[1]-a[1]);
+  const total = sorted.reduce((s,[,n])=>s+n, 0);
+  const slices = []; let otherN = 0;
+  for(const [label,n] of sorted){
+    if(slices.length >= 10 || (sorted.length>8 && n/total<0.03)) otherN += n;
+    else slices.push([label, n]);
+  }
+  if(otherN>0) slices.push(['other', otherN]);
+  const size=160, r=70, cx=size/2, cy=size/2;
+  let angle = -Math.PI/2;
+  const paths = slices.map(([label,n],i)=>{
+    const frac = n/total;
+    const pct = Math.round(frac*100);
+    const tip = `<title>${escapeHtml(label)} — ${n} (${pct}%)</title>`;
+    if(slices.length===1) return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${palette[0]}" stroke="var(--panel)" stroke-width="1.5">${tip}</circle>`;
+    const a2 = angle + frac*Math.PI*2;
+    const large = frac>0.5?1:0;
+    const x1=cx+r*Math.cos(angle), y1=cy+r*Math.sin(angle);
+    const x2=cx+r*Math.cos(a2), y2=cy+r*Math.sin(a2);
+    angle = a2;
+    return `<path d="M ${cx} ${cy} L ${x1.toFixed(2)} ${y1.toFixed(2)} A ${r} ${r} 0 ${large} 1 ${x2.toFixed(2)} ${y2.toFixed(2)} Z" fill="${palette[i%palette.length]}" stroke="var(--panel)" stroke-width="1.5" class="pie-slice">${tip}</path>`;
+  }).join('');
+  const legend = slices.map(([label,n],i)=>{
+    const pct = Math.round(n/total*100);
+    return `<div class="lr"><span class="dot" style="background:${palette[i%palette.length]}"></span><span>${escapeHtml(label)}</span><span class="num">${n} · ${pct}%</span></div>`;
+  }).join('');
+  el.innerHTML = `<div class="stats-pie"><svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">${paths}</svg><div class="stats-legend">${legend}</div></div>`;
+}
+
+function drawYearBars(target, byYear){
+  const el = typeof target==='string' ? $(target) : target;
+  if(!el || !byYear.size){ if(el) el.innerHTML='<span class="meta">No data</span>'; return; }
+  const currentYear = new Date().getFullYear();
+  const minY = Math.min(...byYear.keys());
+  const maxY = Math.max(currentYear, ...byYear.keys());
+  const series = [];
+  for(let y=minY;y<=maxY;y++) series.push([y, byYear.get(y)||0]);
+  const total = series.reduce((s,[,n])=>s+n, 0);
+  const w=360, h=180, padL=20, padR=10, padT=20, padB=28;
+  const max = Math.max(1, ...series.map(s=>s[1]));
+  const bw = (w-padL-padR)/series.length;
+  const bars = series.map(([y,n],i)=>{
+    const bh = n===0?0:(h-padT-padB)*(n/max);
+    const x = padL+i*bw+bw*0.15;
+    const yy = h-padB-bh;
+    const wd = bw*0.7;
+    return `<g>
+      <rect x="${x.toFixed(2)}" y="${yy.toFixed(2)}" width="${wd.toFixed(2)}" height="${bh.toFixed(2)}" fill="var(--accent)" rx="2"/>
+      ${n?`<text x="${(x+wd/2).toFixed(2)}" y="${(yy-4).toFixed(2)}" text-anchor="middle" font-size="10" fill="var(--ink-soft)">${n}</text>`:''}
+      <text x="${(x+wd/2).toFixed(2)}" y="${h-padB+14}" text-anchor="middle" font-size="10" fill="var(--ink-soft)">${y}</text>
+    </g>`;
+  }).join('');
+  const axis = `<line x1="${padL}" y1="${h-padB}" x2="${w-padR}" y2="${h-padB}" stroke="var(--line)"/>`;
+  el.innerHTML = `<svg viewBox="0 0 ${w} ${h}" width="100%" preserveAspectRatio="xMidYMid meet">${axis}${bars}</svg>
+    <div class="stats-total">Total: ${total} brews · avg ${(total/series.length).toFixed(1)}/yr</div>`;
+}
+
+/* ── Brew detail ── */
+function openInfo(id){
+  const b = state.brews.find(x=>x.id===id);
+  if(!b) return;
+
+  $('#infoName').textContent = b.name + (b.version && b.version!=='1' ? ` v${b.version}` : '');
+  $('#infoStyle').textContent = b.style || '';
+
+  const srmColor = srmToColor(b.colorSrm);
+  const srmHtml = srmColor ? `<span class="srm-swatch" style="background:${srmColor}"></span>${escapeHtml(b.colorSrm)}` : (b.colorSrm||'—');
+  const details = [
+    ['Brew Date', b.brewDate||'—'],
+    ['Batch Size', b.batchSizeGal ? b.batchSizeGal + ' gal' : '—'],
+    ['OG', b.sg||'—'],
+    ['FG', b.fg||'—'],
+    ['ABV', b.abv && b.abv!=='-' ? b.abv + (b.abv.includes('%')?'':'%') : '—'],
+    ['Efficiency', b.efficiency||'—'],
+    ['Keg Date', b.kegDate||'—'],
+    ['Carbonation', b.carbInfo||'—'],
+    ['Serving PSI', b.servingPsi||'—'],
+    ['Brew Again?', b.brewAgain||'—'],
+  ];
+  $('#infoDetails').innerHTML = details.map(([k,v])=>{
+    const val = k==='Color (SRM)' ? srmHtml : escapeHtml(v);
+    return `<dt>${escapeHtml(k)}</dt><dd>${val}</dd>`;
+  }).join('') + `<dt>Color (SRM)</dt><dd>${srmHtml}</dd>`;
+
+  const grains = grainsFor(id);
+  $('#infoGrains').innerHTML = grains.length
+    ? grains.map(g=>`<li>${escapeHtml(g.grain)}</li>`).join('')
+    : '<li class="meta">No grain data</li>';
+
+  const hops = hopsFor(id);
+  const stageOrder = ['mash','bittering','hopstand','dryhop'];
+  const stageLabels = {mash:'Mash',bittering:'Bittering',hopstand:'Hopstand',dryhop:'Dry Hop'};
+  if(hops.length){
+    let hopHtml = '<ul class="ingredient-list">';
+    const byStage = {};
+    hops.forEach(h=>{ (byStage[h.stage] = byStage[h.stage]||[]).push(h.hop); });
+    for(const stage of stageOrder){
+      if(!byStage[stage]) continue;
+      byStage[stage].forEach(hop=>{
+        hopHtml += `<li>${escapeHtml(hop)}<span class="hop-stage">${stageLabels[stage]||stage}</span></li>`;
+      });
+    }
+    hopHtml += '</ul>';
+
+    const timingParts = [];
+    if(b.hopstandTemp) timingParts.push(`Hopstand: ${b.hopstandTemp}°F for ${b.hopstandTimeMin||'?'} min`);
+    if(b.dryHop1Timing) timingParts.push(`1st dry hop: ${b.dryHop1Timing}`);
+    if(b.dryHop2Timing) timingParts.push(`2nd dry hop: ${b.dryHop2Timing}`);
+    if(timingParts.length) hopHtml += `<div class="meta" style="margin-top:8px">${timingParts.map(escapeHtml).join(' · ')}</div>`;
+
+    $('#infoHops').innerHTML = hopHtml;
+  } else {
+    $('#infoHops').innerHTML = '<span class="meta">No hop data</span>';
+  }
+
+  const yeast = yeastFor(id);
+  if(yeast.length){
+    $('#infoYeast').innerHTML = yeast.map(y=>{
+      const parts = [y.manufacturer, y.strain, y.aka ? `(${y.aka})` : ''].filter(Boolean).join(' ');
+      const meta = [y.type, y.starter==='Yes'?'Starter':'No starter', y.generation?`Gen ${y.generation}`:''].filter(Boolean).join(' · ');
+      return `<div style="margin-bottom:6px"><strong>${escapeHtml(parts)}</strong><br><span class="meta">${escapeHtml(meta)}</span></div>`;
+    }).join('');
+  } else {
+    $('#infoYeast').innerHTML = '<span class="meta">No yeast data</span>';
+  }
+
+  const waterFields = [
+    ['Mash Temp', b.mashTemp ? b.mashTemp+'°F' : ''],
+    ['Strike Temp', b.strikeTemp ? b.strikeTemp+'°F' : ''],
+    ['Mash pH', b.mashPh],
+    ['Water Volume', b.waterVolume ? b.waterVolume+' gal' : ''],
+    ['Lactic Acid', b.lacticAcidMl ? b.lacticAcidMl+' ml' : ''],
+    ['CaCl', b.caclG ? b.caclG+'g' : ''],
+    ['NaCl', b.naclG ? b.naclG+'g' : ''],
+    ['Gypsum', b.gypsumG ? b.gypsumG+'g' : ''],
+  ];
+  const ionFields = [
+    ['Ca', b.ca], ['Mg', b.mg], ['Na', b.na], ['Cl', b.cl], ['SO4', b.so4],
+  ].filter(([,v])=>v);
+  const hasWater = waterFields.some(([,v])=>v) || ionFields.length;
+  $('#infoWaterSection').style.display = hasWater ? '' : 'none';
+  if(hasWater){
+    let whtml = waterFields.filter(([,v])=>v).map(([k,v])=>`<dt>${escapeHtml(k)}</dt><dd>${escapeHtml(v)}</dd>`).join('');
+    if(ionFields.length) whtml += `<dt>Ions (ppm)</dt><dd>${ionFields.map(([k,v])=>`${k}:${v}`).join(' · ')}</dd>`;
+    if(b.chemistryLink) whtml += `<dt>Calculator</dt><dd><a href="${escapeHtml(b.chemistryLink)}" target="_blank">Brewer's Friend</a></dd>`;
+    $('#infoWater').innerHTML = whtml;
+  }
+
+  const fermFields = [
+    ['Pitch Temp', b.pitchTemp ? b.pitchTemp+'°F' : ''],
+    ['Ferment Temp', b.fermentTemp ? b.fermentTemp+'°F' : ''],
+    ['Ferment Time', b.fermentTime],
+  ].filter(([,v])=>v);
+  $('#infoFermentSection').style.display = fermFields.length ? '' : 'none';
+  $('#infoFerment').innerHTML = fermFields.map(([k,v])=>`<dt>${escapeHtml(k)}</dt><dd>${escapeHtml(v)}</dd>`).join('');
+
+  showNotes('#infoNotesSection', '#infoBrewNotes', b.brewNotes);
+  showNotes('#infoTastingSection', '#infoTastingNotes', b.tastingNotes);
+  showNotes('#infoChangesSection', '#infoChanges', b.changes);
+
+  $('#infoOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function showNotes(sectionSel, contentSel, text){
+  const has = text && text.trim();
+  $(sectionSel).style.display = has ? '' : 'none';
+  if(has) $(contentSel).textContent = text;
+}
+
+function closeInfo(){
+  $('#infoOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+$('#infoClose').onclick = closeInfo;
+$('#infoOverlay').addEventListener('click', e=>{
+  if(e.target === $('#infoOverlay')) closeInfo();
+});
+document.addEventListener('keydown', e=>{
+  if(e.key==='Escape'){
+    if($('#settingsOverlay').classList.contains('open')) closeSettings();
+    else if($('#infoOverlay').classList.contains('open')) closeInfo();
+  }
+});
+
+/* ── Table click → open info ── */
+$('#brewTable').addEventListener('click', e=>{
+  const link = e.target.closest('a[data-info]');
+  if(link){ e.preventDefault(); openInfo(link.dataset.info); return; }
+  const tr = e.target.closest('tr[data-id]');
+  if(tr) openInfo(tr.dataset.id);
+});
+
+/* ── Sort ── */
+$('#brewTable thead').addEventListener('click', e=>{
+  const th = e.target.closest('th[data-sort]');
+  if(!th) return;
+  const col = th.dataset.sort;
+  if(sortCol === col) sortDir *= -1;
+  else { sortCol = col; sortDir = col==='brewDate' ? -1 : 1; }
+  renderBrews();
+});
+
+/* ── Search / filter ── */
+$('#searchBox').addEventListener('input', renderBrews);
+$('#styleFilter').addEventListener('change', renderBrews);
+
+/* ── Themes ── */
+const THEMES = [
+  { id:'default', label:'Teal Dark',    bg:'#08191c', accent:'#4dd0c1' },
+  { id:'light',   label:'Cream Light',  bg:'#e6f1f2', accent:'#118a7d' },
+  { id:'redwood', label:'Dawn Redwood',  bg:'#dde9d4', accent:'#5a8a32' },
+  { id:'slate',   label:'Slate',        bg:'#13171b', accent:'#9aafc4' },
+  { id:'maple',   label:'Maple',        bg:'#16080a', accent:'#d2554a' },
+  { id:'forest',  label:'Forest',       bg:'#0d1611', accent:'#8fc06a' },
+];
+
+const THEME_KEY = 'satownsend.theme';
+
+function applyTheme(id){
+  if(id === 'default'){
+    document.documentElement.removeAttribute('data-theme');
+  } else {
+    document.documentElement.setAttribute('data-theme', id);
+  }
+  localStorage.setItem(THEME_KEY, id);
+  $$('.theme-swatch').forEach(s=>{
+    s.classList.toggle('active', s.dataset.theme===id);
+  });
+}
+
+function currentTheme(){
+  return document.documentElement.getAttribute('data-theme') || 'default';
+}
+
+function buildThemeSwatches(){
+  $('#themeSwatches').innerHTML = THEMES.map(t=>`
+    <div class="theme-swatch" data-theme="${t.id}" title="${t.label}">
+      <div class="ts-left" style="background:${t.bg}"></div>
+      <div class="ts-right" style="background:${t.accent}"></div>
+    </div>
+  `).join('');
+  const cur = currentTheme();
+  $$('.theme-swatch').forEach(s=> s.classList.toggle('active', s.dataset.theme===cur));
+  $('#themeSwatches').addEventListener('click', e=>{
+    const sw = e.target.closest('.theme-swatch');
+    if(sw) applyTheme(sw.dataset.theme);
+  });
+}
+
+/* ── Theme popover ── */
+function buildThemePop(){
+  const pop = $('#themePop');
+  const cur = currentTheme();
+  pop.innerHTML = THEMES.map(t=>`
+    <div class="theme-pop-row" data-theme="${t.id}" style="display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:6px;cursor:pointer;${t.id===cur?'background:var(--panel2)':''}">
+      <div style="display:flex;width:48px;height:28px;border-radius:6px;overflow:hidden;border:1px solid var(--line)">
+        <div style="flex:1;background:${t.bg}"></div>
+        <div style="flex:1;background:${t.accent}"></div>
+      </div>
+      <span style="font-size:13px">${t.label}</span>
+      ${t.id===cur?'<span style="margin-left:auto;color:var(--accent)">✓</span>':''}
+    </div>
+  `).join('');
+  pop.addEventListener('click', e=>{
+    const row = e.target.closest('[data-theme]');
+    if(row){ applyTheme(row.dataset.theme); buildThemePop(); }
+  });
+}
+
+$('#themechip').onclick = ()=>{
+  const pop = $('#themePop');
+  if(pop.style.display==='none'){ buildThemePop(); pop.style.display='block'; }
+  else pop.style.display='none';
+};
+document.addEventListener('click', e=>{
+  if(!e.target.closest('#themechip') && !e.target.closest('#themePop'))
+    $('#themePop').style.display='none';
+});
+
+/* ── Settings ── */
+function openSettings(){
+  buildThemeSwatches();
+  $('#settingsOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeSettings(){
+  $('#settingsOverlay').classList.remove('open');
+  if(!$('#infoOverlay').classList.contains('open')) document.body.style.overflow = '';
+}
+
+$('#settingsBtn').onclick = openSettings;
+$('#settingsBtnBottom').onclick = openSettings;
+$('#settingsClose').onclick = closeSettings;
+$('#settingsDone').onclick = closeSettings;
+$('#settingsOverlay').addEventListener('click', e=>{
+  if(e.target === $('#settingsOverlay')) closeSettings();
+});
+
+/* ── Google OAuth (Sheets API write access) ── */
+const GS_CLIENT_ID = '936411146633-16fq9oc08auslfprvgbl9bpoafbvo9uk.apps.googleusercontent.com';
+const GS_SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
+const GS_TOKEN_KEY = 'beerDashboard.gsToken';
+const GS_EXPIRY_KEY = 'beerDashboard.gsExpiry';
+
+function isGsAuthed(){
+  const t = localStorage.getItem(GS_TOKEN_KEY);
+  const exp = Number(localStorage.getItem(GS_EXPIRY_KEY));
+  return t && exp && Date.now() < exp;
+}
+
+function refreshGsStatus(){
+  const authed = isGsAuthed();
+  document.body.classList.toggle('view-only', !authed);
+  if(authed){
+    setSyncStatus(`${state.brews.length} brews loaded · signed in`, 'ok');
+    $('#gsSaveTokenBtn').textContent = 'Signed in ✓';
+    $('#gsSaveTokenBtn').disabled = true;
+  } else {
+    $('#gsSaveTokenBtn').textContent = 'Sign in with Google';
+    $('#gsSaveTokenBtn').disabled = false;
+  }
+}
+
+function startGsAuth(){
+  const redirect = location.origin + location.pathname;
+  const params = new URLSearchParams({
+    client_id: GS_CLIENT_ID,
+    redirect_uri: redirect,
+    response_type: 'token',
+    scope: GS_SCOPES,
+    include_granted_scopes: 'true',
+  });
+  location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params;
+}
+
+function handleOAuthReturn(){
+  if(!location.hash.includes('access_token')) return;
+  const params = new URLSearchParams(location.hash.substring(1));
+  const token = params.get('access_token');
+  const expiresIn = Number(params.get('expires_in')) || 3600;
+  if(token){
+    localStorage.setItem(GS_TOKEN_KEY, token);
+    localStorage.setItem(GS_EXPIRY_KEY, String(Date.now() + expiresIn * 1000));
+  }
+  history.replaceState(null, '', location.pathname + location.search);
+}
+
+$('#gsSaveTokenBtn').onclick = startGsAuth;
+
+/* ── Init ── */
+handleOAuthReturn();
+const savedTheme = localStorage.getItem(THEME_KEY);
+if(savedTheme && savedTheme !== 'default') applyTheme(savedTheme);
+refreshGsStatus();
+loadData().then(refreshGsStatus);
+</script>
+</body>
+</html>

@@ -1,11 +1,254 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#08191c">
 <title>satownsend.com</title>
+<link rel="preconnect" href="https://use.typekit.net" crossorigin>
+<link rel="stylesheet" href="https://use.typekit.net/twp1irx.css">
+<link rel="stylesheet" href="/shared/styles.css">
+<style>
+.hero{text-align:center;padding:48px 0 24px}
+.hero h1{font-size:28px;letter-spacing:-.02em;margin:0}
+.hero .sub{color:var(--muted);font-size:14px;margin-top:6px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(340px,100%),1fr));gap:20px;margin-top:24px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;transition:border-color .2s}
+.card:hover{border-color:var(--accent)}
+.card-img{width:100%;aspect-ratio:16/9;object-fit:cover;display:block;background:var(--bg2)}
+.card-img-placeholder{width:100%;aspect-ratio:16/9;background:var(--bg2);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:48px}
+.card-body{padding:18px 20px 20px}
+.card-body h2{margin:0 0 4px;font-size:20px}
+.card-body h2 a{color:var(--ink);text-decoration:none}
+.card-body h2 a:hover{color:var(--accent)}
+.card-body .card-desc{color:var(--muted);font-size:13px;margin-bottom:14px;line-height:1.5}
+.card-stats{display:flex;flex-wrap:wrap;gap:12px}
+.card-stat{background:var(--panel2);border:1px solid var(--line2);border-radius:8px;padding:8px 14px;text-align:center;flex:1;min-width:70px}
+.card-stat .num{font-size:20px;font-weight:700;color:var(--accent);line-height:1.2}
+.card-stat .label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-top:2px}
+.card-recent{margin-top:14px;display:flex;gap:6px;overflow-x:auto}
+.card-recent img{width:56px;height:56px;border-radius:8px;object-fit:cover;border:1px solid var(--line2);flex:none}
+.card-recent .empty{color:var(--muted);font-size:12px;font-style:italic;padding:8px 0}
+footer{text-align:center;color:var(--muted);font-size:12px;padding:32px 0 16px}
+</style>
 </head>
 <body>
-<p>Nothing here yet. Check out <a href="/plants">Our Plants</a> or <a href="/beer">Our Beer</a>.</p>
+<div class="wrap">
+
+  <header>
+    <div>
+      <h1 style="font-size:20px;letter-spacing:-.01em">satownsend.com</h1>
+    </div>
+    <div class="row">
+      <span style="position:relative">
+        <span class="chip" id="themechip" title="Pick theme" style="cursor:pointer">&#9684; theme</span>
+        <div id="themePop" style="display:none;position:absolute;right:0;top:110%;background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:10px;z-index:30;box-shadow:var(--shadow);min-width:160px"></div>
+      </span>
+    </div>
+  </header>
+
+  <div class="hero">
+    <div class="sub">Dashboards for things we grow, brew, and track.</div>
+  </div>
+
+  <div class="cards">
+    <!-- Plants card -->
+    <div class="card">
+      <div class="card-img-placeholder" id="plantsImg">&#127793;</div>
+      <div class="card-body">
+        <h2><a href="/plants">Plants</a></h2>
+        <div class="card-desc">Yard inventory, care logs, weather forecasts, and a photo gallery of everything growing.</div>
+        <div class="card-stats" id="plantsStats">
+          <div class="card-stat"><div class="num" id="plantCount">&mdash;</div><div class="label">Plants</div></div>
+          <div class="card-stat"><div class="num" id="plantPhotos">&mdash;</div><div class="label">Photos</div></div>
+          <div class="card-stat"><div class="num" id="plantCategories">&mdash;</div><div class="label">Categories</div></div>
+        </div>
+        <div class="card-recent" id="plantsRecent"><span class="empty">Loading&hellip;</span></div>
+      </div>
+    </div>
+
+    <!-- Beer card -->
+    <div class="card">
+      <div class="card-img-placeholder" id="beerImg">&#127866;</div>
+      <div class="card-body">
+        <h2><a href="/beer">Beer</a></h2>
+        <div class="card-desc">Homebrew log with recipes, grain bills, hop schedules, fermentation notes, and tasting results.</div>
+        <div class="card-stats" id="beerStats">
+          <div class="card-stat"><div class="num" id="brewCount">&mdash;</div><div class="label">Brews</div></div>
+          <div class="card-stat"><div class="num" id="brewStyles">&mdash;</div><div class="label">Styles</div></div>
+          <div class="card-stat"><div class="num" id="brewAvgAbv">&mdash;</div><div class="label">Avg ABV</div></div>
+        </div>
+        <div class="card-recent" id="beerRecent"><span class="empty">Loading&hellip;</span></div>
+      </div>
+    </div>
+  </div>
+
+  <footer>Data synced live from Google Sheets.</footer>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+
+/* ── CSV parser ── */
+function parseCSV(text){
+  const rows=[]; let row=[]; let cell=''; let inQ=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(inQ){
+      if(c==='"'&&text[i+1]==='"'){cell+='"';i++}
+      else if(c==='"') inQ=false;
+      else cell+=c;
+    } else {
+      if(c==='"') inQ=true;
+      else if(c===','){row.push(cell);cell=''}
+      else if(c==='\n'||c==='\r'){
+        if(c==='\r'&&text[i+1]==='\n') i++;
+        row.push(cell);cell='';
+        if(row.length>1||row[0]!=='') rows.push(row);
+        row=[];
+      } else cell+=c;
+    }
+  }
+  row.push(cell);
+  if(row.length>1||row[0]!=='') rows.push(row);
+  return rows;
+}
+function csvToObjects(rows){
+  if(!rows.length) return [];
+  const hdr=rows[0];
+  return rows.slice(1).map(r=>{
+    const o={};
+    hdr.forEach((h,i)=> o[h]=r[i]||'');
+    return o;
+  });
+}
+
+/* ── Fetch helpers ── */
+const PLANTS_SHEET = '1Q1kRZG0jjkYF7pCSZXZIgE5B_kCorDovO2I7ATE3vUM';
+const PLANTS_GID = { plants: 0, photos: 396120968 };
+const BEER_SHEET = '1BXFTqV6xCZU63IutRAeAFPrZKLyDPkuGQ-SykIdAy_k';
+const BEER_GID = { brews: 0, photos: 1135128185 };
+const R2_PUBLIC = 'https://pub-59a926166fd84970bea75caf38a52d27.r2.dev';
+
+function csvUrl(sheetId, gid){
+  return `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
+}
+async function fetchSheet(sheetId, gid){
+  const r = await fetch(csvUrl(sheetId, gid), {cache:'no-store'});
+  if(!r.ok) throw new Error(`HTTP ${r.status}`);
+  return csvToObjects(parseCSV((await r.text()).replace(/^﻿/,'')));
+}
+
+/* ── Load plants data ── */
+async function loadPlants(){
+  try {
+    const [plants, photos] = await Promise.all([
+      fetchSheet(PLANTS_SHEET, PLANTS_GID.plants),
+      fetchSheet(PLANTS_SHEET, PLANTS_GID.photos).catch(()=>[]),
+    ]);
+    const alive = plants.filter(p => p.status !== 'dead' && p.status !== 'removed');
+    $('#plantCount').textContent = alive.length;
+    $('#plantPhotos').textContent = photos.length;
+    const cats = new Set(alive.map(p=>p.category).filter(Boolean));
+    $('#plantCategories').textContent = cats.size;
+
+    const sorted = photos.filter(p=>p.key).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    const recent = sorted.slice(0,6);
+    const el = $('#plantsRecent');
+    if(recent.length){
+      el.innerHTML = recent.map(p=>`<img src="${R2_PUBLIC}/${p.key}" loading="lazy" alt="">`).join('');
+      const heroImg = $('#plantsImg');
+      heroImg.outerHTML = `<img class="card-img" src="${R2_PUBLIC}/${recent[0].key}" alt="">`;
+    } else {
+      el.innerHTML = '<span class="empty">No photos yet.</span>';
+    }
+  } catch(e){
+    console.warn('Plants load failed:', e);
+    $('#plantsRecent').innerHTML = '<span class="empty">Could not load.</span>';
+  }
+}
+
+/* ── Load beer data ── */
+async function loadBeer(){
+  try {
+    const [brews, photos] = await Promise.all([
+      fetchSheet(BEER_SHEET, BEER_GID.brews),
+      fetchSheet(BEER_SHEET, BEER_GID.photos).catch(()=>[]),
+    ]);
+    $('#brewCount').textContent = brews.length;
+    const styles = new Set(brews.map(b=>b.style).filter(Boolean));
+    $('#brewStyles').textContent = styles.size;
+    const abvs = brews.map(b=>parseFloat(b.abv)).filter(n=>!isNaN(n));
+    const avg = abvs.length ? (abvs.reduce((a,b)=>a+b,0)/abvs.length).toFixed(1) : '—';
+    $('#brewAvgAbv').textContent = avg + '%';
+
+    const sorted = photos.filter(p=>p.key).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    const recent = sorted.slice(0,6);
+    const el = $('#beerRecent');
+    if(recent.length){
+      el.innerHTML = recent.map(p=>`<img src="${R2_PUBLIC}/${p.key}" loading="lazy" alt="">`).join('');
+      const heroImg = $('#beerImg');
+      heroImg.outerHTML = `<img class="card-img" src="${R2_PUBLIC}/${recent[0].key}" alt="">`;
+    } else {
+      el.innerHTML = '<span class="empty">No photos yet.</span>';
+    }
+  } catch(e){
+    console.warn('Beer load failed:', e);
+    $('#beerRecent').innerHTML = '<span class="empty">Could not load.</span>';
+  }
+}
+
+/* ── Themes ── */
+const THEMES = [
+  { id:'default', label:'Teal Dark',   bg:'#08191c', accent:'#4dd0c1' },
+  { id:'light',   label:'Cream Light', bg:'#e6f1f2', accent:'#118a7d' },
+  { id:'redwood', label:'Dawn Redwood', bg:'#dde9d4', accent:'#5a8a32' },
+  { id:'slate',   label:'Slate',       bg:'#13171b', accent:'#9aafc4' },
+  { id:'maple',   label:'Maple',       bg:'#16080a', accent:'#d2554a' },
+  { id:'forest',  label:'Forest',      bg:'#0d1611', accent:'#8fc06a' },
+];
+const THEME_KEY = 'satownsend.theme';
+
+function applyTheme(id){
+  if(id==='default') document.documentElement.removeAttribute('data-theme');
+  else document.documentElement.setAttribute('data-theme', id);
+  localStorage.setItem(THEME_KEY, id);
+}
+
+function buildThemePop(){
+  const pop = $('#themePop');
+  const cur = localStorage.getItem(THEME_KEY) || 'default';
+  pop.innerHTML = THEMES.map(t=>`
+    <div class="theme-pop-row" data-theme="${t.id}" style="display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:6px;cursor:pointer;${t.id===cur?'background:var(--panel2)':''}">
+      <div style="display:flex;width:48px;height:28px;border-radius:6px;overflow:hidden;border:1px solid var(--line)">
+        <div style="flex:1;background:${t.bg}"></div>
+        <div style="flex:1;background:${t.accent}"></div>
+      </div>
+      <span style="font-size:13px">${t.label}</span>
+      ${t.id===cur?'<span style="margin-left:auto;color:var(--accent)">&#10003;</span>':''}
+    </div>
+  `).join('');
+  pop.addEventListener('click', e=>{
+    const row = e.target.closest('[data-theme]');
+    if(row){ applyTheme(row.dataset.theme); buildThemePop(); }
+  });
+}
+
+$('#themechip').onclick = ()=>{
+  const pop = $('#themePop');
+  if(pop.style.display==='none'){ buildThemePop(); pop.style.display='block'; }
+  else pop.style.display='none';
+};
+document.addEventListener('click', e=>{
+  if(!e.target.closest('#themechip') && !e.target.closest('#themePop'))
+    $('#themePop').style.display='none';
+});
+
+/* ── Init ── */
+const saved = localStorage.getItem(THEME_KEY);
+if(saved && saved !== 'default') applyTheme(saved);
+loadPlants();
+loadBeer();
+</script>
 </body>
 </html>

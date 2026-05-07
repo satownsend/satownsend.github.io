@@ -3900,13 +3900,6 @@ async function pullFromSheets(){
       };
     });
 
-    // Keep plants that exist locally but not in the sheet (locally added, not yet pushed)
-    const remoteIds = new Set(plants.map(p => p.id));
-    const remoteNames = new Set(plants.map(p => (p.name||'').toLowerCase().trim()));
-    const localOnly = (state.plants||[]).filter(p =>
-      !remoteIds.has(p.id) && !remoteNames.has((p.name||'').toLowerCase().trim())
-    );
-
     // Assemble log entries
     const remoteLog = rawLog.map(e => {
       const pks = (e.photoKeys||'').split('|').filter(Boolean);
@@ -3928,7 +3921,7 @@ async function pullFromSheets(){
     const remoteLogIds = new Set(remoteLog.map(e => e.id));
     const localOnlyLog = (state.log||[]).filter(e => e.id && !remoteLogIds.has(e.id));
 
-    state.plants = [...plants, ...localOnly];
+    state.plants = plants;
     state.log = [...remoteLog, ...localOnlyLog];
     gsSuspendSync = true; saveLocal(); gsSuspendSync = false;
     render();

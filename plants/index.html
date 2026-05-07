@@ -3725,6 +3725,7 @@ async function recoverPhotosFromR2(onStatus){
   const latinToSlug = (s) => (s||'').toLowerCase().trim()
     .replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,40);
   for (const p of (state.plants||[])){
+    if (!p.id) continue;
     const idSlug = p.id.replace(/^p_/, '');
     plantBySlug.set(idSlug, p);
     if (p.type){
@@ -4146,6 +4147,10 @@ $('#r2RecoverBtn').onclick = async ()=>{
   const st = $('#r2Status');
   const setStatus = (m, kind) => { st.textContent = m; st.style.color = kind==='err'?'#e8a06a':kind==='ok'?'var(--accent)':'var(--muted)'; };
   try {
+    if (!(state.plants||[]).length){
+      setStatus('No plants loaded — pulling from Sheets first…');
+      await pullFromSheets();
+    }
     const res = await recoverPhotosFromR2(setStatus);
     let msg = `Recovered ${res.restored} photo${res.restored===1?'':'s'} across ${res.plantsTouched} plant${res.plantsTouched===1?'':'s'} (scanned ${res.totalKeys} R2 objects).`;
     if (res.orphanSlugs.length) msg += ` Skipped ${res.orphanSlugs.length} orphan slug${res.orphanSlugs.length===1?'':'s'}: ${res.orphanSlugs.slice(0,5).join(', ')}${res.orphanSlugs.length>5?'…':''}`;

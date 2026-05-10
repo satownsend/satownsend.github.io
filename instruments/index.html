@@ -211,6 +211,33 @@ body.view-only #addMaintenanceBtn{display:none!important}
   </div>
 </div>
 
+<!-- Add instrument overlay -->
+<div class="settings-overlay" id="addOverlay">
+  <div class="settings-card" style="max-width:520px">
+    <button class="info-close" id="addClose">&times;</button>
+    <h2 style="margin:0 0 16px;font-size:18px;text-transform:none;letter-spacing:0;color:var(--ink)">Add Instrument</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Make</label><input type="text" id="addMake" placeholder="e.g. Fender"></div>
+      <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Model</label><input type="text" id="addModel" placeholder="e.g. Stratocaster"></div>
+      <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Year</label><input type="text" id="addYear" placeholder="e.g. 2019"></div>
+      <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Type</label><input type="text" id="addType" placeholder="e.g. Electric Guitar"></div>
+      <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Date Purchased</label><input type="date" id="addDatePurchased"></div>
+      <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Price</label><input type="text" id="addPrice" placeholder="e.g. 1200"></div>
+      <div style="grid-column:1/-1"><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Purchased From</label><input type="text" id="addPurchasedFrom" placeholder="e.g. Guitar Center"></div>
+      <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Strings Make</label><input type="text" id="addStringsMake" placeholder="e.g. Ernie Ball"></div>
+      <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Strings Model</label><input type="text" id="addStringsModel" placeholder="e.g. Regular Slinky"></div>
+      <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">String Gauge</label><input type="text" id="addStringGauge" placeholder="e.g. 10-46"></div>
+      <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Status</label><input type="text" id="addStatus" placeholder="e.g. active"></div>
+      <div style="grid-column:1/-1"><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Notes</label><textarea id="addNotes" rows="2" placeholder="Any notes…"></textarea></div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;align-items:center">
+      <span id="addStatus-msg" style="font-size:12px;color:var(--muted)"></span>
+      <button class="ghost tiny" id="addCancel">Cancel</button>
+      <button id="addSaveBtn" class="tiny">Save</button>
+    </div>
+  </div>
+</div>
+
 <!-- Lightbox -->
 <div class="modal-back" id="lightbox" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:60;align-items:center;justify-content:center">
   <div style="display:flex;flex-direction:column;align-items:center;gap:10px;max-width:90vw;max-height:90vh;width:800px;padding:20px 0">
@@ -1022,6 +1049,62 @@ async function gsEnsureTab(tabName, gid, headers){
     });
   }
 }
+
+/* ── Add instrument ── */
+function openAddInstrument(){
+  if (!isGsAuthed()){ alert('Sign in with Google first (Settings).'); return; }
+  ['addMake','addModel','addYear','addType','addDatePurchased','addPrice','addPurchasedFrom','addStringsMake','addStringsModel','addStringGauge','addStatus','addNotes'].forEach(id=> $(('#'+id)).value = '');
+  $('#addStatus-msg').textContent = '';
+  $('#addOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  $('#addMake').focus();
+}
+
+function closeAddInstrument(){
+  $('#addOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+$('#addInstrumentBtn').onclick = openAddInstrument;
+$('#addClose').onclick = closeAddInstrument;
+$('#addCancel').onclick = closeAddInstrument;
+$('#addOverlay').addEventListener('click', e=>{ if(e.target === $('#addOverlay')) closeAddInstrument(); });
+
+$('#addSaveBtn').onclick = async ()=>{
+  const make = $('#addMake').value.trim();
+  const model = $('#addModel').value.trim();
+  if (!make && !model){ $('#addMake').focus(); return; }
+  const st = $('#addStatus-msg');
+  st.textContent = 'Saving…';
+  try {
+    const id = Math.random().toString(36).slice(2,10);
+    const values = [
+      id, make, model,
+      $('#addYear').value.trim(),
+      $('#addType').value.trim(),
+      $('#addDatePurchased').value,
+      $('#addPrice').value.trim(),
+      $('#addPurchasedFrom').value.trim(),
+      $('#addStringsMake').value.trim(),
+      $('#addStringsModel').value.trim(),
+      $('#addStringGauge').value.trim(),
+      $('#addStatus').value.trim() || 'active',
+      $('#addNotes').value.trim(),
+    ];
+    await gsAppendRow(TABS.instruments, values);
+    const headers = ['id','make','model','year','type','datePurchased','price','purchasedFrom','stringsMake','stringsModel','stringGauge','status','notes'];
+    const inst = {};
+    headers.forEach((h,i)=> inst[h] = values[i]||'');
+    state.instruments.push(inst);
+    renderInstruments();
+    renderStats();
+    buildTypeFilter();
+    closeAddInstrument();
+    openInfo(id);
+  } catch(e){
+    st.textContent = e.message;
+  }
+};
 
 /* ── Maintenance log entry ── */
 async function logMaintenance(instrumentId, type, date, description, cost){

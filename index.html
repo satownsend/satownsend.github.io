@@ -81,6 +81,21 @@ footer{text-align:center;color:var(--muted);font-size:12px;padding:32px 0 16px}
         <div class="card-recent" id="beerRecent"><span class="empty">Loading&hellip;</span></div>
       </div>
     </div>
+
+    <!-- Instruments card -->
+    <div class="card">
+      <div class="card-img-placeholder" id="instrumentsImg">&#127928;</div>
+      <div class="card-body">
+        <h2><a href="/instruments">Instruments</a></h2>
+        <div class="card-desc">Collection tracker with maintenance logs, string changes, setup history, and photos.</div>
+        <div class="card-stats" id="instrumentsStats">
+          <div class="card-stat"><div class="num" id="instrumentCount">&mdash;</div><div class="label">Instruments</div></div>
+          <div class="card-stat"><div class="num" id="instrumentTypes">&mdash;</div><div class="label">Types</div></div>
+          <div class="card-stat"><div class="num" id="instrumentMaint">&mdash;</div><div class="label">Maintenance</div></div>
+        </div>
+        <div class="card-recent" id="instrumentsRecent"><span class="empty">Loading&hellip;</span></div>
+      </div>
+    </div>
   </div>
 
   <footer>Data synced live from Google Sheets.</footer>
@@ -128,6 +143,8 @@ const PLANTS_SHEET = '1Q1kRZG0jjkYF7pCSZXZIgE5B_kCorDovO2I7ATE3vUM';
 const PLANTS_GID = { plants: 0, photos: 396120968 };
 const BEER_SHEET = '1BXFTqV6xCZU63IutRAeAFPrZKLyDPkuGQ-SykIdAy_k';
 const BEER_GID = { brews: 0, photos: 1135128185 };
+const INSTRUMENTS_SHEET = '1dWWWIFBpWvNOIBuxA1EIoaffKckDFhsHvPDzhbxdnYg';
+const INSTRUMENTS_GID = { instruments: 0, photos: 617283945, maintenance: 834291047 };
 const R2_PUBLIC = 'https://pub-59a926166fd84970bea75caf38a52d27.r2.dev';
 
 function csvUrl(sheetId, gid){
@@ -198,6 +215,35 @@ async function loadBeer(){
   }
 }
 
+/* ── Load instruments data ── */
+async function loadInstruments(){
+  try {
+    const [instruments, photos, maintenance] = await Promise.all([
+      fetchSheet(INSTRUMENTS_SHEET, INSTRUMENTS_GID.instruments),
+      fetchSheet(INSTRUMENTS_SHEET, INSTRUMENTS_GID.photos).catch(()=>[]),
+      fetchSheet(INSTRUMENTS_SHEET, INSTRUMENTS_GID.maintenance).catch(()=>[]),
+    ]);
+    $('#instrumentCount').textContent = instruments.length;
+    const types = new Set(instruments.map(i=>i.type).filter(Boolean));
+    $('#instrumentTypes').textContent = types.size;
+    $('#instrumentMaint').textContent = maintenance.length;
+
+    const sorted = photos.filter(p=>p.key).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    const recent = sorted.slice(0,6);
+    const el = $('#instrumentsRecent');
+    if(recent.length){
+      el.innerHTML = recent.map(p=>`<img src="${R2_PUBLIC}/${p.key}" loading="lazy" alt="">`).join('');
+      const heroImg = $('#instrumentsImg');
+      heroImg.outerHTML = `<img class="card-img" src="${R2_PUBLIC}/${recent[0].key}" alt="">`;
+    } else {
+      el.innerHTML = '<span class="empty">No photos yet.</span>';
+    }
+  } catch(e){
+    console.warn('Instruments load failed:', e);
+    $('#instrumentsRecent').innerHTML = '<span class="empty">Could not load.</span>';
+  }
+}
+
 /* ── Themes ── */
 const THEMES = [
   { id:'default', label:'Teal Dark',   bg:'#08191c', accent:'#4dd0c1' },
@@ -249,6 +295,7 @@ const saved = localStorage.getItem(THEME_KEY);
 if(saved && saved !== 'default') applyTheme(saved);
 loadPlants();
 loadBeer();
+loadInstruments();
 </script>
 </body>
 </html>

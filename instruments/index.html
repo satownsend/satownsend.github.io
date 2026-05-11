@@ -181,12 +181,22 @@ body.view-only #addMaintenanceBtn{display:none!important}
     <div class="grid3" id="statsCards"></div>
     <div class="grid2" style="margin-top:20px">
       <div>
+        <div class="stats-chart-label">By category</div>
+        <div id="chartCategories"></div>
+      </div>
+      <div>
         <div class="stats-chart-label">By type</div>
         <div id="chartTypes"></div>
       </div>
+    </div>
+    <div class="grid2" style="margin-top:20px">
       <div>
         <div class="stats-chart-label">By make</div>
         <div id="chartMakes"></div>
+      </div>
+      <div>
+        <div class="stats-chart-label">Maintenance by type</div>
+        <div id="chartMaintTypes"></div>
       </div>
     </div>
     <div class="grid2" style="margin-top:20px">
@@ -194,10 +204,7 @@ body.view-only #addMaintenanceBtn{display:none!important}
         <div class="stats-chart-label">Acquisitions per year</div>
         <div id="chartYears"></div>
       </div>
-      <div>
-        <div class="stats-chart-label">Maintenance by type</div>
-        <div id="chartMaintTypes"></div>
-      </div>
+      <div></div>
     </div>
   </div>
 
@@ -717,6 +724,9 @@ function renderStats(){
     <div class="stat-card"><div class="stat-num">${lastMaint ? escapeHtml(lastMaint.date) : '—'}</div><div class="stat-label">Last Maintenance</div></div>
   `;
 
+  const catCounts = {};
+  instruments.forEach(i=>{ if(i.category) catCounts[i.category] = (catCounts[i.category]||0)+1; });
+  drawPie('#chartCategories', new Map(Object.entries(catCounts)));
   drawPie('#chartTypes', new Map(Object.entries(typeCounts)));
   drawPie('#chartMakes', new Map(Object.entries(makeCounts)));
 

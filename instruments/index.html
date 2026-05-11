@@ -114,7 +114,7 @@ body.view-only #addMaintenanceBtn{display:none!important}
           <th data-sort="type" data-col="type">Type <span class="sort-arrow"></span></th>
           <th data-sort="year" data-col="year">Year <span class="sort-arrow"></span></th>
           <th data-sort="datePurchased" data-col="datePurchased">Purchased <span class="sort-arrow"></span></th>
-          <th data-sort="stringGauge" data-col="stringGauge">Strings <span class="sort-arrow"></span></th>
+          <th data-sort="stringsGauge" data-col="stringsGauge">Strings <span class="sort-arrow"></span></th>
           <th data-sort="status" data-col="status">Status <span class="sort-arrow"></span></th>
         </tr></thead>
         <tbody id="instrumentBody"></tbody>
@@ -177,6 +177,11 @@ body.view-only #addMaintenanceBtn{display:none!important}
         <div class="info-grid" id="infoStrings"></div>
       </div>
 
+      <div class="info-section" id="infoPickupsSection" style="display:none">
+        <h3>Pickups</h3>
+        <div class="notes-block" id="infoPickups"></div>
+      </div>
+
       <div class="info-section" id="infoNotesSection">
         <h3>Notes</h3>
         <div class="notes-block" id="infoNotes"></div>
@@ -205,6 +210,10 @@ body.view-only #addMaintenanceBtn{display:none!important}
           <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Model</label><input type="text" id="editStringsModel"></div>
           <div style="grid-column:1/-1"><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Gauge</label><input type="text" id="editStringGauge"></div>
         </div>
+      </div>
+      <div class="info-section">
+        <h3>Pickups</h3>
+        <input type="text" id="editPickups" placeholder="e.g. Seymour Duncan Quarter Pound">
       </div>
       <div class="info-section">
         <h3>Notes</h3>
@@ -266,6 +275,7 @@ body.view-only #addMaintenanceBtn{display:none!important}
       <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Strings Make</label><input type="text" id="addStringsMake" placeholder="e.g. Ernie Ball"></div>
       <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Strings Model</label><input type="text" id="addStringsModel" placeholder="e.g. Regular Slinky"></div>
       <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">String Gauge</label><input type="text" id="addStringGauge" placeholder="e.g. 10-46"></div>
+      <div style="grid-column:1/-1"><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Pickups</label><input type="text" id="addPickups" placeholder="e.g. Seymour Duncan Quarter Pound"></div>
       <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Status</label><input type="text" id="addStatus" placeholder="e.g. active"></div>
       <div style="grid-column:1/-1"><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Notes</label><textarea id="addNotes" rows="2" placeholder="Any notes…"></textarea></div>
     </div>
@@ -495,7 +505,7 @@ function renderInstruments(){
     tr.dataset.id = inst.id;
     tr.style.cursor = 'pointer';
     const name = instrumentName(inst);
-    const stringsDisplay = [inst.stringsMake, inst.stringsModel, inst.stringGauge].filter(Boolean).join(' ') || '—';
+    const stringsDisplay = [inst.stringsMake, inst.stringsModel, inst.stringsGauge].filter(Boolean).join(' ') || '—';
     const statusDisplay = inst.status || '—';
 
     tr.innerHTML = `
@@ -503,7 +513,7 @@ function renderInstruments(){
       <td data-col="type" data-label="Type">${escapeHtml(inst.type||'—')}</td>
       <td data-col="year" data-label="Year">${escapeHtml(inst.year||'—')}</td>
       <td data-col="datePurchased" data-label="Purchased">${escapeHtml(inst.datePurchased||'—')}</td>
-      <td data-col="stringGauge" data-label="Strings">${escapeHtml(stringsDisplay)}</td>
+      <td data-col="stringsGauge" data-label="Strings">${escapeHtml(stringsDisplay)}</td>
       <td data-col="status" data-label="Status">${escapeHtml(statusDisplay)}</td>
     `;
     tbody.appendChild(tr);
@@ -642,16 +652,20 @@ function openInfo(id){
     .map(([k,v])=>`<dt>${escapeHtml(k)}</dt><dd>${escapeHtml(v)}</dd>`)
     .join('');
 
-  const hasStrings = inst.stringsMake || inst.stringsModel || inst.stringGauge;
+  const hasStrings = inst.stringsMake || inst.stringsModel || inst.stringsGauge;
   $('#infoStringsSection').style.display = hasStrings ? '' : 'none';
   if(hasStrings){
     const sf = [
       ['Brand', inst.stringsMake||'—'],
       ['Model', inst.stringsModel||'—'],
-      ['Gauge', inst.stringGauge||'—'],
+      ['Gauge', inst.stringsGauge||'—'],
     ];
     $('#infoStrings').innerHTML = sf.map(([k,v])=>`<dt>${escapeHtml(k)}</dt><dd>${escapeHtml(v)}</dd>`).join('');
   }
+
+  const hasPickups = inst.pickups;
+  $('#infoPickupsSection').style.display = hasPickups ? '' : 'none';
+  if(hasPickups) $('#infoPickups').textContent = inst.pickups;
 
   showNotes('#infoNotesSection', '#infoNotes', inst.notes);
   renderMaintenanceLog(id);
@@ -682,8 +696,9 @@ function startEdit(){
   $('#editPurchasedFrom').value = inst.purchasedFrom||'';
   $('#editStringsMake').value = inst.stringsMake||'';
   $('#editStringsModel').value = inst.stringsModel||'';
-  $('#editStringGauge').value = inst.stringGauge||'';
+  $('#editStringGauge').value = inst.stringsGauge||'';
   $('#editStatus').value = inst.status||'';
+  $('#editPickups').value = inst.pickups||'';
   $('#editNotes').value = inst.notes||'';
   $('#editStatusMsg').textContent = '';
   $('#infoReadView').style.display = 'none';
@@ -748,7 +763,8 @@ $('#editSaveBtn').onclick = async ()=>{
       purchasedFrom: $('#editPurchasedFrom').value.trim(),
       stringsMake: $('#editStringsMake').value.trim(),
       stringsModel: $('#editStringsModel').value.trim(),
-      stringGauge: $('#editStringGauge').value.trim(),
+      stringsGauge: $('#editStringGauge').value.trim(),
+      pickups: $('#editPickups').value.trim(),
       status: $('#editStatus').value.trim(),
       notes: $('#editNotes').value.trim(),
     };
@@ -1192,7 +1208,7 @@ async function gsEnsureTab(tabName, gid, headers){
 /* ── Add instrument ── */
 function openAddInstrument(){
   if (!isGsAuthed()){ alert('Sign in with Google first (Settings).'); return; }
-  ['addMake','addModel','addYear','addType','addDatePurchased','addPrice','addPurchasedFrom','addStringsMake','addStringsModel','addStringGauge','addStatus','addNotes'].forEach(id=> $(('#'+id)).value = '');
+  ['addMake','addModel','addYear','addType','addDatePurchased','addPrice','addPurchasedFrom','addStringsMake','addStringsModel','addStringGauge','addPickups','addStatus','addNotes'].forEach(id=> $(('#'+id)).value = '');
   $('#addStatus-msg').textContent = '';
   $('#addOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
@@ -1227,11 +1243,12 @@ $('#addSaveBtn').onclick = async ()=>{
       $('#addStringsMake').value.trim(),
       $('#addStringsModel').value.trim(),
       $('#addStringGauge').value.trim(),
+      $('#addPickups').value.trim(),
       $('#addStatus').value.trim() || 'active',
       $('#addNotes').value.trim(),
     ];
     await gsAppendRow(TABS.instruments, values);
-    const headers = ['id','make','model','year','type','datePurchased','price','purchasedFrom','stringsMake','stringsModel','stringGauge','status','notes'];
+    const headers = ['id','make','model','year','type','datePurchased','price','purchasedFrom','stringsMake','stringsModel','stringsGauge','pickups','status','notes'];
     const inst = {};
     headers.forEach((h,i)=> inst[h] = values[i]||'');
     state.instruments.push(inst);

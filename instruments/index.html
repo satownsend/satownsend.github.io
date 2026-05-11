@@ -37,6 +37,17 @@
 .gallery-stage:hover .gallery-nav{opacity:1}
 @media (hover:none){.gallery-nav{opacity:.7}}
 
+/* ── Column visibility ── */
+#instrumentTable.hide-type [data-col="type"],
+#instrumentTable.hide-year [data-col="year"],
+#instrumentTable.hide-datePurchased [data-col="datePurchased"],
+#instrumentTable.hide-stringsGauge [data-col="stringsGauge"],
+#instrumentTable.hide-status [data-col="status"]{display:none}
+.cols-pop{position:absolute;top:calc(100% + 6px);left:0;background:var(--panel);border:1px solid var(--line);border-radius:8px;
+  padding:10px 12px;box-shadow:var(--shadow);z-index:5;min-width:180px}
+.cols-pop label{display:flex;align-items:center;gap:8px;padding:4px 0;color:var(--ink);font-size:13px;cursor:pointer}
+.cols-pop label input[type=checkbox]{margin:0}
+
 body.view-only #addInstrumentBtn,
 body.view-only .edit-row,
 body.view-only #photoUploadInput + span,
@@ -141,6 +152,10 @@ body.view-only #addMaintenanceBtn{display:none!important}
     <div class="filter-row">
       <input type="search" id="searchBox" placeholder="Search instruments&hellip;">
       <select id="typeFilter"><option value="">All types</option></select>
+      <span style="position:relative">
+        <button class="ghost tiny" id="colsBtn" aria-haspopup="true" aria-expanded="false">&#9881; columns</button>
+        <div class="cols-pop" id="colsPop" role="dialog" aria-label="Show/hide columns" style="display:none"></div>
+      </span>
     </div>
     <div class="table-scroll">
       <table id="instrumentTable">
@@ -1112,6 +1127,68 @@ $('#instrumentTable').addEventListener('click', e=>{
   const tr = e.target.closest('tr[data-id]');
   if(tr) openInfo(tr.dataset.id);
 });
+
+/* ── Column visibility ── */
+const COL_KEYS = ['type','year','datePurchased','stringsGauge','status'];
+const COL_LABELS = {type:'Type', year:'Year', datePurchased:'Purchased', stringsGauge:'Strings', status:'Status'};
+const COL_VIS_KEY = 'instruments.colVisibility';
+
+function loadColVis(){
+  try {
+    const raw = localStorage.getItem(COL_VIS_KEY);
+    if(!raw) return new Set();
+    const arr = JSON.parse(raw);
+    return new Set(Array.isArray(arr) ? arr : []);
+  } catch { return new Set(); }
+}
+function saveColVis(hidden){
+  localStorage.setItem(COL_VIS_KEY, JSON.stringify([...hidden]));
+}
+let hiddenCols = loadColVis();
+
+function applyColVisibility(){
+  const t = $('#instrumentTable');
+  if(!t) return;
+  for(const k of COL_KEYS) t.classList.toggle('hide-'+k, hiddenCols.has(k));
+}
+
+function buildColsPop(){
+  const pop = $('#colsPop');
+  pop.innerHTML = COL_KEYS.map(k =>
+    `<label><input type="checkbox" data-col-toggle="${k}" ${hiddenCols.has(k)?'':'checked'}> ${COL_LABELS[k]}</label>`
+  ).join('');
+}
+
+$('#colsBtn').addEventListener('click', ()=>{
+  const pop = $('#colsPop');
+  if(pop.style.display === 'none'){
+    buildColsPop();
+    pop.style.display = 'block';
+    $('#colsBtn').setAttribute('aria-expanded','true');
+  } else {
+    pop.style.display = 'none';
+    $('#colsBtn').setAttribute('aria-expanded','false');
+  }
+});
+
+$('#colsPop').addEventListener('change', e=>{
+  const cb = e.target.closest('[data-col-toggle]');
+  if(!cb) return;
+  const col = cb.dataset.colToggle;
+  if(cb.checked) hiddenCols.delete(col);
+  else hiddenCols.add(col);
+  saveColVis(hiddenCols);
+  applyColVisibility();
+});
+
+document.addEventListener('click', e=>{
+  if(!e.target.closest('#colsBtn') && !e.target.closest('#colsPop')){
+    $('#colsPop').style.display = 'none';
+    $('#colsBtn').setAttribute('aria-expanded','false');
+  }
+});
+
+applyColVisibility();
 
 /* ── Sort ── */
 $('#instrumentTable thead').addEventListener('click', e=>{

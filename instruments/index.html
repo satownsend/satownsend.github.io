@@ -781,15 +781,12 @@ function drawPie(target, counts){
 function drawYearBars(target, byYear, noun){
   const el = typeof target==='string' ? $(target) : target;
   if(!el || !byYear.size){ if(el) el.innerHTML='<span class="meta">No data</span>'; return; }
-  const currentYear = new Date().getFullYear();
-  const minY = Math.min(...byYear.keys());
-  const maxY = Math.max(currentYear, ...byYear.keys());
-  const series = [];
-  for(let y=minY;y<=maxY;y++) series.push([y, byYear.get(y)||0]);
+  const series = [...byYear.entries()].sort((a,b)=>a[0]-b[0]);
   const total = series.reduce((s,[,n])=>s+n, 0);
   const w=360, h=180, padL=20, padR=10, padT=20, padB=28;
   const max = Math.max(1, ...series.map(s=>s[1]));
-  const bw = (w-padL-padR)/series.length;
+  const bw = Math.min(40, (w-padL-padR)/series.length);
+  const chartW = padL + series.length*bw + padR;
   const bars = series.map(([y,n],i)=>{
     const bh = n===0?0:(h-padT-padB)*(n/max);
     const x = padL+i*bw+bw*0.15;
@@ -801,8 +798,8 @@ function drawYearBars(target, byYear, noun){
       <text x="${(x+wd/2).toFixed(2)}" y="${h-padB+14}" text-anchor="middle" font-size="10" fill="var(--ink-soft)">${y}</text>
     </g>`;
   }).join('');
-  const axis = `<line x1="${padL}" y1="${h-padB}" x2="${w-padR}" y2="${h-padB}" stroke="var(--line)"/>`;
-  el.innerHTML = `<svg viewBox="0 0 ${w} ${h}" width="100%" preserveAspectRatio="xMidYMid meet">${axis}${bars}</svg>
+  const axis = `<line x1="${padL}" y1="${h-padB}" x2="${chartW-padR}" y2="${h-padB}" stroke="var(--line)"/>`;
+  el.innerHTML = `<svg viewBox="0 0 ${chartW} ${h}" width="100%" preserveAspectRatio="xMidYMid meet">${axis}${bars}</svg>
     <div class="stats-total">Total: ${total} ${noun || 'items'}</div>`;
 }
 

@@ -783,22 +783,152 @@ $('#editSaveBtn').onclick = async ()=>{
 function renderMaintenanceLog(instrumentId){
   const logs = maintenanceFor(instrumentId).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   const list = $('#infoMaintenance');
+  const authed = isGsAuthed();
   if(!logs.length){
     list.innerHTML = '<li class="maint-item"><span class="meta">No maintenance logged yet.</span></li>';
     return;
   }
-  list.innerHTML = logs.map(m=>{
+  list.innerHTML = logs.map((m,i)=>{
     const tagClass = ['strings','setup','repair','cleaning'].includes(m.type) ? m.type : 'other';
     const typeLabel = {strings:'String Change', setup:'Setup', repair:'Repair', cleaning:'Cleaning'}[m.type] || m.type || 'Other';
-    return `<li class="maint-item">
+    const actions = authed ? `<span style="display:flex;gap:4px">
+      <button class="ghost tiny maint-edit-btn" data-idx="${i}" style="padding:1px 6px;font-size:11px">edit</button>
+      <button class="ghost tiny maint-del-btn" data-idx="${i}" style="padding:1px 6px;font-size:11px;color:#f59a8a">&times;</button>
+    </span>` : '';
+    return `<li class="maint-item" data-idx="${i}">
       <div class="maint-head">
         <span><span class="maint-tag ${tagClass}">${escapeHtml(typeLabel)}</span></span>
-        <span class="maint-date">${escapeHtml(m.date||'')}</span>
+        <span style="display:flex;align-items:center;gap:8px">
+          <span class="maint-date">${escapeHtml(m.date||'')}</span>
+          ${actions}
+        </span>
       </div>
       ${m.description ? `<div class="maint-desc">${escapeHtml(m.description)}</div>` : ''}
       ${m.cost ? `<div class="maint-cost">$${escapeHtml(m.cost)}</div>` : ''}
     </li>`;
   }).join('');
+}
+
+/* ── Maintenance edit/delete ── */
+function maintLogsForCurrent(){
+  return maintenanceFor(state._currentInstrumentId).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+}
+
+$('#infoMaintenance').addEventListener('click', e=>{
+  const editBtn = e.target.closest('.maint-edit-btn');
+  if(editBtn){
+    const idx = parseInt(editBtn.dataset.idx);
+    const logs = maintLogsForCurrent();
+    const m = logs[idx]; if(!m) return;
+    const li = editBtn.closest('.maint-item');
+    li.innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+        <select class="me-type" style="font-size:13px;padding:5px 7px">
+          <option value="strings"${m.type==='strings'?' selected':''}>String change</option>
+          <option value="setup"${m.type==='setup'?' selected':''}>Setup</option>
+          <option value="repair"${m.type==='repair'?' selected':''}>Repair</option>
+          <option value="cleaning"${m.type==='cleaning'?' selected':''}>Cleaning</option>
+          <option value="other"${!['strings','setup','repair','cleaning'].includes(m.type)?' selected':''}>Other</option>
+        </select>
+        <input type="date" class="me-date" value="${escapeHtml(m.date||'')}" style="font-size:13px;padding:5px 7px">
+        <input type="text" class="me-desc" value="${escapeHtml(m.description||'')}" placeholder="Description…" style="grid-column:1/-1;font-size:13px;padding:5px 7px">
+        <input type="text" class="me-cost" value="${escapeHtml(m.cost||'')}" placeholder="Cost" style="font-size:13px;padding:5px 7px">
+        <div style="display:flex;gap:4px;justify-content:flex-end;align-items:center">
+          <span class="me-status" style="font-size:11px;color:var(--muted)"></span>
+          <button class="ghost tiny me-cancel">Cancel</button>
+          <button class="tiny me-save" data-idx="${idx}">Save</button>
+        </div>
+      </div>`;
+    return;
+  }
+
+  const delBtn = e.target.closest('.maint-del-btn');
+  if(delBtn){
+    const idx = parseInt(delBtn.dataset.idx);
+    if(!confirm('Delete this log entry?')) return;
+    const logs = maintLogsForCurrent();
+    const m = logs[idx]; if(!m) return;
+    deleteMaintenance(m).then(()=>{
+      renderMaintenanceLog(state._currentInstrumentId);
+      renderStats();
+    }).catch(e=> alert('Delete failed: '+e.message));
+    return;
+  }
+
+  const cancelBtn = e.target.closest('.me-cancel');
+  if(cancelBtn){
+    renderMaintenanceLog(state._currentInstrumentId);
+    return;
+  }
+
+  const saveBtn = e.target.closest('.me-save');
+  if(saveBtn){
+    const idx = parseInt(saveBtn.dataset.idx);
+    const logs = maintLogsForCurrent();
+    const m = logs[idx]; if(!m) return;
+    const li = saveBtn.closest('.maint-item');
+    const st = li.querySelector('.me-status');
+    const updated = {
+      instrument_id: m.instrument_id,
+      date: li.querySelector('.me-date').value,
+      type: li.querySelector('.me-type').value,
+      description: li.querySelector('.me-desc').value.trim(),
+      cost: li.querySelector('.me-cost').value.trim(),
+    };
+    st.textContent = 'Saving…';
+    updateMaintenance(m, updated).then(()=>{
+      Object.assign(m, updated);
+      renderMaintenanceLog(state._currentInstrumentId);
+      renderStats();
+    }).catch(e=>{ st.textContent = e.message; });
+    return;
+  }
+});
+
+async function findMaintenanceRowIdx(m){
+  const token = localStorage.getItem(GS_TOKEN_KEY);
+  if(!token) throw new Error('Not signed in');
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/maintenance_log?majorDimension=ROWS`;
+  const r = await fetch(url, { headers:{ Authorization:'Bearer '+token } });
+  if(!r.ok) throw new Error('Failed to read sheet');
+  const data = await r.json();
+  const rows = data.values||[];
+  for(let i=1;i<rows.length;i++){
+    if(rows[i][0]===m.instrument_id && rows[i][1]===m.date && rows[i][2]===m.type && rows[i][3]===(m.description||''))
+      return i;
+  }
+  return -1;
+}
+
+async function deleteMaintenance(m){
+  const token = localStorage.getItem(GS_TOKEN_KEY);
+  if(!token) throw new Error('Not signed in');
+  const rowIdx = await findMaintenanceRowIdx(m);
+  if(rowIdx<0) throw new Error('Row not found in sheet');
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`;
+  await fetch(url, {
+    method:'POST',
+    headers:{ Authorization:'Bearer '+token, 'Content-Type':'application/json' },
+    body: JSON.stringify({ requests:[{ deleteDimension:{ range:{ sheetId: TABS.maintenance_log, dimension:'ROWS', startIndex: rowIdx, endIndex: rowIdx+1 }}}]}),
+  });
+  const idx = state.maintenance.indexOf(m);
+  if(idx>=0) state.maintenance.splice(idx, 1);
+}
+
+async function updateMaintenance(m, updated){
+  const token = localStorage.getItem(GS_TOKEN_KEY);
+  if(!token) throw new Error('Not signed in');
+  const rowIdx = await findMaintenanceRowIdx(m);
+  if(rowIdx<0) throw new Error('Row not found in sheet');
+  const sheetRow = rowIdx+1;
+  const range = `maintenance_log!A${sheetRow}:E${sheetRow}`;
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=RAW`;
+  const r = await fetch(url, {
+    method:'PUT',
+    headers:{ Authorization:'Bearer '+token, 'Content-Type':'application/json' },
+    body: JSON.stringify({ range, majorDimension:'ROWS', values:[[updated.instrument_id, updated.date, updated.type, updated.description, updated.cost||'']] }),
+  });
+  if(!r.ok) throw new Error(`Update failed: ${(await r.text()).slice(0,200)}`);
 }
 
 function renderInstrumentPhotos(instrumentId){

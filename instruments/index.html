@@ -38,6 +38,7 @@
 @media (hover:none){.gallery-nav{opacity:.7}}
 
 /* ── Column visibility ── */
+#instrumentTable.hide-category [data-col="category"],
 #instrumentTable.hide-type [data-col="type"],
 #instrumentTable.hide-year [data-col="year"],
 #instrumentTable.hide-datePurchased [data-col="datePurchased"],
@@ -96,7 +97,7 @@ body.view-only #addMaintenanceBtn{display:none!important}
   tbody td[data-col="name"]:before{display:none}
   tbody td[data-col="type"]{font-size:12px;color:var(--muted);margin-top:-4px}
   tbody td[data-col="type"]:before{display:none}
-  tbody td[data-col]:not([data-col="name"]):not([data-col="type"]):not([data-col="year"]):not([data-col="datePurchased"]){display:none}
+  tbody td[data-col]:not([data-col="name"]):not([data-col="category"]):not([data-col="type"]):not([data-col="year"]):not([data-col="datePurchased"]){display:none}
 }
 </style>
 </head>
@@ -151,6 +152,7 @@ body.view-only #addMaintenanceBtn{display:none!important}
     </div>
     <div class="filter-row">
       <input type="search" id="searchBox" placeholder="Search instruments&hellip;">
+      <select id="categoryFilter"><option value="">All categories</option></select>
       <select id="typeFilter"><option value="">All types</option></select>
       <span style="position:relative">
         <button class="ghost tiny" id="colsBtn" aria-haspopup="true" aria-expanded="false">&#9881; columns</button>
@@ -161,6 +163,7 @@ body.view-only #addMaintenanceBtn{display:none!important}
       <table id="instrumentTable">
         <thead><tr>
           <th data-sort="name" data-col="name">Name <span class="sort-arrow"></span></th>
+          <th data-sort="category" data-col="category">Category <span class="sort-arrow"></span></th>
           <th data-sort="type" data-col="type">Type <span class="sort-arrow"></span></th>
           <th data-sort="year" data-col="year">Year <span class="sort-arrow"></span></th>
           <th data-sort="datePurchased" data-col="datePurchased">Purchased <span class="sort-arrow"></span></th>
@@ -246,6 +249,7 @@ body.view-only #addMaintenanceBtn{display:none!important}
           <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Make</label><input type="text" id="editMake"></div>
           <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Model</label><input type="text" id="editModel"></div>
           <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Year</label><input type="text" id="editYear"></div>
+          <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Category</label><input type="text" id="editCategory" placeholder="e.g. Instrument, Amp, Effect"></div>
           <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Type</label><input type="text" id="editType"></div>
           <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Date Purchased</label><input type="text" id="editDatePurchased"></div>
           <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Price</label><input type="text" id="editPrice"></div>
@@ -318,6 +322,7 @@ body.view-only #addMaintenanceBtn{display:none!important}
       <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Make</label><input type="text" id="addMake" placeholder="e.g. Fender"></div>
       <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Model</label><input type="text" id="addModel" placeholder="e.g. Stratocaster"></div>
       <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Year</label><input type="text" id="addYear" placeholder="e.g. 2019"></div>
+      <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Category</label><input type="text" id="addCategory" placeholder="e.g. Instrument, Amp, Effect"></div>
       <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Type</label><input type="text" id="addType" placeholder="e.g. Electric Guitar"></div>
       <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Date Purchased</label><input type="date" id="addDatePurchased"></div>
       <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Price</label><input type="text" id="addPrice" placeholder="e.g. 1200"></div>
@@ -475,6 +480,7 @@ async function loadData(){
     state.maintenance = csvToObjects(maintRows);
     state.photos = csvToObjects(photoRows);
     setSyncStatus(`${state.instruments.length} instrument${state.instruments.length===1?'':'s'} loaded`, 'ok');
+    buildCategoryFilter();
     buildTypeFilter();
     renderInstruments();
     renderStats();
@@ -600,7 +606,13 @@ function instrumentName(inst){
   return [inst.make, inst.model].filter(Boolean).join(' ') || inst.id || 'Unnamed';
 }
 
-/* ── Type filter ── */
+/* ── Category / type filters ── */
+function buildCategoryFilter(){
+  const cats = [...new Set(state.instruments.map(i=>i.category).filter(Boolean))].sort();
+  const sel = $('#categoryFilter');
+  sel.innerHTML = '<option value="">All categories</option>' +
+    cats.map(c=>`<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+}
 function buildTypeFilter(){
   const types = [...new Set(state.instruments.map(i=>i.type).filter(Boolean))].sort();
   const sel = $('#typeFilter');
@@ -615,12 +627,14 @@ let sortDir = 1;
 /* ── Render instrument table ── */
 function renderInstruments(){
   const q = $('#searchBox').value.toLowerCase().trim();
+  const catFilt = $('#categoryFilter').value;
   const typeFilt = $('#typeFilter').value;
 
   let instruments = state.instruments.filter(inst=>{
+    if(catFilt && inst.category !== catFilt) return false;
     if(typeFilt && inst.type !== typeFilt) return false;
     if(q){
-      const hay = `${inst.make} ${inst.model} ${inst.type} ${inst.year} ${inst.notes}`.toLowerCase();
+      const hay = `${inst.make} ${inst.model} ${inst.type} ${inst.category} ${inst.year} ${inst.notes}`.toLowerCase();
       if(!hay.includes(q)) return false;
     }
     return true;
@@ -661,6 +675,7 @@ function renderInstruments(){
 
     tr.innerHTML = `
       <td data-col="name"><a href="#" class="namelink" data-info="${escapeHtml(inst.id)}">${escapeHtml(name)}</a></td>
+      <td data-col="category" data-label="Category">${escapeHtml(inst.category||'—')}</td>
       <td data-col="type" data-label="Type">${escapeHtml(inst.type||'—')}</td>
       <td data-col="year" data-label="Year">${escapeHtml(inst.year||'—')}</td>
       <td data-col="datePurchased" data-label="Purchased">${escapeHtml(inst.datePurchased||'—')}</td>
@@ -793,6 +808,7 @@ function openInfo(id){
     ['Make', inst.make||'—'],
     ['Model', inst.model||'—'],
     ['Year', inst.year||'—'],
+    ['Category', inst.category||'—'],
     ['Type', inst.type||'—'],
     ['Date Purchased', inst.datePurchased||'—'],
     ['Price', inst.price ? '$'+inst.price : '—'],
@@ -841,6 +857,7 @@ function startEdit(){
   $('#editMake').value = inst.make||'';
   $('#editModel').value = inst.model||'';
   $('#editYear').value = inst.year||'';
+  $('#editCategory').value = inst.category||'';
   $('#editType').value = inst.type||'';
   $('#editDatePurchased').value = inst.datePurchased||'';
   $('#editPrice').value = inst.price||'';
@@ -908,6 +925,7 @@ $('#editSaveBtn').onclick = async ()=>{
       make: $('#editMake').value.trim(),
       model: $('#editModel').value.trim(),
       year: $('#editYear').value.trim(),
+      category: $('#editCategory').value.trim(),
       type: $('#editType').value.trim(),
       datePurchased: $('#editDatePurchased').value.trim(),
       price: $('#editPrice').value.trim(),
@@ -923,6 +941,7 @@ $('#editSaveBtn').onclick = async ()=>{
     Object.assign(inst, updated);
     renderInstruments();
     renderStats();
+    buildCategoryFilter();
     buildTypeFilter();
     cancelEdit();
     openInfo(id);
@@ -1129,8 +1148,8 @@ $('#instrumentTable').addEventListener('click', e=>{
 });
 
 /* ── Column visibility ── */
-const COL_KEYS = ['type','year','datePurchased','stringsGauge','status'];
-const COL_LABELS = {type:'Type', year:'Year', datePurchased:'Purchased', stringsGauge:'Strings', status:'Status'};
+const COL_KEYS = ['category','type','year','datePurchased','stringsGauge','status'];
+const COL_LABELS = {category:'Category', type:'Type', year:'Year', datePurchased:'Purchased', stringsGauge:'Strings', status:'Status'};
 const COL_VIS_KEY = 'instruments.colVisibility';
 
 function loadColVis(){
@@ -1202,6 +1221,7 @@ $('#instrumentTable thead').addEventListener('click', e=>{
 
 /* ── Search / filter ── */
 $('#searchBox').addEventListener('input', renderInstruments);
+$('#categoryFilter').addEventListener('change', renderInstruments);
 $('#typeFilter').addEventListener('change', renderInstruments);
 
 /* ── Themes ── */
@@ -1551,7 +1571,7 @@ async function gsEnsureTab(tabName, gid, headers){
 /* ── Add instrument ── */
 function openAddInstrument(){
   if (!isGsAuthed()){ alert('Sign in with Google first (Settings).'); return; }
-  ['addMake','addModel','addYear','addType','addDatePurchased','addPrice','addPurchasedFrom','addStringsMake','addStringsModel','addStringGauge','addPickups','addStatus','addNotes'].forEach(id=> $(('#'+id)).value = '');
+  ['addMake','addModel','addYear','addCategory','addType','addDatePurchased','addPrice','addPurchasedFrom','addStringsMake','addStringsModel','addStringGauge','addPickups','addStatus','addNotes'].forEach(id=> $(('#'+id)).value = '');
   $('#addStatus-msg').textContent = '';
   $('#addOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
@@ -1579,6 +1599,7 @@ $('#addSaveBtn').onclick = async ()=>{
     const values = [
       id, make, model,
       $('#addYear').value.trim(),
+      $('#addCategory').value.trim(),
       $('#addType').value.trim(),
       $('#addDatePurchased').value,
       $('#addPrice').value.trim(),
@@ -1591,12 +1612,13 @@ $('#addSaveBtn').onclick = async ()=>{
       $('#addNotes').value.trim(),
     ];
     await gsAppendRow(TABS.instruments, values);
-    const headers = ['id','make','model','year','type','datePurchased','price','purchasedFrom','stringsMake','stringsModel','stringsGauge','pickups','status','notes'];
+    const headers = ['id','make','model','year','category','type','datePurchased','price','purchasedFrom','stringsMake','stringsModel','stringsGauge','pickups','status','notes'];
     const inst = {};
     headers.forEach((h,i)=> inst[h] = values[i]||'');
     state.instruments.push(inst);
     renderInstruments();
     renderStats();
+    buildCategoryFilter();
     buildTypeFilter();
     closeAddInstrument();
     openInfo(id);

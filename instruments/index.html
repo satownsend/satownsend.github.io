@@ -15,6 +15,28 @@
 .info-card .info-type{color:var(--accent);font-size:14px;font-weight:600}
 .notes-block{background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:12px;font-size:14px;line-height:1.6;white-space:pre-wrap;margin-top:6px}
 
+/* ── Gallery ── */
+.gallery{margin-bottom:16px;border-radius:14px;overflow:hidden;box-shadow:var(--shadow);border:1px solid var(--line);background:#000}
+.gallery-stage{position:relative;width:100%;aspect-ratio:3/2;background:#0a0a0a;max-height:560px}
+@media (max-width:700px){.gallery-stage{aspect-ratio:4/3;max-height:none}}
+.gallery-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .9s ease;cursor:pointer}
+.gallery-stage[data-fit="contain"] .gallery-img{object-fit:contain}
+.gallery-img.is-current{opacity:1}
+.gallery-caption{position:absolute;left:0;right:0;bottom:0;padding:14px 16px 12px;color:#fff;font-size:13px;
+  background:linear-gradient(to top, rgba(0,0,0,.65), rgba(0,0,0,0));pointer-events:none;text-shadow:0 1px 2px rgba(0,0,0,.7)}
+.gallery-caption .gname{font-weight:600;font-size:15px;display:block;letter-spacing:-.01em}
+.gallery-caption .gmeta{opacity:.85;font-size:12px}
+.gallery-dots{position:absolute;top:10px;right:12px;display:flex;gap:4px;background:rgba(0,0,0,.45);padding:5px 9px;border-radius:999px;color:#fff;font-size:11px;font-variant-numeric:tabular-nums}
+.gallery-fit-btn{position:absolute;top:10px;left:12px;background:rgba(0,0,0,.45);color:#fff;border:1px solid rgba(255,255,255,.15);
+  border-radius:999px;padding:5px 11px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:5px}
+.gallery-nav{position:absolute;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.15);
+  color:#fff;width:36px;height:36px;border-radius:50%;font-size:22px;line-height:1;cursor:pointer;opacity:0;transition:opacity .2s;
+  display:flex;align-items:center;justify-content:center;padding:0}
+.gallery-nav.prev{left:10px}
+.gallery-nav.next{right:10px}
+.gallery-stage:hover .gallery-nav{opacity:1}
+@media (hover:none){.gallery-nav{opacity:.7}}
+
 body.view-only #addInstrumentBtn,
 body.view-only .edit-row,
 body.view-only #photoUploadInput + span,
@@ -95,6 +117,19 @@ body.view-only #addMaintenanceBtn{display:none!important}
   <div class="sync-row">
     <span class="sync-dot" id="syncDot"></span>
     <span id="syncText">loading&hellip;</span>
+  </div>
+
+  <!-- Gallery -->
+  <div class="gallery" id="galleryPanel" style="display:none">
+    <div class="gallery-stage" id="galleryStage">
+      <img class="gallery-img is-current" id="galleryImgA" alt="">
+      <img class="gallery-img" id="galleryImgB" alt="">
+      <div class="gallery-caption" id="galleryCaption"></div>
+      <div class="gallery-dots" id="galleryDots"></div>
+      <button class="gallery-fit-btn" id="galleryFitBtn" title="Toggle full-size vs cropped">&#9986; crop</button>
+      <button class="gallery-nav prev" id="galleryPrev" aria-label="Previous">&#8249;</button>
+      <button class="gallery-nav next" id="galleryNext" aria-label="Next">&#8250;</button>
+    </div>
   </div>
 
   <!-- Instrument list -->
@@ -428,11 +463,112 @@ async function loadData(){
     buildTypeFilter();
     renderInstruments();
     renderStats();
+    refreshGallery();
   } catch(e){
     console.error(e);
     setSyncStatus('failed to load data', 'err');
   }
 }
+
+/* ── Photo gallery ── */
+const GALLERY_FIT_KEY = 'instrumentDashboard.galleryFit';
+const gallery = { pool: [], idx: 0, current: 'A', timer: null, paused: false };
+
+function getGalleryFit(){
+  return localStorage.getItem(GALLERY_FIT_KEY) === 'contain' ? 'contain' : 'cover';
+}
+function applyGalleryFit(){
+  const fit = getGalleryFit();
+  const stage = $('#galleryStage');
+  if(stage) stage.dataset.fit = fit;
+  const btn = $('#galleryFitBtn');
+  if(btn) btn.textContent = fit === 'contain' ? '🖼 full' : '✂ crop';
+}
+
+function buildGalleryPool(){
+  const items = [];
+  for(const ph of state.photos){
+    if(!ph.key) continue;
+    const inst = state.instruments.find(i=>i.id===ph.instrument_id);
+    const name = inst ? instrumentName(inst) : '';
+    items.push({ instrumentId: ph.instrument_id, name, key: ph.key, date: ph.date||'', caption: ph.caption||'' });
+  }
+  for(let i = items.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [items[i], items[j]] = [items[j], items[i]];
+  }
+  gallery.pool = items;
+  gallery.idx = 0;
+}
+
+function showGalleryPhoto(item){
+  if(!item) return;
+  const a = $('#galleryImgA'), b = $('#galleryImgB');
+  const incoming = gallery.current === 'A' ? b : a;
+  const outgoing = gallery.current === 'A' ? a : b;
+  incoming.onload = ()=>{
+    incoming.classList.add('is-current');
+    outgoing.classList.remove('is-current');
+    gallery.current = gallery.current === 'A' ? 'B' : 'A';
+    gallery._errStreak = 0;
+  };
+  incoming.onerror = ()=>{
+    gallery._errStreak = (gallery._errStreak||0) + 1;
+    if(gallery._errStreak < gallery.pool.length) advanceGallery(1);
+  };
+  incoming.src = r2PublicUrl(item.key);
+  const cap = $('#galleryCaption');
+  cap.innerHTML = `<span class="gname">${escapeHtml(item.name)}</span><span class="gmeta">${escapeHtml(item.date)}${item.caption ? ' · '+escapeHtml(item.caption) : ''}</span>`;
+  $('#galleryDots').textContent = `${gallery.idx + 1} / ${gallery.pool.length}`;
+}
+
+function advanceGallery(step){
+  if(!gallery.pool.length) return;
+  gallery.idx = (gallery.idx + step + gallery.pool.length) % gallery.pool.length;
+  showGalleryPhoto(gallery.pool[gallery.idx]);
+}
+
+function startGallery(){
+  if(!gallery.pool.length || gallery.timer) return;
+  showGalleryPhoto(gallery.pool[gallery.idx]);
+  gallery.timer = setInterval(()=>{ if(!gallery.paused) advanceGallery(1); }, 5000);
+}
+
+function stopGallery(){
+  if(gallery.timer){ clearInterval(gallery.timer); gallery.timer = null; }
+}
+
+function refreshGallery(){
+  stopGallery();
+  buildGalleryPool();
+  const panel = $('#galleryPanel');
+  if(gallery.pool.length){
+    panel.style.display = '';
+    applyGalleryFit();
+    startGallery();
+  } else {
+    panel.style.display = 'none';
+  }
+}
+
+$('#galleryPrev').onclick = ()=> advanceGallery(-1);
+$('#galleryNext').onclick = ()=> advanceGallery(1);
+$('#galleryFitBtn').onclick = ()=>{
+  const next = getGalleryFit() === 'cover' ? 'contain' : 'cover';
+  localStorage.setItem(GALLERY_FIT_KEY, next);
+  applyGalleryFit();
+};
+$('#galleryStage').addEventListener('mouseenter', ()=>{ gallery.paused = true; });
+$('#galleryStage').addEventListener('mouseleave', ()=>{ gallery.paused = false; });
+document.addEventListener('visibilitychange', ()=>{ gallery.paused = document.hidden; });
+
+/* ── Gallery click → open instrument detail ── */
+$('#galleryStage').addEventListener('click', e=>{
+  if(e.target.closest('button')) return;
+  const img = $('#galleryImgA').classList.contains('is-current') ? $('#galleryImgA') : $('#galleryImgB');
+  const item = gallery.pool[gallery.idx];
+  if(item && item.instrumentId) openInfo(item.instrumentId);
+});
 
 /* ── Sync status ── */
 function setSyncStatus(msg, cls){
@@ -1491,6 +1627,7 @@ $('#photoUploadInput').addEventListener('change', async function(){
   if (ok){
     statusEl.textContent = `${ok} photo${ok>1?'s':''} uploaded.`;
     renderInstrumentPhotos(instrumentId);
+    refreshGallery();
   }
   setTimeout(()=>{ statusEl.style.display = 'none'; }, 3000);
 });

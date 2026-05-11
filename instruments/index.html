@@ -160,22 +160,61 @@ body.view-only #addMaintenanceBtn{display:none!important}
 <div class="info-overlay" id="infoOverlay">
   <div class="info-card">
     <button class="info-close" id="infoClose">&times;</button>
-    <h2 id="infoName"></h2>
-    <div id="infoType" class="info-type"></div>
-
-    <div class="info-section">
-      <h3>Details</h3>
-      <div class="info-grid" id="infoDetails"></div>
+    <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding-right:28px">
+      <div><h2 id="infoName" style="margin:0"></h2><div id="infoType" class="info-type"></div></div>
+      <button class="ghost tiny edit-row" id="editBtn">Edit</button>
     </div>
 
-    <div class="info-section" id="infoStringsSection">
-      <h3>Current Strings</h3>
-      <div class="info-grid" id="infoStrings"></div>
+    <!-- Read-only view -->
+    <div id="infoReadView">
+      <div class="info-section">
+        <h3>Details</h3>
+        <div class="info-grid" id="infoDetails"></div>
+      </div>
+
+      <div class="info-section" id="infoStringsSection">
+        <h3>Current Strings</h3>
+        <div class="info-grid" id="infoStrings"></div>
+      </div>
+
+      <div class="info-section" id="infoNotesSection">
+        <h3>Notes</h3>
+        <div class="notes-block" id="infoNotes"></div>
+      </div>
     </div>
 
-    <div class="info-section" id="infoNotesSection">
-      <h3>Notes</h3>
-      <div class="notes-block" id="infoNotes"></div>
+    <!-- Edit view -->
+    <div id="infoEditView" style="display:none">
+      <div class="info-section">
+        <h3>Details</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Make</label><input type="text" id="editMake"></div>
+          <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Model</label><input type="text" id="editModel"></div>
+          <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Year</label><input type="text" id="editYear"></div>
+          <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Type</label><input type="text" id="editType"></div>
+          <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Date Purchased</label><input type="text" id="editDatePurchased"></div>
+          <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Price</label><input type="text" id="editPrice"></div>
+          <div style="grid-column:1/-1"><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Purchased From</label><input type="text" id="editPurchasedFrom"></div>
+          <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Status</label><input type="text" id="editStatus"></div>
+        </div>
+      </div>
+      <div class="info-section">
+        <h3>Current Strings</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Brand</label><input type="text" id="editStringsMake"></div>
+          <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Model</label><input type="text" id="editStringsModel"></div>
+          <div style="grid-column:1/-1"><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Gauge</label><input type="text" id="editStringGauge"></div>
+        </div>
+      </div>
+      <div class="info-section">
+        <h3>Notes</h3>
+        <textarea id="editNotes" rows="3" style="width:100%"></textarea>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;align-items:center">
+        <span id="editStatusMsg" style="font-size:12px;color:var(--muted)"></span>
+        <button class="ghost tiny" id="editCancelBtn">Cancel</button>
+        <button class="tiny" id="editSaveBtn">Save</button>
+      </div>
     </div>
 
     <div class="info-section" id="infoMaintenanceSection">
@@ -621,9 +660,109 @@ function openInfo(id){
 
   $('#maintDate').value = new Date().toISOString().slice(0,10);
 
+  $('#infoReadView').style.display = '';
+  $('#infoEditView').style.display = 'none';
+  $('#editBtn').style.display = '';
+
   $('#infoOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
 }
+
+/* ── Edit instrument ── */
+function startEdit(){
+  const id = state._currentInstrumentId;
+  const inst = state.instruments.find(x=>x.id===id);
+  if(!inst) return;
+  $('#editMake').value = inst.make||'';
+  $('#editModel').value = inst.model||'';
+  $('#editYear').value = inst.year||'';
+  $('#editType').value = inst.type||'';
+  $('#editDatePurchased').value = inst.datePurchased||'';
+  $('#editPrice').value = inst.price||'';
+  $('#editPurchasedFrom').value = inst.purchasedFrom||'';
+  $('#editStringsMake').value = inst.stringsMake||'';
+  $('#editStringsModel').value = inst.stringsModel||'';
+  $('#editStringGauge').value = inst.stringGauge||'';
+  $('#editStatus').value = inst.status||'';
+  $('#editNotes').value = inst.notes||'';
+  $('#editStatusMsg').textContent = '';
+  $('#infoReadView').style.display = 'none';
+  $('#infoEditView').style.display = '';
+  $('#editBtn').style.display = 'none';
+}
+
+function cancelEdit(){
+  $('#infoReadView').style.display = '';
+  $('#infoEditView').style.display = 'none';
+  $('#editBtn').style.display = '';
+}
+
+async function gsUpdateRow(instrumentId, updatedValues){
+  const token = localStorage.getItem(GS_TOKEN_KEY);
+  if(!token) throw new Error('Not signed in to Google');
+  const getUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/instruments?majorDimension=ROWS`;
+  const gr = await fetch(getUrl, { headers:{ Authorization:'Bearer '+token } });
+  if(!gr.ok) throw new Error('Failed to read sheet');
+  const data = await gr.json();
+  const rows = data.values||[];
+  if(!rows.length) throw new Error('Sheet has no headers');
+  const headers = rows[0];
+  const idCol = headers.indexOf('id');
+  if(idCol<0) throw new Error('No id column found');
+  let rowIdx = -1;
+  for(let i=1;i<rows.length;i++){
+    if(rows[i][idCol]===instrumentId){ rowIdx=i+1; break; }
+  }
+  if(rowIdx<0) throw new Error('Instrument not found in sheet');
+  const newRow = headers.map(h=> updatedValues[h]!==undefined ? updatedValues[h] : '');
+  const range = `instruments!A${rowIdx}:${String.fromCharCode(64+headers.length)}${rowIdx}`;
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=RAW`;
+  const r = await fetch(url, {
+    method:'PUT',
+    headers:{ Authorization:'Bearer '+token, 'Content-Type':'application/json' },
+    body: JSON.stringify({ range, majorDimension:'ROWS', values:[newRow] }),
+  });
+  if(!r.ok) throw new Error(`Update failed: ${(await r.text()).slice(0,200)}`);
+}
+
+$('#editBtn').onclick = ()=>{
+  if(!isGsAuthed()){ alert('Sign in with Google first (Settings).'); return; }
+  startEdit();
+};
+$('#editCancelBtn').onclick = cancelEdit;
+$('#editSaveBtn').onclick = async ()=>{
+  const id = state._currentInstrumentId;
+  const inst = state.instruments.find(x=>x.id===id);
+  if(!inst) return;
+  const st = $('#editStatusMsg');
+  st.textContent = 'Saving…';
+  try {
+    const updated = {
+      id,
+      make: $('#editMake').value.trim(),
+      model: $('#editModel').value.trim(),
+      year: $('#editYear').value.trim(),
+      type: $('#editType').value.trim(),
+      datePurchased: $('#editDatePurchased').value.trim(),
+      price: $('#editPrice').value.trim(),
+      purchasedFrom: $('#editPurchasedFrom').value.trim(),
+      stringsMake: $('#editStringsMake').value.trim(),
+      stringsModel: $('#editStringsModel').value.trim(),
+      stringGauge: $('#editStringGauge').value.trim(),
+      status: $('#editStatus').value.trim(),
+      notes: $('#editNotes').value.trim(),
+    };
+    await gsUpdateRow(id, updated);
+    Object.assign(inst, updated);
+    renderInstruments();
+    renderStats();
+    buildTypeFilter();
+    cancelEdit();
+    openInfo(id);
+  } catch(e){
+    st.textContent = e.message;
+  }
+};
 
 function renderMaintenanceLog(instrumentId){
   const logs = maintenanceFor(instrumentId).sort((a,b)=>(b.date||'').localeCompare(a.date||''));

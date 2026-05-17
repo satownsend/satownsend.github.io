@@ -4,16 +4,28 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#08191c">
-<title>Instruments</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎸</text></svg>">
+<title>Wildlife</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦉</text></svg>">
 
 <link rel="preconnect" href="https://use.typekit.net" crossorigin>
 <link rel="stylesheet" href="https://use.typekit.net/twp1irx.css">
 <link rel="stylesheet" href="/shared/styles.css">
 <style>
-/* ── Instrument-specific styles ── */
-.info-card .info-type{color:var(--accent);font-size:14px;font-weight:600}
-.notes-block{background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:12px;font-size:14px;line-height:1.6;white-space:pre-wrap;margin-top:6px}
+/* ── Wildlife-specific styles ── */
+
+/* ── Column visibility ── */
+#sightingTable.hide-category [data-col="category"],
+#sightingTable.hide-date [data-col="date"],
+#sightingTable.hide-location [data-col="location"],
+#sightingTable.hide-firstOfYear [data-col="firstOfYear"]{display:none}
+.cols-pop{position:absolute;top:calc(100% + 6px);left:0;background:var(--panel);border:1px solid var(--line);border-radius:8px;
+  padding:10px 12px;box-shadow:var(--shadow);z-index:5;min-width:180px}
+.cols-pop label{display:flex;align-items:center;gap:8px;padding:4px 0;color:var(--ink);font-size:13px;cursor:pointer}
+.cols-pop label input[type=checkbox]{margin:0}
+
+/* ── First-of-year badge ── */
+.foy-badge{display:inline-block;padding:1px 7px;border-radius:999px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;
+  background:rgba(77,208,193,.15);color:var(--accent);border:1px solid rgba(77,208,193,.3)}
 
 /* ── Gallery ── */
 .gallery{margin-bottom:16px;border-radius:14px;overflow:hidden;box-shadow:var(--shadow);border:1px solid var(--line);background:#000}
@@ -37,25 +49,12 @@
 .gallery-stage:hover .gallery-nav{opacity:1}
 @media (hover:none){.gallery-nav{opacity:.7}}
 
-/* ── Column visibility ── */
-#instrumentTable.hide-category [data-col="category"],
-#instrumentTable.hide-type [data-col="type"],
-#instrumentTable.hide-year [data-col="year"],
-#instrumentTable.hide-datePurchased [data-col="datePurchased"],
-#instrumentTable.hide-stringsGauge [data-col="stringsGauge"],
-#instrumentTable.hide-status [data-col="status"]{display:none}
-.cols-pop{position:absolute;top:calc(100% + 6px);left:0;background:var(--panel);border:1px solid var(--line);border-radius:8px;
-  padding:10px 12px;box-shadow:var(--shadow);z-index:5;min-width:180px}
-.cols-pop label{display:flex;align-items:center;gap:8px;padding:4px 0;color:var(--ink);font-size:13px;cursor:pointer}
-.cols-pop label input[type=checkbox]{margin:0}
-
-body.view-only #addInstrumentBtn,
+body.view-only #addSightingBtn,
 body.view-only .edit-row,
 body.view-only #photoUploadInput + span,
 body.view-only label:has(#photoUploadInput),
 body.view-only #lightboxDelete,
-body.view-only #lightboxCaption,
-body.view-only #addMaintenanceBtn{display:none!important}
+body.view-only #lightboxCaption{display:none!important}
 
 /* ── Photo grid ── */
 .photo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
@@ -66,38 +65,54 @@ body.view-only #addMaintenanceBtn{display:none!important}
 .photo-grid .ph .date{position:absolute;left:0;right:0;bottom:0;background:linear-gradient(transparent,rgba(0,0,0,.75));color:#fff;font-size:10px;padding:14px 6px 4px;text-align:center;font-weight:600;letter-spacing:.04em}
 .photo-grid .empty{grid-column:1/-1;color:var(--muted);font-size:13px;font-style:italic;text-align:center;padding:18px}
 
-/* ── Maintenance log ── */
-.maint-list{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px}
-.maint-item{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:13px}
-.maint-item .maint-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
-.maint-item .maint-type{font-weight:600;color:var(--ink)}
-.maint-item .maint-date{color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
-.maint-item .maint-desc{color:var(--ink-soft);margin-top:4px;line-height:1.4}
-.maint-item .maint-cost{color:var(--accent);font-size:12px;margin-top:2px}
-.maint-tag{display:inline-block;padding:1px 7px;border-radius:999px;font-size:10px;font-weight:600;white-space:nowrap;text-transform:uppercase;letter-spacing:.04em}
-.maint-tag.strings{background:rgba(77,208,193,.15);color:var(--accent);border:1px solid rgba(77,208,193,.3)}
-.maint-tag.setup{background:rgba(240,168,104,.15);color:var(--accent2);border:1px solid rgba(240,168,104,.3)}
-.maint-tag.repair{background:rgba(245,154,138,.15);color:#f59a8a;border:1px solid rgba(245,154,138,.3)}
-.maint-tag.cleaning{background:rgba(126,196,204,.15);color:var(--cool);border:1px solid rgba(126,196,204,.3)}
-.maint-tag.other{background:var(--chip);color:var(--ink-soft);border:1px solid var(--chip-line)}
+/* ── Notes block ── */
+.notes-block{background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:12px;font-size:14px;line-height:1.6;white-space:pre-wrap;margin-top:6px}
 
-/* ── Add maintenance form ── */
-.maint-form{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
-.maint-form input,.maint-form select{font-size:13px;padding:6px 8px}
-.maint-form .maint-form-full{grid-column:1/-1}
+/* ── Calendar ── */
+.cal-wrap{margin-top:16px}
+.cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.cal-header h3{margin:0}
+.cal-nav{display:flex;gap:4px}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.cal-day-head{text-align:center;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:4px 0}
+.cal-day{aspect-ratio:1;background:var(--panel2);border:1px solid var(--line2);border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:3px 2px;font-size:11px;min-height:36px;position:relative;cursor:default}
+.cal-day.empty{background:transparent;border-color:transparent}
+.cal-day .day-num{color:var(--muted);font-size:10px;font-weight:600;margin-bottom:1px}
+.cal-day .day-count{font-size:14px;font-weight:700;color:var(--accent);line-height:1}
+.cal-day.today{border-color:var(--accent)}
+.cal-day.has-sighting{background:rgba(77,208,193,.08);cursor:pointer}
+.cal-day.has-sighting:hover{background:rgba(77,208,193,.15)}
+.cal-day .day-dot{width:5px;height:5px;border-radius:50%;background:var(--accent);margin-top:1px}
+.cal-tooltip{position:fixed;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 10px;box-shadow:var(--shadow);z-index:50;font-size:12px;max-width:220px;pointer-events:none}
+.cal-tooltip .ct-item{padding:2px 0;color:var(--ink)}
+.cal-tooltip .ct-foy{color:var(--accent);font-weight:600}
 
-/* ── Instrument mobile ── */
+/* ── Seasonal patterns ── */
+.season-grid{display:grid;grid-template-columns:auto repeat(12,1fr);gap:1px;font-size:11px;margin-top:8px}
+.season-label{padding:4px 8px 4px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px;color:var(--ink)}
+.season-cell{padding:4px;text-align:center;border-radius:3px;min-width:28px;color:var(--muted);font-size:10px}
+.season-cell.active{background:rgba(77,208,193,.2);color:var(--accent);font-weight:600}
+.season-cell.header{font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+
+/* ── Life list ── */
+.life-list{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:4px}
+.life-item{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;font-size:13px}
+.life-item .li-species{font-weight:600;color:var(--ink)}
+.life-item .li-meta{color:var(--muted);font-size:12px;text-align:right}
+.life-item .li-count{color:var(--accent);font-weight:700;font-size:14px}
+
+/* ── Mobile ── */
 @media (max-width:700px){
   table,thead,tbody,tr,th,td{display:block;width:100%}
   thead{display:none}
   tbody tr{padding:12px 14px;margin-bottom:8px;border:1px solid var(--line);border-radius:10px;background:var(--panel);position:relative;display:block}
   tbody td{padding:2px 0;white-space:normal;border:none;background:transparent!important}
   tbody td:before{content:attr(data-label);display:inline-block;width:80px;color:var(--muted);font-size:12px;font-weight:600}
-  tbody td[data-col="name"]{font-size:16px;margin-bottom:4px}
-  tbody td[data-col="name"]:before{display:none}
-  tbody td[data-col="type"]{font-size:12px;color:var(--muted);margin-top:-4px}
-  tbody td[data-col="type"]:before{display:none}
-  tbody td[data-col]:not([data-col="name"]):not([data-col="category"]):not([data-col="type"]):not([data-col="year"]):not([data-col="datePurchased"]){display:none}
+  tbody td[data-col="species"]{font-size:16px;margin-bottom:4px}
+  tbody td[data-col="species"]:before{display:none}
+  tbody td[data-col="category"]{font-size:12px;color:var(--muted);margin-top:-4px}
+  tbody td[data-col="category"]:before{display:none}
+  tbody td[data-col]:not([data-col="species"]):not([data-col="category"]):not([data-col="date"]):not([data-col="location"]){display:none}
 }
 </style>
 </head>
@@ -108,11 +123,11 @@ body.view-only #addMaintenanceBtn{display:none!important}
   <header>
     <div>
       <div style="display:flex;align-items:baseline;gap:16px;flex-wrap:wrap">
-        <h1>Instruments</h1>
+        <h1>Wildlife</h1>
         <nav style="display:flex;gap:4px;font-size:13px">
           <a href="/plants" style="color:var(--muted);text-decoration:none;padding:4px 10px;border:1px solid var(--line);border-radius:6px;transition:color .15s,border-color .15s">Plants</a>
           <a href="/beer" style="color:var(--muted);text-decoration:none;padding:4px 10px;border:1px solid var(--line);border-radius:6px;transition:color .15s,border-color .15s">Beer</a>
-          <a href="/wildlife" style="color:var(--muted);text-decoration:none;padding:4px 10px;border:1px solid var(--line);border-radius:6px;transition:color .15s,border-color .15s">Wildlife</a>
+          <a href="/instruments" style="color:var(--muted);text-decoration:none;padding:4px 10px;border:1px solid var(--line);border-radius:6px;transition:color .15s,border-color .15s">Instruments</a>
           <a href="/" style="color:var(--muted);text-decoration:none;padding:4px 10px;border:1px solid var(--line);border-radius:6px;transition:color .15s,border-color .15s">Home</a>
         </nav>
       </div>
@@ -145,35 +160,61 @@ body.view-only #addMaintenanceBtn{display:none!important}
     </div>
   </div>
 
-  <!-- Instrument list -->
+  <!-- Sighting list -->
   <div class="panel">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
-      <h2 style="margin:0">Collection</h2>
-      <button id="addInstrumentBtn" class="tiny">+ Add Instrument</button>
+      <h2 style="margin:0">Sightings</h2>
+      <button id="addSightingBtn" class="tiny">+ Log Sighting</button>
     </div>
     <div class="filter-row">
-      <input type="search" id="searchBox" placeholder="Search instruments&hellip;">
+      <input type="search" id="searchBox" placeholder="Search sightings&hellip;">
       <select id="categoryFilter"><option value="">All categories</option></select>
-      <select id="typeFilter"><option value="">All types</option></select>
+      <select id="foyFilter"><option value="">All sightings</option><option value="yes">First of year only</option></select>
       <span style="position:relative">
         <button class="ghost tiny" id="colsBtn" aria-haspopup="true" aria-expanded="false">&#9881; columns</button>
         <div class="cols-pop" id="colsPop" role="dialog" aria-label="Show/hide columns" style="display:none"></div>
       </span>
     </div>
     <div class="table-scroll">
-      <table id="instrumentTable">
+      <table id="sightingTable">
         <thead><tr>
-          <th data-sort="name" data-col="name">Name <span class="sort-arrow"></span></th>
+          <th data-sort="species" data-col="species">Species <span class="sort-arrow"></span></th>
           <th data-sort="category" data-col="category">Category <span class="sort-arrow"></span></th>
-          <th data-sort="type" data-col="type">Type <span class="sort-arrow"></span></th>
-          <th data-sort="year" data-col="year">Year <span class="sort-arrow"></span></th>
-          <th data-sort="datePurchased" data-col="datePurchased">Purchased <span class="sort-arrow"></span></th>
-          <th data-sort="stringsGauge" data-col="stringsGauge">Strings <span class="sort-arrow"></span></th>
-          <th data-sort="status" data-col="status">Status <span class="sort-arrow"></span></th>
+          <th data-sort="date" data-col="date">Date <span class="sort-arrow"></span></th>
+          <th data-sort="location" data-col="location">Location <span class="sort-arrow"></span></th>
+          <th data-sort="firstOfYear" data-col="firstOfYear">First of Year <span class="sort-arrow"></span></th>
         </tr></thead>
-        <tbody id="instrumentBody"></tbody>
+        <tbody id="sightingBody"></tbody>
       </table>
     </div>
+  </div>
+
+  <!-- Calendar -->
+  <div class="panel" style="margin-top:16px">
+    <div class="cal-header">
+      <h2 style="margin:0">Calendar</h2>
+      <div class="cal-nav">
+        <button class="ghost tiny" id="calPrev">&lsaquo;</button>
+        <span id="calLabel" style="min-width:120px;text-align:center;font-size:14px;font-weight:600;padding:0 8px"></span>
+        <button class="ghost tiny" id="calNext">&rsaquo;</button>
+      </div>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+  </div>
+
+  <!-- Life List -->
+  <div class="panel" style="margin-top:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <h2 style="margin:0">Life List</h2>
+      <span id="lifeListCount" style="color:var(--muted);font-size:13px"></span>
+    </div>
+    <ul class="life-list" id="lifeList"></ul>
+  </div>
+
+  <!-- Seasonal Patterns -->
+  <div class="panel" style="margin-top:16px">
+    <h2>Seasonal Patterns</h2>
+    <div class="season-grid" id="seasonGrid"></div>
   </div>
 
   <!-- Stats -->
@@ -186,26 +227,19 @@ body.view-only #addMaintenanceBtn{display:none!important}
         <div id="chartCategories"></div>
       </div>
       <div>
-        <div class="stats-chart-label">By type</div>
-        <div id="chartTypes"></div>
+        <div class="stats-chart-label">Sightings per month</div>
+        <div id="chartMonths"></div>
       </div>
     </div>
     <div class="grid2" style="margin-top:20px">
       <div>
-        <div class="stats-chart-label">By make</div>
-        <div id="chartMakes"></div>
+        <div class="stats-chart-label">Top species</div>
+        <div id="chartSpecies"></div>
       </div>
       <div>
-        <div class="stats-chart-label">Maintenance by type</div>
-        <div id="chartMaintTypes"></div>
-      </div>
-    </div>
-    <div class="grid2" style="margin-top:20px">
-      <div>
-        <div class="stats-chart-label">Acquisitions per year</div>
+        <div class="stats-chart-label">Sightings per year</div>
         <div id="chartYears"></div>
       </div>
-      <div></div>
     </div>
   </div>
 
@@ -222,7 +256,7 @@ body.view-only #addMaintenanceBtn{display:none!important}
   <div class="info-card">
     <button class="info-close" id="infoClose">&times;</button>
     <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding-right:28px">
-      <div><h2 id="infoName" style="margin:0"></h2><div id="infoType" class="info-type"></div></div>
+      <div><h2 id="infoSpecies" style="margin:0"></h2><div id="infoCategory" style="color:var(--accent);font-size:14px;font-weight:600"></div></div>
       <button class="ghost tiny edit-row" id="editBtn">Edit</button>
     </div>
 
@@ -231,16 +265,6 @@ body.view-only #addMaintenanceBtn{display:none!important}
       <div class="info-section">
         <h3>Details</h3>
         <div class="info-grid" id="infoDetails"></div>
-      </div>
-
-      <div class="info-section" id="infoStringsSection">
-        <h3>Current Strings</h3>
-        <div class="info-grid" id="infoStrings"></div>
-      </div>
-
-      <div class="info-section" id="infoPickupsSection" style="display:none">
-        <h3>Pickups</h3>
-        <div class="notes-block" id="infoPickups"></div>
       </div>
 
       <div class="info-section" id="infoNotesSection">
@@ -254,28 +278,12 @@ body.view-only #addMaintenanceBtn{display:none!important}
       <div class="info-section">
         <h3>Details</h3>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-          <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Make</label><input type="text" id="editMake"></div>
-          <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Model</label><input type="text" id="editModel"></div>
-          <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Year</label><input type="text" id="editYear"></div>
-          <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Category</label><input type="text" id="editCategory" placeholder="e.g. Instrument, Amp, Effect"></div>
-          <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Type</label><input type="text" id="editType"></div>
-          <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Date Purchased</label><input type="text" id="editDatePurchased"></div>
-          <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Price</label><input type="text" id="editPrice"></div>
-          <div style="grid-column:1/-1"><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Purchased From</label><input type="text" id="editPurchasedFrom"></div>
-          <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Status</label><input type="text" id="editStatus"></div>
+          <div style="grid-column:1/-1"><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Species</label><input type="text" id="editSpecies"></div>
+          <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Category</label><input type="text" id="editCategory"></div>
+          <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Date</label><input type="date" id="editDate"></div>
+          <div style="grid-column:1/-1"><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Location</label><input type="text" id="editLocation"></div>
+          <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">First of Year</label><select id="editFirstOfYear"><option value="">No</option><option value="yes">Yes</option></select></div>
         </div>
-      </div>
-      <div class="info-section">
-        <h3>Current Strings</h3>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-          <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Brand</label><input type="text" id="editStringsMake"></div>
-          <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Model</label><input type="text" id="editStringsModel"></div>
-          <div style="grid-column:1/-1"><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Gauge</label><input type="text" id="editStringGauge"></div>
-        </div>
-      </div>
-      <div class="info-section">
-        <h3>Pickups</h3>
-        <input type="text" id="editPickups" placeholder="e.g. Seymour Duncan Quarter Pound">
       </div>
       <div class="info-section">
         <h3>Notes</h3>
@@ -285,25 +293,6 @@ body.view-only #addMaintenanceBtn{display:none!important}
         <span id="editStatusMsg" style="font-size:12px;color:var(--muted)"></span>
         <button class="ghost tiny" id="editCancelBtn">Cancel</button>
         <button class="tiny" id="editSaveBtn">Save</button>
-      </div>
-    </div>
-
-    <div class="info-section" id="infoMaintenanceSection">
-      <h3>Maintenance Log</h3>
-      <ul class="maint-list" id="infoMaintenance"></ul>
-      <div class="maint-form edit-row" id="maintForm">
-        <select id="maintType">
-          <option value="strings">String change</option>
-          <option value="setup">Setup</option>
-          <option value="repair">Repair</option>
-          <option value="cleaning">Cleaning</option>
-          <option value="other">Other</option>
-        </select>
-        <input type="date" id="maintDate">
-        <input type="text" id="maintDesc" placeholder="Description&hellip;" class="maint-form-full">
-        <input type="text" id="maintCost" placeholder="Cost (optional)" style="width:auto">
-        <button id="addMaintenanceBtn" class="ghost tiny">+ Log</button>
-        <span id="maintStatus" style="font-size:12px;color:var(--muted)"></span>
       </div>
     </div>
 
@@ -321,29 +310,21 @@ body.view-only #addMaintenanceBtn{display:none!important}
   </div>
 </div>
 
-<!-- Add instrument overlay -->
+<!-- Add sighting overlay -->
 <div class="settings-overlay" id="addOverlay">
   <div class="settings-card" style="max-width:520px">
     <button class="info-close" id="addClose">&times;</button>
-    <h2 style="margin:0 0 16px;font-size:18px;text-transform:none;letter-spacing:0;color:var(--ink)">Add Instrument</h2>
+    <h2 style="margin:0 0 16px;font-size:18px;text-transform:none;letter-spacing:0;color:var(--ink)">Log Sighting</h2>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Make</label><input type="text" id="addMake" placeholder="e.g. Fender"></div>
-      <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Model</label><input type="text" id="addModel" placeholder="e.g. Stratocaster"></div>
-      <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Year</label><input type="text" id="addYear" placeholder="e.g. 2019"></div>
-      <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Category</label><input type="text" id="addCategory" placeholder="e.g. Instrument, Amp, Effect"></div>
-      <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Type</label><input type="text" id="addType" placeholder="e.g. Electric Guitar"></div>
-      <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Date Purchased</label><input type="date" id="addDatePurchased"></div>
-      <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Price</label><input type="text" id="addPrice" placeholder="e.g. 1200"></div>
-      <div style="grid-column:1/-1"><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Purchased From</label><input type="text" id="addPurchasedFrom" placeholder="e.g. Guitar Center"></div>
-      <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Strings Make</label><input type="text" id="addStringsMake" placeholder="e.g. Ernie Ball"></div>
-      <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Strings Model</label><input type="text" id="addStringsModel" placeholder="e.g. Regular Slinky"></div>
-      <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">String Gauge</label><input type="text" id="addStringGauge" placeholder="e.g. 10-46"></div>
-      <div style="grid-column:1/-1"><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Pickups</label><input type="text" id="addPickups" placeholder="e.g. Seymour Duncan Quarter Pound"></div>
-      <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Status</label><input type="text" id="addStatus" placeholder="e.g. active"></div>
+      <div style="grid-column:1/-1"><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Species</label><input type="text" id="addSpecies" placeholder="e.g. Ruby-throated Hummingbird"></div>
+      <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Category</label><input type="text" id="addCategory" placeholder="e.g. Bird, Mammal, Insect"></div>
+      <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Date</label><input type="date" id="addDate"></div>
+      <div style="grid-column:1/-1"><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Location</label><input type="text" id="addLocation" placeholder="e.g. Backyard feeder"></div>
+      <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">First of Year?</label><select id="addFirstOfYear"><option value="">No</option><option value="yes">Yes</option></select></div>
       <div style="grid-column:1/-1"><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Notes</label><textarea id="addNotes" rows="2" placeholder="Any notes…"></textarea></div>
     </div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;align-items:center">
-      <span id="addStatus-msg" style="font-size:12px;color:var(--muted)"></span>
+      <span id="addStatusMsg" style="font-size:12px;color:var(--muted)"></span>
       <button class="ghost tiny" id="addCancel">Cancel</button>
       <button id="addSaveBtn" class="tiny">Save</button>
     </div>
@@ -402,6 +383,9 @@ body.view-only #addMaintenanceBtn{display:none!important}
   </div>
 </div>
 
+<!-- Calendar tooltip -->
+<div class="cal-tooltip" id="calTooltip" style="display:none"></div>
+
 <script>
 /* ── Helpers ── */
 const $ = s => document.querySelector(s);
@@ -447,11 +431,10 @@ function csvToObjects(rows){
 }
 
 /* ── Sheet config ── */
-const SHEET_ID = '1dWWWIFBpWvNOIBuxA1EIoaffKckDFhsHvPDzhbxdnYg';
+const SHEET_ID = '1Uq2Fgzron3yDZqYFWsUx1cYigp4w8GmQP2pmk33DG54';
 const TABS = {
-  instruments:        0,
-  maintenance_log:    834291047,
-  instrument_photos:  617283945,
+  sightings:        0,
+  wildlife_photos:  518293746,
 };
 
 /* ── R2 config ── */
@@ -460,7 +443,7 @@ const R2_CONFIG = {
   accountId: '5321847b835f166ceacebf2c8c142610',
   publicUrl: 'https://pub-59a926166fd84970bea75caf38a52d27.r2.dev',
 };
-const R2_CREDS_KEY = 'instrumentDashboard.r2creds';
+const R2_CREDS_KEY = 'wildlifeDashboard.r2creds';
 
 function sheetCsvUrl(gid){
   return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${gid}`;
@@ -474,24 +457,24 @@ async function fetchTab(gid){
 }
 
 /* ── State ── */
-const state = { instruments:[], maintenance:[], photos:[] };
+const state = { sightings:[], photos:[] };
 
 async function loadData(){
   setSyncStatus('loading…','');
   try{
-    const [instrRows, maintRows, photoRows] = await Promise.all([
-      fetchTab(TABS.instruments),
-      fetchTab(TABS.maintenance_log).catch(()=>[]),
-      fetchTab(TABS.instrument_photos).catch(()=>[]),
+    const [sightingRows, photoRows] = await Promise.all([
+      fetchTab(TABS.sightings),
+      fetchTab(TABS.wildlife_photos).catch(()=>[]),
     ]);
-    state.instruments = csvToObjects(instrRows);
-    state.maintenance = csvToObjects(maintRows);
+    state.sightings = csvToObjects(sightingRows);
     state.photos = csvToObjects(photoRows);
-    setSyncStatus(`${state.instruments.length} instrument${state.instruments.length===1?'':'s'} loaded`, 'ok');
+    setSyncStatus(`${state.sightings.length} sighting${state.sightings.length===1?'':'s'} loaded`, 'ok');
     buildCategoryFilter();
-    buildTypeFilter();
-    renderInstruments();
+    renderSightings();
     renderStats();
+    renderCalendar();
+    renderLifeList();
+    renderSeasonalPatterns();
     refreshGallery();
   } catch(e){
     console.error(e);
@@ -500,7 +483,7 @@ async function loadData(){
 }
 
 /* ── Photo gallery ── */
-const GALLERY_FIT_KEY = 'instrumentDashboard.galleryFit';
+const GALLERY_FIT_KEY = 'wildlifeDashboard.galleryFit';
 const gallery = { pool: [], idx: 0, current: 'A', timer: null, paused: false };
 
 function getGalleryFit(){
@@ -518,9 +501,9 @@ function buildGalleryPool(){
   const items = [];
   for(const ph of state.photos){
     if(!ph.key) continue;
-    const inst = state.instruments.find(i=>i.id===ph.instrument_id);
-    const name = inst ? instrumentName(inst) : '';
-    items.push({ instrumentId: ph.instrument_id, name, key: ph.key, date: ph.date||'', caption: ph.caption||'' });
+    const s = state.sightings.find(i=>i.id===ph.sighting_id);
+    const name = s ? s.species : '';
+    items.push({ sightingId: ph.sighting_id, name, key: ph.key, date: ph.date||'', caption: ph.caption||'' });
   }
   for(let i = items.length - 1; i > 0; i--){
     const j = Math.floor(Math.random() * (i + 1));
@@ -591,12 +574,10 @@ $('#galleryStage').addEventListener('mouseenter', ()=>{ gallery.paused = true; }
 $('#galleryStage').addEventListener('mouseleave', ()=>{ gallery.paused = false; });
 document.addEventListener('visibilitychange', ()=>{ gallery.paused = document.hidden; });
 
-/* ── Gallery click → open instrument detail ── */
 $('#galleryStage').addEventListener('click', e=>{
   if(e.target.closest('button')) return;
-  const img = $('#galleryImgA').classList.contains('is-current') ? $('#galleryImgA') : $('#galleryImgB');
   const item = gallery.pool[gallery.idx];
-  if(item && item.instrumentId) openInfo(item.instrumentId);
+  if(item && item.sightingId) openInfo(item.sightingId);
 });
 
 /* ── Sync status ── */
@@ -606,61 +587,43 @@ function setSyncStatus(msg, cls){
 }
 
 /* ── Lookups ── */
-function maintenanceFor(id){ return state.maintenance.filter(m=>m.instrument_id===id); }
-function photosFor(id){ return state.photos.filter(p=>p.instrument_id===id); }
+function photosFor(id){ return state.photos.filter(p=>p.sighting_id===id); }
 function r2PublicUrl(key){ return `${R2_CONFIG.publicUrl}/${key}`; }
 
-function instrumentName(inst){
-  return [inst.make, inst.model].filter(Boolean).join(' ') || inst.id || 'Unnamed';
-}
-
-/* ── Category / type filters ── */
+/* ── Category filter ── */
 function buildCategoryFilter(){
-  const cats = [...new Set(state.instruments.map(i=>i.category).filter(Boolean))].sort();
+  const cats = [...new Set(state.sightings.map(s=>s.category).filter(Boolean))].sort();
   const sel = $('#categoryFilter');
   sel.innerHTML = '<option value="">All categories</option>' +
     cats.map(c=>`<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
 }
-function buildTypeFilter(){
-  const types = [...new Set(state.instruments.map(i=>i.type).filter(Boolean))].sort();
-  const sel = $('#typeFilter');
-  sel.innerHTML = '<option value="">All types</option>' +
-    types.map(t=>`<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
-}
 
 /* ── Sort state ── */
-let sortCol = 'name';
-let sortDir = 1;
+let sortCol = 'date';
+let sortDir = -1;
 
-/* ── Render instrument table ── */
-function renderInstruments(){
+/* ── Render sighting table ── */
+function renderSightings(){
   const q = $('#searchBox').value.toLowerCase().trim();
   const catFilt = $('#categoryFilter').value;
-  const typeFilt = $('#typeFilter').value;
+  const foyFilt = $('#foyFilter').value;
 
-  let instruments = state.instruments.filter(inst=>{
-    if(catFilt && inst.category !== catFilt) return false;
-    if(typeFilt && inst.type !== typeFilt) return false;
+  let sightings = state.sightings.filter(s=>{
+    if(catFilt && s.category !== catFilt) return false;
+    if(foyFilt === 'yes' && s.firstOfYear !== 'yes') return false;
     if(q){
-      const hay = `${inst.make} ${inst.model} ${inst.type} ${inst.category} ${inst.year} ${inst.notes}`.toLowerCase();
+      const hay = `${s.species} ${s.category} ${s.location} ${s.notes}`.toLowerCase();
       if(!hay.includes(q)) return false;
     }
     return true;
   });
 
-  instruments.sort((a,b)=>{
-    let va, vb;
-    if(sortCol === 'name'){
-      va = instrumentName(a); vb = instrumentName(b);
-    } else {
-      va = a[sortCol]||''; vb = b[sortCol]||'';
-    }
-    const na = parseFloat(va), nb = parseFloat(vb);
-    if(!isNaN(na) && !isNaN(nb)) return (na-nb)*sortDir;
+  sightings.sort((a,b)=>{
+    let va = a[sortCol]||'', vb = b[sortCol]||'';
     return va.localeCompare(vb)*sortDir;
   });
 
-  $$('#instrumentTable thead th').forEach(th=>{
+  $$('#sightingTable thead th').forEach(th=>{
     const arrow = th.querySelector('.sort-arrow');
     if(th.dataset.sort === sortCol){
       arrow.textContent = sortDir > 0 ? '▲' : '▼';
@@ -670,25 +633,21 @@ function renderInstruments(){
     }
   });
 
-  const tbody = $('#instrumentBody');
+  const tbody = $('#sightingBody');
   tbody.innerHTML = '';
 
-  for(const inst of instruments){
+  for(const s of sightings){
     const tr = document.createElement('tr');
-    tr.dataset.id = inst.id;
+    tr.dataset.id = s.id;
     tr.style.cursor = 'pointer';
-    const name = instrumentName(inst);
-    const stringsDisplay = [inst.stringsMake, inst.stringsModel, inst.stringsGauge].filter(Boolean).join(' ') || '—';
-    const statusDisplay = inst.status || '—';
+    const foyHtml = s.firstOfYear === 'yes' ? '<span class="foy-badge">First</span>' : '—';
 
     tr.innerHTML = `
-      <td data-col="name"><a href="#" class="namelink" data-info="${escapeHtml(inst.id)}">${escapeHtml(name)}</a></td>
-      <td data-col="category" data-label="Category">${escapeHtml(inst.category||'—')}</td>
-      <td data-col="type" data-label="Type">${escapeHtml(inst.type||'—')}</td>
-      <td data-col="year" data-label="Year">${escapeHtml(inst.year||'—')}</td>
-      <td data-col="datePurchased" data-label="Purchased">${escapeHtml(inst.datePurchased||'—')}</td>
-      <td data-col="stringsGauge" data-label="Strings">${escapeHtml(stringsDisplay)}</td>
-      <td data-col="status" data-label="Status">${escapeHtml(statusDisplay)}</td>
+      <td data-col="species"><a href="#" class="namelink" data-info="${escapeHtml(s.id)}">${escapeHtml(s.species||'Unknown')}</a></td>
+      <td data-col="category" data-label="Category">${escapeHtml(s.category||'—')}</td>
+      <td data-col="date" data-label="Date">${escapeHtml(s.date||'—')}</td>
+      <td data-col="location" data-label="Location">${escapeHtml(s.location||'—')}</td>
+      <td data-col="firstOfYear" data-label="First">${foyHtml}</td>
     `;
     tbody.appendChild(tr);
   }
@@ -696,99 +655,107 @@ function renderInstruments(){
 
 /* ── Render stats ── */
 function renderStats(){
-  const instruments = state.instruments;
-  const total = instruments.length;
+  const sightings = state.sightings;
+  const total = sightings.length;
 
-  const typeCounts = {};
-  instruments.forEach(i=>{ if(i.type) typeCounts[i.type] = (typeCounts[i.type]||0)+1; });
-
-  const makeCounts = {};
-  instruments.forEach(i=>{ if(i.make) makeCounts[i.make] = (makeCounts[i.make]||0)+1; });
-  const topMake = Object.entries(makeCounts).sort((a,b)=>b[1]-a[1])[0];
-
-  const prices = instruments.map(i=>parseFloat(i.price)).filter(n=>!isNaN(n));
-  const totalValue = prices.reduce((a,b)=>a+b, 0);
-
-  const maintTotal = state.maintenance.length;
-  const stringChanges = state.maintenance.filter(m=>m.type==='strings').length;
-
-  const lastMaint = state.maintenance
-    .filter(m=>m.date)
-    .sort((a,b)=>(b.date||'').localeCompare(a.date||''))[0];
-
-  $('#statsCards').innerHTML = `
-    <div class="stat-card"><div class="stat-num">${total}</div><div class="stat-label">Instruments</div></div>
-    <div class="stat-card"><div class="stat-num">${totalValue ? '$'+Math.round(totalValue).toLocaleString() : '—'}</div><div class="stat-label">Total Value</div></div>
-    <div class="stat-card"><div class="stat-num">${topMake ? escapeHtml(topMake[0]) : '—'}</div><div class="stat-label">Top Make${topMake ? ' ('+topMake[1]+')' : ''}</div></div>
-    <div class="stat-card"><div class="stat-num">${stringChanges}</div><div class="stat-label">String Changes</div></div>
-    <div class="stat-card"><div class="stat-num">${maintTotal}</div><div class="stat-label">Maintenance Logs</div></div>
-    <div class="stat-card"><div class="stat-num">${lastMaint ? escapeHtml(lastMaint.date) : '—'}</div><div class="stat-label">Last Maintenance</div></div>
-  `;
+  const speciesSet = new Set(sightings.map(s=>s.species).filter(Boolean));
+  const foyCount = sightings.filter(s=>s.firstOfYear==='yes').length;
 
   const catCounts = {};
-  instruments.forEach(i=>{ if(i.category) catCounts[i.category] = (catCounts[i.category]||0)+1; });
-  drawPie('#chartCategories', new Map(Object.entries(catCounts)));
-  drawPie('#chartTypes', new Map(Object.entries(typeCounts)));
-  drawPie('#chartMakes', new Map(Object.entries(makeCounts)));
+  sightings.forEach(s=>{ if(s.category) catCounts[s.category] = (catCounts[s.category]||0)+1; });
 
-  const maintTypeCounts = {};
-  state.maintenance.forEach(m=>{ const t=m.type||'other'; maintTypeCounts[t]=(maintTypeCounts[t]||0)+1; });
-  drawPie('#chartMaintTypes', new Map(Object.entries(maintTypeCounts)));
+  const locationCounts = {};
+  sightings.forEach(s=>{ if(s.location) locationCounts[s.location] = (locationCounts[s.location]||0)+1; });
+  const topLocation = Object.entries(locationCounts).sort((a,b)=>b[1]-a[1])[0];
+
+  const thisYear = new Date().getFullYear();
+  const thisYearSightings = sightings.filter(s=>(s.date||'').startsWith(String(thisYear)));
+  const thisYearSpecies = new Set(thisYearSightings.map(s=>s.species).filter(Boolean));
+
+  $('#statsCards').innerHTML = `
+    <div class="stat-card"><div class="stat-num">${total}</div><div class="stat-label">Total Sightings</div></div>
+    <div class="stat-card"><div class="stat-num">${speciesSet.size}</div><div class="stat-label">Species (All Time)</div></div>
+    <div class="stat-card"><div class="stat-num">${thisYearSpecies.size}</div><div class="stat-label">Species (${thisYear})</div></div>
+    <div class="stat-card"><div class="stat-num">${foyCount}</div><div class="stat-label">First of Year</div></div>
+    <div class="stat-card"><div class="stat-num">${Object.keys(catCounts).length}</div><div class="stat-label">Categories</div></div>
+    <div class="stat-card"><div class="stat-num">${topLocation ? escapeHtml(topLocation[0]) : '—'}</div><div class="stat-label">Top Location${topLocation ? ' ('+topLocation[1]+')' : ''}</div></div>
+  `;
+
+  drawPie('#chartCategories', new Map(Object.entries(catCounts)));
+
+  const speciesCounts = {};
+  sightings.forEach(s=>{ if(s.species) speciesCounts[s.species] = (speciesCounts[s.species]||0)+1; });
+  const topSpecies = Object.entries(speciesCounts).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  drawPie('#chartSpecies', new Map(topSpecies));
+
+  const byMonth = new Map();
+  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  sightings.forEach(s=>{
+    const m = parseInt((s.date||'').slice(5,7), 10);
+    if(m>=1 && m<=12){
+      const label = monthNames[m-1];
+      byMonth.set(label, (byMonth.get(label)||0)+1);
+    }
+  });
+  const monthSeries = monthNames.filter(m=>byMonth.has(m)).map(m=>[m, byMonth.get(m)]);
+  drawBars('#chartMonths', monthSeries, 'sightings');
 
   const byYear = new Map();
-  instruments.forEach(i=>{
-    const y = parseInt((i.datePurchased||'').slice(0,4), 10);
+  sightings.forEach(s=>{
+    const y = parseInt((s.date||'').slice(0,4), 10);
     if(y && y>1900) byYear.set(y, (byYear.get(y)||0)+1);
   });
-  drawYearBars('#chartYears', byYear, 'instruments');
+  drawYearBars('#chartYears', byYear, 'sightings');
 }
 
 /* ── Chart helpers ── */
 const palette = ['#4dd0c1','#f0a868','#7ec4cc','#e08a4a','#8fc06a','#d2554a','#9aafc4','#d49858','#b08090','#5d8a3e','#c2d6d9','#993028'];
 
-function drawPie(target, counts){
+function drawPie(target, dataMap){
   const el = typeof target==='string' ? $(target) : target;
-  if(!el) return;
-  if(!counts.size){ el.innerHTML = '<span class="meta">No data</span>'; return; }
-  const sorted = [...counts.entries()].sort((a,b)=>b[1]-a[1]);
-  const total = sorted.reduce((s,[,n])=>s+n, 0);
-  const slices = []; let otherN = 0;
-  for(const [label,n] of sorted){
-    if(slices.length >= 10 || (sorted.length>8 && n/total<0.03)) otherN += n;
-    else slices.push([label, n]);
-  }
-  if(otherN>0) slices.push(['other', otherN]);
-  const size=160, r=70, cx=size/2, cy=size/2;
+  if(!el || !dataMap.size){ if(el) el.innerHTML='<span class="meta">No data</span>'; return; }
+  const entries = [...dataMap.entries()].sort((a,b)=>b[1]-a[1]);
+  const total = entries.reduce((s,[,n])=>s+n, 0);
+  const w=260, h=260, cx=w/2, cy=h/2, r=Math.min(cx,cy)-4;
   let angle = -Math.PI/2;
-  const paths = slices.map(([label,n],i)=>{
+  const slices = entries.map(([label, n], i)=>{
     const frac = n/total;
-    const pct = Math.round(frac*100);
-    const tip = `<title>${escapeHtml(label)} — ${n} (${pct}%)</title>`;
-    if(slices.length===1) return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${palette[0]}" stroke="var(--panel)" stroke-width="1.5">${tip}</circle>`;
-    const a2 = angle + frac*Math.PI*2;
-    const large = frac>0.5?1:0;
-    const x1=cx+r*Math.cos(angle), y1=cy+r*Math.sin(angle);
-    const x2=cx+r*Math.cos(a2), y2=cy+r*Math.sin(a2);
-    angle = a2;
-    return `<path d="M ${cx} ${cy} L ${x1.toFixed(2)} ${y1.toFixed(2)} A ${r} ${r} 0 ${large} 1 ${x2.toFixed(2)} ${y2.toFixed(2)} Z" fill="${palette[i%palette.length]}" stroke="var(--panel)" stroke-width="1.5" class="pie-slice">${tip}</path>`;
+    const start = angle;
+    angle += frac * 2 * Math.PI;
+    const end = angle;
+    const x1 = cx + r*Math.cos(start);
+    const y1 = cy + r*Math.sin(start);
+    const x2 = cx + r*Math.cos(end);
+    const y2 = cy + r*Math.sin(end);
+    const largeArc = frac > 0.5 ? 1 : 0;
+    const pathD = frac >= 1
+      ? `M${cx-r},${cy}A${r},${r},0,1,1,${cx+r},${cy}A${r},${r},0,1,1,${cx-r},${cy}`
+      : `M${cx},${cy}L${x1.toFixed(2)},${y1.toFixed(2)}A${r},${r},0,${largeArc},1,${x2.toFixed(2)},${y2.toFixed(2)}Z`;
+    return `<path d="${pathD}" fill="${palette[i%palette.length]}"/>`;
   }).join('');
-  const legend = slices.map(([label,n],i)=>{
-    const pct = Math.round(n/total*100);
-    return `<div class="lr"><span class="dot" style="background:${palette[i%palette.length]}"></span><span>${escapeHtml(label)}</span><span class="num">${n} · ${pct}%</span></div>`;
-  }).join('');
-  el.innerHTML = `<div class="stats-pie"><svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">${paths}</svg><div class="stats-legend">${legend}</div></div>`;
+  const legend = entries.map(([label, n], i)=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:2px 0">
+      <div style="width:10px;height:10px;border-radius:3px;background:${palette[i%palette.length]};flex:none"></div>
+      <span style="font-size:12px;color:var(--ink);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(label)}</span>
+      <span style="font-size:12px;color:var(--muted);white-space:nowrap">${(n/total*100).toFixed(1)}%</span>
+    </div>
+  `).join('');
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+      <svg viewBox="0 0 ${w} ${h}" width="120" height="120">${slices}</svg>
+      <div style="flex:1;min-width:100px">${legend}</div>
+    </div>`;
 }
 
-function drawYearBars(target, byYear, noun){
+function drawBars(target, series, noun){
   const el = typeof target==='string' ? $(target) : target;
-  if(!el || !byYear.size){ if(el) el.innerHTML='<span class="meta">No data</span>'; return; }
-  const series = [...byYear.entries()].sort((a,b)=>a[0]-b[0]);
+  if(!el || !series.length){ if(el) el.innerHTML='<span class="meta">No data</span>'; return; }
   const total = series.reduce((s,[,n])=>s+n, 0);
   const w=360, h=180, padL=20, padR=10, padT=20, padB=28;
   const max = Math.max(1, ...series.map(s=>s[1]));
   const bw = Math.min(40, (w-padL-padR)/series.length);
   const chartW = padL + series.length*bw + padR;
-  const bars = series.map(([y,n],i)=>{
+  const bars = series.map(([label,n],i)=>{
     const bh = n===0?0:(h-padT-padB)*(n/max);
     const x = padL+i*bw+bw*0.15;
     const yy = h-padB-bh;
@@ -796,7 +763,7 @@ function drawYearBars(target, byYear, noun){
     return `<g>
       <rect x="${x.toFixed(2)}" y="${yy.toFixed(2)}" width="${wd.toFixed(2)}" height="${bh.toFixed(2)}" fill="var(--accent)" rx="2"/>
       ${n?`<text x="${(x+wd/2).toFixed(2)}" y="${(yy-4).toFixed(2)}" text-anchor="middle" font-size="10" fill="var(--ink-soft)">${n}</text>`:''}
-      <text x="${(x+wd/2).toFixed(2)}" y="${h-padB+14}" text-anchor="middle" font-size="10" fill="var(--ink-soft)">${y}</text>
+      <text x="${(x+wd/2).toFixed(2)}" y="${h-padB+14}" text-anchor="middle" font-size="10" fill="var(--ink-soft)">${label}</text>
     </g>`;
   }).join('');
   const axis = `<line x1="${padL}" y1="${h-padB}" x2="${chartW-padR}" y2="${h-padB}" stroke="var(--line)"/>`;
@@ -804,50 +771,186 @@ function drawYearBars(target, byYear, noun){
     <div class="stats-total">Total: ${total} ${noun || 'items'}</div>`;
 }
 
-/* ── Instrument detail ── */
-function openInfo(id){
-  const inst = state.instruments.find(x=>x.id===id);
-  if(!inst) return;
+function drawYearBars(target, byYear, noun){
+  const el = typeof target==='string' ? $(target) : target;
+  if(!el || !byYear.size){ if(el) el.innerHTML='<span class="meta">No data</span>'; return; }
+  const series = [...byYear.entries()].sort((a,b)=>a[0]-b[0]);
+  drawBars(target, series, noun);
+}
 
-  $('#infoName').textContent = instrumentName(inst);
-  $('#infoType').textContent = inst.type || '';
+/* ── Calendar ── */
+let calYear, calMonth;
+{
+  const now = new Date();
+  calYear = now.getFullYear();
+  calMonth = now.getMonth();
+}
+
+function renderCalendar(){
+  const label = new Date(calYear, calMonth).toLocaleString('default', { month: 'long', year: 'numeric' });
+  $('#calLabel').textContent = label;
+
+  const firstDay = new Date(calYear, calMonth, 1).getDay();
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const today = new Date();
+  const isCurrentMonth = today.getFullYear() === calYear && today.getMonth() === calMonth;
+
+  const monthStr = String(calMonth + 1).padStart(2, '0');
+  const yearStr = String(calYear);
+
+  const dayHeads = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  let html = dayHeads.map(d => `<div class="cal-day-head">${d}</div>`).join('');
+
+  for(let i = 0; i < firstDay; i++) html += '<div class="cal-day empty"></div>';
+
+  for(let d = 1; d <= daysInMonth; d++){
+    const dateStr = `${yearStr}-${monthStr}-${String(d).padStart(2,'0')}`;
+    const daySightings = state.sightings.filter(s => s.date === dateStr);
+    const isToday = isCurrentMonth && d === today.getDate();
+    const classes = ['cal-day'];
+    if(isToday) classes.push('today');
+    if(daySightings.length) classes.push('has-sighting');
+
+    html += `<div class="${classes.join(' ')}" data-date="${dateStr}">
+      <span class="day-num">${d}</span>
+      ${daySightings.length ? `<span class="day-count">${daySightings.length}</span>` : ''}
+    </div>`;
+  }
+
+  $('#calGrid').innerHTML = html;
+}
+
+$('#calPrev').onclick = ()=>{
+  calMonth--;
+  if(calMonth < 0){ calMonth = 11; calYear--; }
+  renderCalendar();
+};
+$('#calNext').onclick = ()=>{
+  calMonth++;
+  if(calMonth > 11){ calMonth = 0; calYear++; }
+  renderCalendar();
+};
+
+/* Calendar tooltips */
+$('#calGrid').addEventListener('mouseenter', e=>{
+  const day = e.target.closest('.cal-day.has-sighting');
+  if(!day) return;
+  const dateStr = day.dataset.date;
+  const sightings = state.sightings.filter(s => s.date === dateStr);
+  if(!sightings.length) return;
+  const tip = $('#calTooltip');
+  tip.innerHTML = sightings.map(s =>
+    `<div class="ct-item${s.firstOfYear==='yes'?' ct-foy':''}">${escapeHtml(s.species||'Unknown')}${s.firstOfYear==='yes' ? ' ⭐' : ''}</div>`
+  ).join('');
+  const rect = day.getBoundingClientRect();
+  tip.style.left = rect.left + 'px';
+  tip.style.top = (rect.bottom + 6) + 'px';
+  tip.style.display = 'block';
+}, true);
+
+$('#calGrid').addEventListener('mouseleave', e=>{
+  const day = e.target.closest('.cal-day.has-sighting');
+  if(day) $('#calTooltip').style.display = 'none';
+}, true);
+
+/* Calendar day click → filter table */
+$('#calGrid').addEventListener('click', e=>{
+  const day = e.target.closest('.cal-day.has-sighting');
+  if(!day) return;
+  const dateStr = day.dataset.date;
+  $('#searchBox').value = dateStr;
+  renderSightings();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+
+/* ── Life List ── */
+function renderLifeList(){
+  const speciesMap = {};
+  state.sightings.forEach(s=>{
+    if(!s.species) return;
+    if(!speciesMap[s.species]){
+      speciesMap[s.species] = { count: 0, firstDate: s.date||'', category: s.category||'' };
+    }
+    speciesMap[s.species].count++;
+    if(s.date && (!speciesMap[s.species].firstDate || s.date < speciesMap[s.species].firstDate)){
+      speciesMap[s.species].firstDate = s.date;
+    }
+  });
+
+  const sorted = Object.entries(speciesMap).sort((a,b) => a[0].localeCompare(b[0]));
+  $('#lifeListCount').textContent = `${sorted.length} species`;
+  const list = $('#lifeList');
+  if(!sorted.length){
+    list.innerHTML = '<li class="life-item"><span class="meta">No sightings logged yet.</span></li>';
+    return;
+  }
+  list.innerHTML = sorted.map(([species, info]) => `
+    <li class="life-item">
+      <div>
+        <div class="li-species">${escapeHtml(species)}</div>
+        <div class="li-meta">${escapeHtml(info.category)}${info.firstDate ? ' · first seen '+escapeHtml(info.firstDate) : ''}</div>
+      </div>
+      <div class="li-count">${info.count}</div>
+    </li>
+  `).join('');
+}
+
+/* ── Seasonal Patterns ── */
+function renderSeasonalPatterns(){
+  const monthNames = ['J','F','M','A','M','J','J','A','S','O','N','D'];
+  const speciesMonths = {};
+
+  state.sightings.forEach(s=>{
+    if(!s.species || !s.date) return;
+    const m = parseInt(s.date.slice(5,7), 10);
+    if(m < 1 || m > 12) return;
+    if(!speciesMonths[s.species]) speciesMonths[s.species] = new Set();
+    speciesMonths[s.species].add(m);
+  });
+
+  const sorted = Object.entries(speciesMonths).sort((a,b) => a[0].localeCompare(b[0]));
+  const grid = $('#seasonGrid');
+  if(!sorted.length){
+    grid.innerHTML = '<span class="meta" style="grid-column:1/-1">No data yet.</span>';
+    return;
+  }
+
+  let html = '<div class="season-label"></div>';
+  html += monthNames.map(m => `<div class="season-cell header">${m}</div>`).join('');
+
+  for(const [species, months] of sorted){
+    html += `<div class="season-label" title="${escapeHtml(species)}">${escapeHtml(species)}</div>`;
+    for(let m = 1; m <= 12; m++){
+      const active = months.has(m);
+      html += `<div class="season-cell${active ? ' active' : ''}">${active ? '●' : ''}</div>`;
+    }
+  }
+
+  grid.innerHTML = html;
+}
+
+/* ── Sighting detail ── */
+function openInfo(id){
+  const s = state.sightings.find(x=>x.id===id);
+  if(!s) return;
+
+  $('#infoSpecies').textContent = s.species || 'Unknown';
+  $('#infoCategory').textContent = s.category || '';
 
   const details = [
-    ['Make', inst.make||'—'],
-    ['Model', inst.model||'—'],
-    ['Year', inst.year||'—'],
-    ['Category', inst.category||'—'],
-    ['Type', inst.type||'—'],
-    ['Date Purchased', inst.datePurchased||'—'],
-    ['Price', inst.price ? '$'+inst.price : '—'],
-    ['Purchased From', inst.purchasedFrom||'—'],
-    ['Status', inst.status||'—'],
+    ['Species', s.species||'—'],
+    ['Category', s.category||'—'],
+    ['Date', s.date||'—'],
+    ['Location', s.location||'—'],
+    ['First of Year', s.firstOfYear==='yes' ? 'Yes ⭐' : 'No'],
   ];
   $('#infoDetails').innerHTML = details
     .map(([k,v])=>`<dt>${escapeHtml(k)}</dt><dd>${escapeHtml(v)}</dd>`)
     .join('');
 
-  const hasStrings = inst.stringsMake || inst.stringsModel || inst.stringsGauge;
-  $('#infoStringsSection').style.display = hasStrings ? '' : 'none';
-  if(hasStrings){
-    const sf = [
-      ['Brand', inst.stringsMake||'—'],
-      ['Model', inst.stringsModel||'—'],
-      ['Gauge', inst.stringsGauge||'—'],
-    ];
-    $('#infoStrings').innerHTML = sf.map(([k,v])=>`<dt>${escapeHtml(k)}</dt><dd>${escapeHtml(v)}</dd>`).join('');
-  }
-
-  const hasPickups = inst.pickups;
-  $('#infoPickupsSection').style.display = hasPickups ? '' : 'none';
-  if(hasPickups) $('#infoPickups').textContent = inst.pickups;
-
-  showNotes('#infoNotesSection', '#infoNotes', inst.notes);
-  renderMaintenanceLog(id);
-  renderInstrumentPhotos(id);
-  state._currentInstrumentId = id;
-
-  $('#maintDate').value = new Date().toISOString().slice(0,10);
+  showNotes('#infoNotesSection', '#infoNotes', s.notes);
+  renderSightingPhotos(id);
+  state._currentSightingId = id;
 
   $('#infoReadView').style.display = '';
   $('#infoEditView').style.display = 'none';
@@ -857,25 +960,17 @@ function openInfo(id){
   document.body.style.overflow = 'hidden';
 }
 
-/* ── Edit instrument ── */
+/* ── Edit sighting ── */
 function startEdit(){
-  const id = state._currentInstrumentId;
-  const inst = state.instruments.find(x=>x.id===id);
-  if(!inst) return;
-  $('#editMake').value = inst.make||'';
-  $('#editModel').value = inst.model||'';
-  $('#editYear').value = inst.year||'';
-  $('#editCategory').value = inst.category||'';
-  $('#editType').value = inst.type||'';
-  $('#editDatePurchased').value = inst.datePurchased||'';
-  $('#editPrice').value = inst.price||'';
-  $('#editPurchasedFrom').value = inst.purchasedFrom||'';
-  $('#editStringsMake').value = inst.stringsMake||'';
-  $('#editStringsModel').value = inst.stringsModel||'';
-  $('#editStringGauge').value = inst.stringsGauge||'';
-  $('#editStatus').value = inst.status||'';
-  $('#editPickups').value = inst.pickups||'';
-  $('#editNotes').value = inst.notes||'';
+  const id = state._currentSightingId;
+  const s = state.sightings.find(x=>x.id===id);
+  if(!s) return;
+  $('#editSpecies').value = s.species||'';
+  $('#editCategory').value = s.category||'';
+  $('#editDate').value = s.date||'';
+  $('#editLocation').value = s.location||'';
+  $('#editFirstOfYear').value = s.firstOfYear||'';
+  $('#editNotes').value = s.notes||'';
   $('#editStatusMsg').textContent = '';
   $('#infoReadView').style.display = 'none';
   $('#infoEditView').style.display = '';
@@ -888,69 +983,33 @@ function cancelEdit(){
   $('#editBtn').style.display = '';
 }
 
-async function gsUpdateRow(instrumentId, updatedValues){
-  const token = localStorage.getItem(GS_TOKEN_KEY);
-  if(!token) throw new Error('Not signed in to Google');
-  const getUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/instruments?majorDimension=ROWS`;
-  const gr = await fetch(getUrl, { headers:{ Authorization:'Bearer '+token } });
-  if(!gr.ok) throw new Error('Failed to read sheet');
-  const data = await gr.json();
-  const rows = data.values||[];
-  if(!rows.length) throw new Error('Sheet has no headers');
-  const headers = rows[0];
-  const idCol = headers.indexOf('id');
-  if(idCol<0) throw new Error('No id column found');
-  let rowIdx = -1;
-  for(let i=1;i<rows.length;i++){
-    if(rows[i][idCol]===instrumentId){ rowIdx=i+1; break; }
-  }
-  if(rowIdx<0) throw new Error('Instrument not found in sheet');
-  const newRow = headers.map(h=> updatedValues[h]!==undefined ? updatedValues[h] : '');
-  const range = `instruments!A${rowIdx}:${String.fromCharCode(64+headers.length)}${rowIdx}`;
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=RAW`;
-  const r = await fetch(url, {
-    method:'PUT',
-    headers:{ Authorization:'Bearer '+token, 'Content-Type':'application/json' },
-    body: JSON.stringify({ range, majorDimension:'ROWS', values:[newRow] }),
-  });
-  if(!r.ok) throw new Error(`Update failed: ${(await r.text()).slice(0,200)}`);
-}
-
-$('#editBtn').onclick = ()=>{
-  if(!isGsAuthed()){ alert('Sign in with Google first (Settings).'); return; }
-  startEdit();
-};
+$('#editBtn').onclick = startEdit;
 $('#editCancelBtn').onclick = cancelEdit;
+
 $('#editSaveBtn').onclick = async ()=>{
-  const id = state._currentInstrumentId;
-  const inst = state.instruments.find(x=>x.id===id);
-  if(!inst) return;
+  const id = state._currentSightingId;
+  const s = state.sightings.find(x=>x.id===id);
+  if(!s) return;
   const st = $('#editStatusMsg');
   st.textContent = 'Saving…';
   try {
     const updated = {
       id,
-      make: $('#editMake').value.trim(),
-      model: $('#editModel').value.trim(),
-      year: $('#editYear').value.trim(),
+      species: $('#editSpecies').value.trim(),
       category: $('#editCategory').value.trim(),
-      type: $('#editType').value.trim(),
-      datePurchased: $('#editDatePurchased').value.trim(),
-      price: $('#editPrice').value.trim(),
-      purchasedFrom: $('#editPurchasedFrom').value.trim(),
-      stringsMake: $('#editStringsMake').value.trim(),
-      stringsModel: $('#editStringsModel').value.trim(),
-      stringsGauge: $('#editStringGauge').value.trim(),
-      pickups: $('#editPickups').value.trim(),
-      status: $('#editStatus').value.trim(),
+      date: $('#editDate').value.trim(),
+      location: $('#editLocation').value.trim(),
       notes: $('#editNotes').value.trim(),
+      firstOfYear: $('#editFirstOfYear').value,
     };
     await gsUpdateRow(id, updated);
-    Object.assign(inst, updated);
-    renderInstruments();
+    Object.assign(s, updated);
+    renderSightings();
     renderStats();
+    renderCalendar();
+    renderLifeList();
+    renderSeasonalPatterns();
     buildCategoryFilter();
-    buildTypeFilter();
     cancelEdit();
     openInfo(id);
   } catch(e){
@@ -958,159 +1017,8 @@ $('#editSaveBtn').onclick = async ()=>{
   }
 };
 
-function renderMaintenanceLog(instrumentId){
-  const logs = maintenanceFor(instrumentId).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-  const list = $('#infoMaintenance');
-  const authed = isGsAuthed();
-  if(!logs.length){
-    list.innerHTML = '<li class="maint-item"><span class="meta">No maintenance logged yet.</span></li>';
-    return;
-  }
-  list.innerHTML = logs.map((m,i)=>{
-    const tagClass = ['strings','setup','repair','cleaning'].includes(m.type) ? m.type : 'other';
-    const typeLabel = {strings:'String Change', setup:'Setup', repair:'Repair', cleaning:'Cleaning'}[m.type] || m.type || 'Other';
-    const actions = authed ? `<span style="display:flex;gap:4px">
-      <button class="ghost tiny maint-edit-btn" data-idx="${i}" style="padding:1px 6px;font-size:11px">edit</button>
-      <button class="ghost tiny maint-del-btn" data-idx="${i}" style="padding:1px 6px;font-size:11px;color:#f59a8a">&times;</button>
-    </span>` : '';
-    return `<li class="maint-item" data-idx="${i}">
-      <div class="maint-head">
-        <span><span class="maint-tag ${tagClass}">${escapeHtml(typeLabel)}</span></span>
-        <span style="display:flex;align-items:center;gap:8px">
-          <span class="maint-date">${escapeHtml(m.date||'')}</span>
-          ${actions}
-        </span>
-      </div>
-      ${m.description ? `<div class="maint-desc">${escapeHtml(m.description)}</div>` : ''}
-      ${m.cost ? `<div class="maint-cost">$${escapeHtml(m.cost)}</div>` : ''}
-    </li>`;
-  }).join('');
-}
-
-/* ── Maintenance edit/delete ── */
-function maintLogsForCurrent(){
-  return maintenanceFor(state._currentInstrumentId).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-}
-
-$('#infoMaintenance').addEventListener('click', e=>{
-  const editBtn = e.target.closest('.maint-edit-btn');
-  if(editBtn){
-    const idx = parseInt(editBtn.dataset.idx);
-    const logs = maintLogsForCurrent();
-    const m = logs[idx]; if(!m) return;
-    const li = editBtn.closest('.maint-item');
-    li.innerHTML = `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
-        <select class="me-type" style="font-size:13px;padding:5px 7px">
-          <option value="strings"${m.type==='strings'?' selected':''}>String change</option>
-          <option value="setup"${m.type==='setup'?' selected':''}>Setup</option>
-          <option value="repair"${m.type==='repair'?' selected':''}>Repair</option>
-          <option value="cleaning"${m.type==='cleaning'?' selected':''}>Cleaning</option>
-          <option value="other"${!['strings','setup','repair','cleaning'].includes(m.type)?' selected':''}>Other</option>
-        </select>
-        <input type="date" class="me-date" value="${escapeHtml(m.date||'')}" style="font-size:13px;padding:5px 7px">
-        <input type="text" class="me-desc" value="${escapeHtml(m.description||'')}" placeholder="Description…" style="grid-column:1/-1;font-size:13px;padding:5px 7px">
-        <input type="text" class="me-cost" value="${escapeHtml(m.cost||'')}" placeholder="Cost" style="font-size:13px;padding:5px 7px">
-        <div style="display:flex;gap:4px;justify-content:flex-end;align-items:center">
-          <span class="me-status" style="font-size:11px;color:var(--muted)"></span>
-          <button class="ghost tiny me-cancel">Cancel</button>
-          <button class="tiny me-save" data-idx="${idx}">Save</button>
-        </div>
-      </div>`;
-    return;
-  }
-
-  const delBtn = e.target.closest('.maint-del-btn');
-  if(delBtn){
-    const idx = parseInt(delBtn.dataset.idx);
-    if(!confirm('Delete this log entry?')) return;
-    const logs = maintLogsForCurrent();
-    const m = logs[idx]; if(!m) return;
-    deleteMaintenance(m).then(()=>{
-      renderMaintenanceLog(state._currentInstrumentId);
-      renderStats();
-    }).catch(e=> alert('Delete failed: '+e.message));
-    return;
-  }
-
-  const cancelBtn = e.target.closest('.me-cancel');
-  if(cancelBtn){
-    renderMaintenanceLog(state._currentInstrumentId);
-    return;
-  }
-
-  const saveBtn = e.target.closest('.me-save');
-  if(saveBtn){
-    const idx = parseInt(saveBtn.dataset.idx);
-    const logs = maintLogsForCurrent();
-    const m = logs[idx]; if(!m) return;
-    const li = saveBtn.closest('.maint-item');
-    const st = li.querySelector('.me-status');
-    const updated = {
-      instrument_id: m.instrument_id,
-      date: li.querySelector('.me-date').value,
-      type: li.querySelector('.me-type').value,
-      description: li.querySelector('.me-desc').value.trim(),
-      cost: li.querySelector('.me-cost').value.trim(),
-    };
-    st.textContent = 'Saving…';
-    updateMaintenance(m, updated).then(()=>{
-      Object.assign(m, updated);
-      renderMaintenanceLog(state._currentInstrumentId);
-      renderStats();
-    }).catch(e=>{ st.textContent = e.message; });
-    return;
-  }
-});
-
-async function findMaintenanceRowIdx(m){
-  const token = localStorage.getItem(GS_TOKEN_KEY);
-  if(!token) throw new Error('Not signed in');
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/maintenance_log?majorDimension=ROWS`;
-  const r = await fetch(url, { headers:{ Authorization:'Bearer '+token } });
-  if(!r.ok) throw new Error('Failed to read sheet');
-  const data = await r.json();
-  const rows = data.values||[];
-  for(let i=1;i<rows.length;i++){
-    if(rows[i][0]===m.instrument_id && rows[i][1]===m.date && rows[i][2]===m.type && rows[i][3]===(m.description||''))
-      return i;
-  }
-  return -1;
-}
-
-async function deleteMaintenance(m){
-  const token = localStorage.getItem(GS_TOKEN_KEY);
-  if(!token) throw new Error('Not signed in');
-  const rowIdx = await findMaintenanceRowIdx(m);
-  if(rowIdx<0) throw new Error('Row not found in sheet');
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`;
-  await fetch(url, {
-    method:'POST',
-    headers:{ Authorization:'Bearer '+token, 'Content-Type':'application/json' },
-    body: JSON.stringify({ requests:[{ deleteDimension:{ range:{ sheetId: TABS.maintenance_log, dimension:'ROWS', startIndex: rowIdx, endIndex: rowIdx+1 }}}]}),
-  });
-  const idx = state.maintenance.indexOf(m);
-  if(idx>=0) state.maintenance.splice(idx, 1);
-}
-
-async function updateMaintenance(m, updated){
-  const token = localStorage.getItem(GS_TOKEN_KEY);
-  if(!token) throw new Error('Not signed in');
-  const rowIdx = await findMaintenanceRowIdx(m);
-  if(rowIdx<0) throw new Error('Row not found in sheet');
-  const sheetRow = rowIdx+1;
-  const range = `maintenance_log!A${sheetRow}:E${sheetRow}`;
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=RAW`;
-  const r = await fetch(url, {
-    method:'PUT',
-    headers:{ Authorization:'Bearer '+token, 'Content-Type':'application/json' },
-    body: JSON.stringify({ range, majorDimension:'ROWS', values:[[updated.instrument_id, updated.date, updated.type, updated.description, updated.cost||'']] }),
-  });
-  if(!r.ok) throw new Error(`Update failed: ${(await r.text()).slice(0,200)}`);
-}
-
-function renderInstrumentPhotos(instrumentId){
-  const photos = photosFor(instrumentId).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+function renderSightingPhotos(sightingId){
+  const photos = photosFor(sightingId).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
   const grid = $('#infoPhotos');
   if(!photos.length){
     grid.innerHTML = '<div class="empty">No photos yet.</div>';
@@ -1143,12 +1051,13 @@ document.addEventListener('keydown', e=>{
   if(e.key==='Escape'){
     if($('#lightbox').style.display==='flex') { $('#lightbox').style.display='none'; return; }
     if($('#settingsOverlay').classList.contains('open')) closeSettings();
+    else if($('#addOverlay').classList.contains('open')) closeAddSighting();
     else if($('#infoOverlay').classList.contains('open')) closeInfo();
   }
 });
 
 /* ── Table click → open info ── */
-$('#instrumentTable').addEventListener('click', e=>{
+$('#sightingTable').addEventListener('click', e=>{
   const link = e.target.closest('a[data-info]');
   if(link){ e.preventDefault(); openInfo(link.dataset.info); return; }
   const tr = e.target.closest('tr[data-id]');
@@ -1156,9 +1065,9 @@ $('#instrumentTable').addEventListener('click', e=>{
 });
 
 /* ── Column visibility ── */
-const COL_KEYS = ['category','type','year','datePurchased','stringsGauge','status'];
-const COL_LABELS = {category:'Category', type:'Type', year:'Year', datePurchased:'Purchased', stringsGauge:'Strings', status:'Status'};
-const COL_VIS_KEY = 'instruments.colVisibility';
+const COL_KEYS = ['category','date','location','firstOfYear'];
+const COL_LABELS = {category:'Category', date:'Date', location:'Location', firstOfYear:'First of Year'};
+const COL_VIS_KEY = 'wildlife.colVisibility';
 
 function loadColVis(){
   try {
@@ -1174,7 +1083,7 @@ function saveColVis(hidden){
 let hiddenCols = loadColVis();
 
 function applyColVisibility(){
-  const t = $('#instrumentTable');
+  const t = $('#sightingTable');
   if(!t) return;
   for(const k of COL_KEYS) t.classList.toggle('hide-'+k, hiddenCols.has(k));
 }
@@ -1218,19 +1127,19 @@ document.addEventListener('click', e=>{
 applyColVisibility();
 
 /* ── Sort ── */
-$('#instrumentTable thead').addEventListener('click', e=>{
+$('#sightingTable thead').addEventListener('click', e=>{
   const th = e.target.closest('th[data-sort]');
   if(!th) return;
   const col = th.dataset.sort;
   if(sortCol === col) sortDir *= -1;
-  else { sortCol = col; sortDir = col==='datePurchased' ? -1 : 1; }
-  renderInstruments();
+  else { sortCol = col; sortDir = col==='date' ? -1 : 1; }
+  renderSightings();
 });
 
 /* ── Search / filter ── */
-$('#searchBox').addEventListener('input', renderInstruments);
-$('#categoryFilter').addEventListener('change', renderInstruments);
-$('#typeFilter').addEventListener('change', renderInstruments);
+$('#searchBox').addEventListener('input', renderSightings);
+$('#categoryFilter').addEventListener('change', renderSightings);
+$('#foyFilter').addEventListener('change', renderSightings);
 
 /* ── Themes ── */
 const THEMES = [
@@ -1323,8 +1232,8 @@ $('#settingsOverlay').addEventListener('click', e=>{
 /* ── Google OAuth ── */
 const GS_CLIENT_ID = '936411146633-16fq9oc08auslfprvgbl9bpoafbvo9uk.apps.googleusercontent.com';
 const GS_SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
-const GS_TOKEN_KEY = 'instrumentDashboard.gsToken';
-const GS_EXPIRY_KEY = 'instrumentDashboard.gsExpiry';
+const GS_TOKEN_KEY = 'wildlifeDashboard.gsToken';
+const GS_EXPIRY_KEY = 'wildlifeDashboard.gsExpiry';
 
 function isGsAuthed(){
   const t = localStorage.getItem(GS_TOKEN_KEY);
@@ -1336,7 +1245,7 @@ function refreshGsStatus(){
   const authed = isGsAuthed();
   document.body.classList.toggle('view-only', !authed);
   if(authed){
-    setSyncStatus(`${state.instruments.length} instrument${state.instruments.length===1?'':'s'} loaded · signed in`, 'ok');
+    setSyncStatus(`${state.sightings.length} sighting${state.sightings.length===1?'':'s'} loaded · signed in`, 'ok');
     $('#gsSaveTokenBtn').textContent = 'Signed in ✓';
     $('#gsSaveTokenBtn').disabled = true;
   } else {
@@ -1528,10 +1437,38 @@ async function gsAppendRow(gid, values){
   if (!r.ok) throw new Error(`Sheets append ${r.status}: ${(await r.text()).slice(0,200)}`);
 }
 
-async function gsDeletePhotoRow(instrumentId, key){
+async function gsUpdateRow(sightingId, updatedValues){
+  const token = localStorage.getItem(GS_TOKEN_KEY);
+  if (!token) throw new Error('Not signed in to Google');
+  const getUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/sightings?majorDimension=ROWS`;
+  const gr = await fetch(getUrl, { headers:{ Authorization:'Bearer '+token } });
+  if (!gr.ok) throw new Error('Failed to read sheet');
+  const data = await gr.json();
+  const rows = data.values || [];
+  if(!rows.length) throw new Error('Sheet has no headers');
+  const headers = rows[0];
+  const idCol = headers.indexOf('id');
+  if(idCol<0) throw new Error('No id column');
+  let rowIdx = -1;
+  for(let i=1;i<rows.length;i++){
+    if(rows[i][idCol]===sightingId){ rowIdx = i; break; }
+  }
+  if(rowIdx<0) throw new Error('Row not found');
+  const newRow = headers.map(h=> updatedValues[h]!==undefined ? updatedValues[h] : '');
+  const range = `sightings!A${rowIdx+1}:${String.fromCharCode(64+headers.length)}${rowIdx+1}`;
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=RAW`;
+  const r = await fetch(url, {
+    method:'PUT',
+    headers:{ Authorization:'Bearer '+token, 'Content-Type':'application/json' },
+    body: JSON.stringify({ range, majorDimension:'ROWS', values:[newRow] }),
+  });
+  if(!r.ok) throw new Error(`Update failed: ${(await r.text()).slice(0,200)}`);
+}
+
+async function gsDeletePhotoRow(sightingId, key){
   const token = localStorage.getItem(GS_TOKEN_KEY);
   if (!token) return;
-  const sheetName = 'instrument_photos';
+  const sheetName = 'wildlife_photos';
   const getUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(sheetName)}?majorDimension=ROWS`;
   const gr = await fetch(getUrl, { headers:{ Authorization:'Bearer '+token } });
   if (!gr.ok) return;
@@ -1539,14 +1476,14 @@ async function gsDeletePhotoRow(instrumentId, key){
   const rows = data.values || [];
   let rowIdx = -1;
   for (let i=1; i<rows.length; i++){
-    if (rows[i][0]===instrumentId && rows[i][1]===key){ rowIdx = i; break; }
+    if (rows[i][0]===sightingId && rows[i][1]===key){ rowIdx = i; break; }
   }
   if (rowIdx < 0) return;
   const delUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`;
   await fetch(delUrl, {
     method:'POST',
     headers:{ Authorization:'Bearer '+token, 'Content-Type':'application/json' },
-    body: JSON.stringify({ requests:[{ deleteDimension:{ range:{ sheetId: TABS.instrument_photos, dimension:'ROWS', startIndex: rowIdx, endIndex: rowIdx+1 }}}]}),
+    body: JSON.stringify({ requests:[{ deleteDimension:{ range:{ sheetId: TABS.wildlife_photos, dimension:'ROWS', startIndex: rowIdx, endIndex: rowIdx+1 }}}]}),
   });
 }
 
@@ -1576,91 +1513,57 @@ async function gsEnsureTab(tabName, gid, headers){
   }
 }
 
-/* ── Add instrument ── */
-function openAddInstrument(){
+/* ── Add sighting ── */
+function openAddSighting(){
   if (!isGsAuthed()){ alert('Sign in with Google first (Settings).'); return; }
-  ['addMake','addModel','addYear','addCategory','addType','addDatePurchased','addPrice','addPurchasedFrom','addStringsMake','addStringsModel','addStringGauge','addPickups','addStatus','addNotes'].forEach(id=> $(('#'+id)).value = '');
-  $('#addStatus-msg').textContent = '';
+  ['addSpecies','addCategory','addDate','addLocation','addNotes'].forEach(id=> $('#'+id).value = '');
+  $('#addFirstOfYear').value = '';
+  $('#addDate').value = new Date().toISOString().slice(0,10);
+  $('#addStatusMsg').textContent = '';
   $('#addOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
-  $('#addMake').focus();
+  $('#addSpecies').focus();
 }
 
-function closeAddInstrument(){
+function closeAddSighting(){
   $('#addOverlay').classList.remove('open');
   document.body.style.overflow = '';
 }
 
-$('#addInstrumentBtn').onclick = openAddInstrument;
-$('#addClose').onclick = closeAddInstrument;
-$('#addCancel').onclick = closeAddInstrument;
-$('#addOverlay').addEventListener('click', e=>{ if(e.target === $('#addOverlay')) closeAddInstrument(); });
+$('#addSightingBtn').onclick = openAddSighting;
+$('#addClose').onclick = closeAddSighting;
+$('#addCancel').onclick = closeAddSighting;
+$('#addOverlay').addEventListener('click', e=>{ if(e.target === $('#addOverlay')) closeAddSighting(); });
 
 $('#addSaveBtn').onclick = async ()=>{
-  const make = $('#addMake').value.trim();
-  const model = $('#addModel').value.trim();
-  if (!make && !model){ $('#addMake').focus(); return; }
-  const st = $('#addStatus-msg');
+  const species = $('#addSpecies').value.trim();
+  if (!species){ $('#addSpecies').focus(); return; }
+  const st = $('#addStatusMsg');
   st.textContent = 'Saving…';
   try {
     const id = Math.random().toString(36).slice(2,10);
     const values = [
-      id, make, model,
-      $('#addYear').value.trim(),
+      id,
+      species,
       $('#addCategory').value.trim(),
-      $('#addType').value.trim(),
-      $('#addDatePurchased').value,
-      $('#addPrice').value.trim(),
-      $('#addPurchasedFrom').value.trim(),
-      $('#addStringsMake').value.trim(),
-      $('#addStringsModel').value.trim(),
-      $('#addStringGauge').value.trim(),
-      $('#addPickups').value.trim(),
-      $('#addStatus').value.trim() || 'active',
+      $('#addDate').value,
+      $('#addLocation').value.trim(),
       $('#addNotes').value.trim(),
+      $('#addFirstOfYear').value,
     ];
-    await gsAppendRow(TABS.instruments, values);
-    const headers = ['id','make','model','year','category','type','datePurchased','price','purchasedFrom','stringsMake','stringsModel','stringsGauge','pickups','status','notes'];
-    const inst = {};
-    headers.forEach((h,i)=> inst[h] = values[i]||'');
-    state.instruments.push(inst);
-    renderInstruments();
+    await gsAppendRow(TABS.sightings, values);
+    const headers = ['id','species','category','date','location','notes','firstOfYear'];
+    const s = {};
+    headers.forEach((h,i)=> s[h] = values[i]||'');
+    state.sightings.push(s);
+    renderSightings();
     renderStats();
+    renderCalendar();
+    renderLifeList();
+    renderSeasonalPatterns();
     buildCategoryFilter();
-    buildTypeFilter();
-    closeAddInstrument();
+    closeAddSighting();
     openInfo(id);
-  } catch(e){
-    st.textContent = e.message;
-  }
-};
-
-/* ── Maintenance log entry ── */
-async function logMaintenance(instrumentId, type, date, description, cost){
-  if (!isGsAuthed()) throw new Error('Sign in to Google first');
-  await gsEnsureTab('maintenance_log', TABS.maintenance_log, ['instrument_id','date','type','description','cost']);
-  await gsAppendRow(TABS.maintenance_log, [instrumentId, date, type, description, cost||'']);
-  state.maintenance.push({ instrument_id: instrumentId, date, type, description, cost: cost||'' });
-}
-
-$('#addMaintenanceBtn').onclick = async ()=>{
-  const instrumentId = state._currentInstrumentId;
-  if (!instrumentId) return;
-  const type = $('#maintType').value;
-  const date = $('#maintDate').value;
-  const desc = $('#maintDesc').value.trim();
-  const cost = $('#maintCost').value.trim();
-  if (!date){ $('#maintDate').focus(); return; }
-  const st = $('#maintStatus');
-  st.textContent = 'Logging…';
-  try {
-    await logMaintenance(instrumentId, type, date, desc, cost);
-    $('#maintDesc').value = '';
-    $('#maintCost').value = '';
-    st.textContent = 'Logged!';
-    renderMaintenanceLog(instrumentId);
-    renderStats();
-    setTimeout(()=>{ st.textContent = ''; }, 2000);
   } catch(e){
     st.textContent = e.message;
   }
@@ -1669,176 +1572,158 @@ $('#addMaintenanceBtn').onclick = async ()=>{
 /* ── Photo upload ── */
 function ymd(d){ return d.toISOString().slice(0,10); }
 
-async function uploadInstrumentPhoto(instrumentId, file, onStatus){
+async function uploadSightingPhoto(sightingId, file, onStatus){
   const creds = getR2Creds();
   if (!creds.accessKey || !creds.secretKey) throw new Error('Save R2 credentials first (Settings → Photo storage)');
   let exifDate = await exifDateFromFile(file);
   let workingFile = file;
   if (isHeic(file)){
     if (onStatus) onStatus('Converting HEIC…');
-    const heic2any = await loadHeic2Any();
-    const jpegBlob = await heic2any({ blob: file, toType:'image/jpeg', quality: 0.92 });
-    workingFile = new File([jpegBlob], (file.name || 'photo').replace(/\.hei[cf]$/i, '.jpg'), { type: 'image/jpeg' });
-    if (!exifDate) exifDate = await exifDateFromFile(workingFile);
+    const converter = await loadHeic2Any();
+    const blob = await converter({ blob: file, toType: 'image/jpeg', quality: 0.9 });
+    workingFile = new File([blob], file.name.replace(/\.hei[cf]$/i, '.jpg'), { type: 'image/jpeg' });
   }
   if (onStatus) onStatus('Resizing…');
-  const blob = await resizeImage(workingFile);
-  const buf = await blob.arrayBuffer();
-  const slug = instrumentId.replace(/[^a-zA-Z0-9_-]/g, '_');
-  let photoDate = exifDate;
-  if (!photoDate && file.lastModified){
-    const d = new Date(file.lastModified);
-    if (d.getFullYear() >= 2000 && d <= new Date()) photoDate = ymd(d);
-  }
-  photoDate = photoDate || ymd(new Date());
-  const rand = Math.random().toString(36).slice(2,8);
-  const key = `instrument-photos/${slug}/${photoDate}-${rand}.jpg`;
+  const resized = await resizeImage(workingFile);
+  const date = exifDate || ymd(new Date());
+  const key = `wildlife-photos/${sightingId}/${date}-${Math.random().toString(36).slice(2,8)}.jpg`;
   if (onStatus) onStatus('Uploading…');
+  const buf = await resized.arrayBuffer();
   await sigv4Request({ method:'PUT', key, body: buf, contentType:'image/jpeg' });
-  const photo = { instrument_id: instrumentId, key, date: photoDate, caption: '' };
-  state.photos.push(photo);
-  if (isGsAuthed()){
-    if (onStatus) onStatus('Syncing…');
-    await gsEnsureTab('instrument_photos', TABS.instrument_photos, ['instrument_id','key','date','caption']);
-    await gsAppendRow(TABS.instrument_photos, [instrumentId, key, photoDate, '']);
-  }
-  return key;
+  await gsEnsureTab('wildlife_photos', TABS.wildlife_photos, ['sighting_id','key','date','caption']);
+  await gsAppendRow(TABS.wildlife_photos, [sightingId, key, date, '']);
+  state.photos.push({ sighting_id: sightingId, key, date, caption: '' });
+  return { key, date };
 }
 
-async function deleteInstrumentPhoto(instrumentId, key){
-  await sigv4Request({ method:'DELETE', key });
-  state.photos = state.photos.filter(p => !(p.instrument_id===instrumentId && p.key===key));
-  if (isGsAuthed()) await gsDeletePhotoRow(instrumentId, key).catch(e=>console.warn('Sheet delete failed:', e));
-}
-
-/* ── Photo upload handler ── */
-$('#photoUploadInput').addEventListener('change', async function(){
-  const files = this.files;
-  if (!files.length) return;
-  const instrumentId = state._currentInstrumentId;
-  if (!instrumentId) return;
+$('#photoUploadInput').addEventListener('change', async e=>{
+  const files = [...e.target.files];
+  if(!files.length) return;
+  const sightingId = state._currentSightingId;
+  if(!sightingId) return;
   const statusEl = $('#photoStatus');
-  statusEl.style.display = '';
-  let ok = 0;
-  for (let i=0; i<files.length; i++){
+  statusEl.style.display = 'block';
+  for(let i=0;i<files.length;i++){
     try {
-      statusEl.textContent = `Uploading ${i+1}/${files.length}…`;
-      await uploadInstrumentPhoto(instrumentId, files[i], msg => statusEl.textContent = `${i+1}/${files.length}: ${msg}`);
-      ok++;
-    } catch(e){
-      console.error('Upload failed:', e);
-      statusEl.textContent = `Failed: ${e.message}`;
+      statusEl.textContent = `Photo ${i+1}/${files.length}: preparing…`;
+      await uploadSightingPhoto(sightingId, files[i], msg => statusEl.textContent = `Photo ${i+1}/${files.length}: ${msg}`);
+    } catch(err){
+      statusEl.textContent = `Photo ${i+1} failed: ${err.message}`;
+      await new Promise(r=>setTimeout(r, 2000));
     }
   }
-  this.value = '';
-  if (ok){
-    statusEl.textContent = `${ok} photo${ok>1?'s':''} uploaded.`;
-    renderInstrumentPhotos(instrumentId);
-    refreshGallery();
-  }
-  setTimeout(()=>{ statusEl.style.display = 'none'; }, 3000);
+  statusEl.textContent = 'Done!';
+  setTimeout(()=>{ statusEl.style.display = 'none'; }, 2000);
+  renderSightingPhotos(sightingId);
+  refreshGallery();
+  e.target.value = '';
 });
 
-/* ── Photo grid click → lightbox ── */
-let lightboxIdx = 0;
+/* ── Lightbox ── */
+let _lbPhotos = [];
+let _lbIdx = 0;
+
 $('#infoPhotos').addEventListener('click', e=>{
   const ph = e.target.closest('.ph');
-  if (!ph) return;
-  const instrumentId = state._currentInstrumentId;
-  const photos = photosFor(instrumentId).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
-  if (!photos.length) return;
-  state._lightboxPhotos = photos;
-  lightboxIdx = parseInt(ph.dataset.idx) || 0;
-  $('#lightbox').style.display = 'flex';
-  showLightboxIdx();
+  if(!ph) return;
+  const sightingId = state._currentSightingId;
+  _lbPhotos = photosFor(sightingId).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+  _lbIdx = parseInt(ph.dataset.idx, 10);
+  showLightbox();
 });
 
-function showLightboxIdx(){
-  const photos = state._lightboxPhotos || [];
-  const ph = photos[lightboxIdx]; if (!ph) return;
-  $('#lightboxImg').src = r2PublicUrl(ph.key);
-  $('#lightboxDate').textContent = ph.date || '';
-  $('#lightboxCaption').value = ph.caption || '';
+function showLightbox(){
+  if(!_lbPhotos[_lbIdx]) return;
+  const p = _lbPhotos[_lbIdx];
+  $('#lightboxImg').src = r2PublicUrl(p.key);
+  $('#lightboxDate').textContent = p.date || '';
+  $('#lightboxCaption').value = p.caption || '';
+  $('#lightbox').style.display = 'flex';
 }
 
-$('#lightboxClose').onclick = ()=> $('#lightbox').style.display='none';
-$('#lightbox').addEventListener('click', e=>{ if(e.target.id==='lightbox') $('#lightbox').style.display='none'; });
-$('#lightboxPrev').onclick = ()=>{ const n=(state._lightboxPhotos||[]).length; lightboxIdx=(lightboxIdx-1+n)%n; showLightboxIdx(); };
-$('#lightboxNext').onclick = ()=>{ const n=(state._lightboxPhotos||[]).length; lightboxIdx=(lightboxIdx+1)%n; showLightboxIdx(); };
+$('#lightboxClose').onclick = ()=>{ $('#lightbox').style.display = 'none'; };
+$('#lightbox').addEventListener('click', e=>{ if(e.target === $('#lightbox')) $('#lightbox').style.display = 'none'; });
+
+$('#lightboxPrev').onclick = ()=>{
+  if(!_lbPhotos.length) return;
+  _lbIdx = (_lbIdx - 1 + _lbPhotos.length) % _lbPhotos.length;
+  showLightbox();
+};
+$('#lightboxNext').onclick = ()=>{
+  if(!_lbPhotos.length) return;
+  _lbIdx = (_lbIdx + 1) % _lbPhotos.length;
+  showLightbox();
+};
 
 $('#lightboxCaption').addEventListener('change', async ()=>{
-  const ph = (state._lightboxPhotos||[])[lightboxIdx]; if (!ph) return;
-  const target = state.photos.find(p=>p.key===ph.key);
-  if (target) target.caption = $('#lightboxCaption').value;
+  const p = _lbPhotos[_lbIdx];
+  if(!p) return;
+  p.caption = $('#lightboxCaption').value.trim();
+  const sp = state.photos.find(x=>x.key===p.key);
+  if(sp) sp.caption = p.caption;
 });
 
 $('#lightboxDelete').onclick = async ()=>{
-  const ph = (state._lightboxPhotos||[])[lightboxIdx]; if (!ph) return;
-  if (!confirm('Delete this photo?')) return;
+  const p = _lbPhotos[_lbIdx];
+  if(!p) return;
+  if(!confirm('Delete this photo?')) return;
   try {
-    await deleteInstrumentPhoto(ph.instrument_id || state._currentInstrumentId, ph.key);
-    state._lightboxPhotos = (state._lightboxPhotos||[]).filter((_,i)=>i!==lightboxIdx);
-    renderInstrumentPhotos(state._currentInstrumentId);
-    if (!state._lightboxPhotos.length){
-      $('#lightbox').style.display='none';
+    await sigv4Request({ method:'DELETE', key: p.key });
+    await gsDeletePhotoRow(p.sighting_id, p.key);
+    const idx = state.photos.findIndex(x=>x.key===p.key);
+    if(idx>=0) state.photos.splice(idx, 1);
+    _lbPhotos.splice(_lbIdx, 1);
+    if(!_lbPhotos.length){
+      $('#lightbox').style.display = 'none';
     } else {
-      lightboxIdx = Math.min(lightboxIdx, state._lightboxPhotos.length-1);
-      showLightboxIdx();
+      _lbIdx = Math.min(_lbIdx, _lbPhotos.length - 1);
+      showLightbox();
     }
+    renderSightingPhotos(state._currentSightingId);
+    refreshGallery();
   } catch(e){
-    alert('Delete failed: '+e.message);
+    alert('Delete failed: ' + e.message);
   }
 };
 
-document.addEventListener('keydown', e=>{
-  if ($('#lightbox').style.display==='flex'){
-    if(e.key==='ArrowLeft') $('#lightboxPrev').click();
-    else if(e.key==='ArrowRight') $('#lightboxNext').click();
-  }
-});
-
-/* ── R2 settings handlers ── */
+/* ── R2 credential UI ── */
 function refreshR2Input(){
-  const c = getR2Creds();
-  const key = $('#r2KeyInput'), sec = $('#r2SecretInput'), st = $('#r2Status');
-  if (!key) return;
-  key.value = c.accessKey || '';
-  sec.value = c.secretKey ? '••••••••' + c.secretKey.slice(-4) : '';
-  st.textContent = c.accessKey && c.secretKey ? 'Configured.' : 'Not configured.';
-  st.style.color = c.accessKey && c.secretKey ? 'var(--accent)' : 'var(--muted)';
+  const creds = getR2Creds();
+  const has = creds.accessKey && creds.secretKey;
+  $('#r2KeyInput').value = creds.accessKey || '';
+  $('#r2SecretInput').value = creds.secretKey || '';
+  $('#r2Status').textContent = has ? 'Credentials saved locally.' : 'Not configured.';
 }
+
 $('#r2SaveBtn').onclick = ()=>{
-  const k = $('#r2KeyInput').value.trim();
-  let s = $('#r2SecretInput').value.trim();
-  if (s.startsWith('•')) s = (getR2Creds().secretKey || '');
-  if (!k || !s){ alert('Paste both Access Key ID and Secret Access Key.'); return; }
-  setR2Creds({ accessKey: k, secretKey: s });
+  setR2Creds({ accessKey: $('#r2KeyInput').value.trim(), secretKey: $('#r2SecretInput').value.trim() });
+  refreshR2Input();
+};
+$('#r2ClearBtn').onclick = ()=>{
+  setR2Creds(null);
   refreshR2Input();
 };
 $('#r2TestBtn').onclick = async ()=>{
   const st = $('#r2Status');
-  st.textContent = 'Testing…'; st.style.color = 'var(--muted)';
+  st.textContent = 'Testing…';
   try {
-    const txt = `test ${new Date().toISOString()}`;
-    const buf = new TextEncoder().encode(txt);
-    await sigv4Request({ method:'PUT', key:'instrument-photos/_dashboard-test.txt', body: buf, contentType:'text/plain' });
-    await sigv4Request({ method:'DELETE', key:'instrument-photos/_dashboard-test.txt' });
-    st.textContent = 'Upload + delete OK.'; st.style.color = 'var(--accent)';
+    await sigv4Request({ method:'HEAD', key: 'wildlife-photos/.keep' });
+    st.textContent = 'Connected ✓';
   } catch(e){
-    st.textContent = 'Test failed: '+e.message; st.style.color = '#e8a06a';
+    if(e.message.includes('404') || e.message.includes('NoSuchKey')){
+      st.textContent = 'Connected ✓ (test file not found, but auth works)';
+    } else {
+      st.textContent = 'Error: ' + e.message;
+    }
   }
-};
-$('#r2ClearBtn').onclick = ()=>{
-  if (!confirm('Forget R2 credentials on this device?')) return;
-  setR2Creds(null); refreshR2Input();
 };
 
 /* ── Init ── */
+const saved = localStorage.getItem(THEME_KEY);
+if(saved && saved !== 'default') applyTheme(saved);
 handleOAuthReturn();
-const savedTheme = localStorage.getItem(THEME_KEY);
-if(savedTheme && savedTheme !== 'default') applyTheme(savedTheme);
 refreshGsStatus();
-loadData().then(refreshGsStatus);
+loadData();
 </script>
 </body>
 </html>

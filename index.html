@@ -96,6 +96,20 @@ footer{text-align:center;color:var(--muted);font-size:12px;padding:32px 0 16px}
         <div class="card-recent" id="instrumentsRecent"><span class="empty">Loading&hellip;</span></div>
       </div>
     </div>
+    <!-- Wildlife card -->
+    <div class="card">
+      <div class="card-img-placeholder" id="wildlifeImg">&#129417;</div>
+      <div class="card-body">
+        <h2><a href="/wildlife">Wildlife</a></h2>
+        <div class="card-desc">Sighting log with first-of-year tracking, calendar view, seasonal patterns, and a life list.</div>
+        <div class="card-stats" id="wildlifeStats">
+          <div class="card-stat"><div class="num" id="wildlifeSightings">&mdash;</div><div class="label">Sightings</div></div>
+          <div class="card-stat"><div class="num" id="wildlifeSpecies">&mdash;</div><div class="label">Species</div></div>
+          <div class="card-stat"><div class="num" id="wildlifePhotos">&mdash;</div><div class="label">Photos</div></div>
+        </div>
+        <div class="card-recent" id="wildlifeRecent"><span class="empty">Loading&hellip;</span></div>
+      </div>
+    </div>
   </div>
 
   <footer>Data synced live from Google Sheets.</footer>
@@ -145,6 +159,8 @@ const BEER_SHEET = '1BXFTqV6xCZU63IutRAeAFPrZKLyDPkuGQ-SykIdAy_k';
 const BEER_GID = { brews: 0, photos: 1135128185 };
 const INSTRUMENTS_SHEET = '1dWWWIFBpWvNOIBuxA1EIoaffKckDFhsHvPDzhbxdnYg';
 const INSTRUMENTS_GID = { instruments: 0, photos: 617283945, maintenance: 834291047 };
+const WILDLIFE_SHEET = '1Uq2Fgzron3yDZqYFWsUx1cYigp4w8GmQP2pmk33DG54';
+const WILDLIFE_GID = { sightings: 0, photos: 518293746 };
 const R2_PUBLIC = 'https://pub-59a926166fd84970bea75caf38a52d27.r2.dev';
 
 function csvUrl(sheetId, gid){
@@ -244,6 +260,34 @@ async function loadInstruments(){
   }
 }
 
+/* ── Load wildlife data ── */
+async function loadWildlife(){
+  try {
+    const [sightings, photos] = await Promise.all([
+      fetchSheet(WILDLIFE_SHEET, WILDLIFE_GID.sightings),
+      fetchSheet(WILDLIFE_SHEET, WILDLIFE_GID.photos).catch(()=>[]),
+    ]);
+    $('#wildlifeSightings').textContent = sightings.length;
+    const species = new Set(sightings.map(s=>s.species).filter(Boolean));
+    $('#wildlifeSpecies').textContent = species.size;
+    $('#wildlifePhotos').textContent = photos.length;
+
+    const sorted = photos.filter(p=>p.key).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    const recent = sorted.slice(0,6);
+    const el = $('#wildlifeRecent');
+    if(recent.length){
+      el.innerHTML = recent.map(p=>`<img src="${R2_PUBLIC}/${p.key}" loading="lazy" alt="">`).join('');
+      const heroImg = $('#wildlifeImg');
+      heroImg.outerHTML = `<img class="card-img" src="${R2_PUBLIC}/${recent[0].key}" alt="">`;
+    } else {
+      el.innerHTML = '<span class="empty">No photos yet.</span>';
+    }
+  } catch(e){
+    console.warn('Wildlife load failed:', e);
+    $('#wildlifeRecent').innerHTML = '<span class="empty">Could not load.</span>';
+  }
+}
+
 /* ── Themes ── */
 const THEMES = [
   { id:'default', label:'Teal Dark',   bg:'#08191c', accent:'#4dd0c1' },
@@ -296,6 +340,7 @@ if(saved && saved !== 'default') applyTheme(saved);
 loadPlants();
 loadBeer();
 loadInstruments();
+loadWildlife();
 </script>
 </body>
 </html>

@@ -49,6 +49,7 @@
 .cols-pop label{display:flex;align-items:center;gap:8px;padding:4px 0;color:var(--ink);font-size:13px;cursor:pointer}
 .cols-pop label input[type=checkbox]{margin:0}
 
+body.view-only .price-authed,
 body.view-only #addInstrumentBtn,
 body.view-only .edit-row,
 body.view-only #photoUploadInput + span,
@@ -718,7 +719,7 @@ function renderStats(){
 
   $('#statsCards').innerHTML = `
     <div class="stat-card"><div class="stat-num">${total}</div><div class="stat-label">Instruments</div></div>
-    <div class="stat-card"><div class="stat-num">${totalValue ? '$'+Math.round(totalValue).toLocaleString() : '—'}</div><div class="stat-label">Total Value</div></div>
+    <div class="stat-card price-authed"><div class="stat-num">${totalValue ? '$'+Math.round(totalValue).toLocaleString() : '—'}</div><div class="stat-label">Total Value</div></div>
     <div class="stat-card"><div class="stat-num">${topMake ? escapeHtml(topMake[0]) : '—'}</div><div class="stat-label">Top Make${topMake ? ' ('+topMake[1]+')' : ''}</div></div>
     <div class="stat-card"><div class="stat-num">${stringChanges}</div><div class="stat-label">String Changes</div></div>
     <div class="stat-card"><div class="stat-num">${maintTotal}</div><div class="stat-label">Maintenance Logs</div></div>
@@ -819,7 +820,7 @@ function openInfo(id){
     ['Category', inst.category||'—'],
     ['Type', inst.type||'—'],
     ['Date Purchased', inst.datePurchased||'—'],
-    ['Price', inst.price ? '$'+inst.price : '—'],
+    ...(isGsAuthed() ? [['Price', inst.price ? '$'+inst.price : '—']] : []),
     ['Purchased From', inst.purchasedFrom||'—'],
     ['Status', inst.status||'—'],
   ];

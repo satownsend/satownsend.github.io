@@ -63,6 +63,9 @@ body.view-only #lightboxCaption{display:none!important}
 .photo-grid .ph img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .2s}
 .photo-grid .ph:hover img{transform:scale(1.04)}
 .photo-grid .ph .date{position:absolute;left:0;right:0;bottom:0;background:linear-gradient(transparent,rgba(0,0,0,.75));color:#fff;font-size:10px;padding:14px 6px 4px;text-align:center;font-weight:600;letter-spacing:.04em}
+.photo-grid .ph video{width:100%;height:100%;object-fit:cover;display:block}
+.photo-grid .ph .play-icon{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.photo-grid .ph .play-icon::after{content:'▶';font-size:24px;color:#fff;background:rgba(0,0,0,.5);width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;text-shadow:0 1px 2px rgba(0,0,0,.5)}
 .photo-grid .empty{grid-column:1/-1;color:var(--muted);font-size:13px;font-style:italic;text-align:center;padding:18px}
 
 /* ── Notes block ── */
@@ -298,9 +301,9 @@ body.view-only #lightboxCaption{display:none!important}
 
     <div class="info-section" id="infoPhotosSection">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-        <h3 style="margin:0">Photos</h3>
+        <h3 style="margin:0">Photos &amp; Videos</h3>
         <label style="cursor:pointer">
-          <input type="file" id="photoUploadInput" accept="image/*,.heic,.heif" multiple style="display:none">
+          <input type="file" id="photoUploadInput" accept="image/*,.heic,.heif,video/mp4,video/quicktime,video/webm,.mov,.mp4,.webm" multiple style="display:none">
           <span class="ghost tiny" style="pointer-events:none">+ Add</span>
         </label>
       </div>
@@ -336,6 +339,7 @@ body.view-only #lightboxCaption{display:none!important}
   <div style="display:flex;flex-direction:column;align-items:center;gap:10px;max-width:90vw;max-height:90vh;width:800px;padding:20px 0">
     <button class="close" id="lightboxClose" style="position:absolute;top:12px;right:12px;color:#fff;font-size:28px;background:rgba(0,0,0,.4);border-radius:50%;width:36px;height:36px;line-height:1;z-index:1;border:none;cursor:pointer">&times;</button>
     <img id="lightboxImg" style="flex:1 1 auto;min-height:0;width:100%;object-fit:contain;border-radius:8px;background:#0a0a0a">
+    <video id="lightboxVideo" controls playsinline style="display:none;flex:1 1 auto;min-height:0;width:100%;max-height:80vh;border-radius:8px;background:#0a0a0a"></video>
     <div id="lightboxMeta" style="flex:none;color:#ddd;font-size:13px;text-align:center;max-width:100%;padding:0 4px">
       <span id="lightboxDate" style="display:inline-block;color:#fff;font-weight:600;padding:5px 10px"></span>
       <input type="text" id="lightboxCaption" placeholder="add caption&hellip;" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:6px;padding:6px 10px;margin-top:6px;width:280px;max-width:90vw">
@@ -500,7 +504,7 @@ function applyGalleryFit(){
 function buildGalleryPool(){
   const items = [];
   for(const ph of state.photos){
-    if(!ph.key) continue;
+    if(!ph.key || isVideoKey(ph.key)) continue;
     const s = state.sightings.find(i=>i.id===ph.sighting_id);
     const name = s ? s.species : '';
     items.push({ sightingId: ph.sighting_id, name, key: ph.key, date: ph.date||'', caption: ph.caption||'' });
@@ -1021,15 +1025,19 @@ function renderSightingPhotos(sightingId){
   const photos = photosFor(sightingId).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
   const grid = $('#infoPhotos');
   if(!photos.length){
-    grid.innerHTML = '<div class="empty">No photos yet.</div>';
+    grid.innerHTML = '<div class="empty">No photos or videos yet.</div>';
     return;
   }
-  grid.innerHTML = photos.map((p,i)=>`
-    <div class="ph" data-idx="${i}">
-      <img src="${r2PublicUrl(p.key)}" loading="lazy" alt="">
+  grid.innerHTML = photos.map((p,i)=>{
+    const vid = isVideoKey(p.key);
+    const thumb = vid
+      ? `<video src="${r2PublicUrl(p.key)}" preload="metadata" muted playsinline></video><div class="play-icon"></div>`
+      : `<img src="${r2PublicUrl(p.key)}" loading="lazy" alt="">`;
+    return `<div class="ph" data-idx="${i}">
+      ${thumb}
       ${p.date ? `<div class="date">${escapeHtml(p.date)}</div>` : ''}
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 }
 
 function showNotes(sectionSel, contentSel, text){
@@ -1049,7 +1057,7 @@ $('#infoOverlay').addEventListener('click', e=>{
 });
 document.addEventListener('keydown', e=>{
   if(e.key==='Escape'){
-    if($('#lightbox').style.display==='flex') { $('#lightbox').style.display='none'; return; }
+    if($('#lightbox').style.display==='flex') { closeLightbox(); return; }
     if($('#settingsOverlay').classList.contains('open')) closeSettings();
     else if($('#addOverlay').classList.contains('open')) closeAddSighting();
     else if($('#infoOverlay').classList.contains('open')) closeInfo();
@@ -1569,12 +1577,35 @@ $('#addSaveBtn').onclick = async ()=>{
   }
 };
 
-/* ── Photo upload ── */
+/* ── Media helpers ── */
+function isVideo(fileOrKey){
+  if(typeof fileOrKey === 'string') return /\.(mp4|mov|webm)$/i.test(fileOrKey);
+  return /^video\//i.test(fileOrKey.type || '') || /\.(mp4|mov|webm)$/i.test(fileOrKey.name || '');
+}
+function isVideoKey(key){ return /\.(mp4|mov|webm)$/i.test(key||''); }
+
+/* ── Photo/video upload ── */
 function ymd(d){ return d.toISOString().slice(0,10); }
 
 async function uploadSightingPhoto(sightingId, file, onStatus){
   const creds = getR2Creds();
   if (!creds.accessKey || !creds.secretKey) throw new Error('Save R2 credentials first (Settings → Photo storage)');
+  const date = ymd(new Date());
+  const rand = Math.random().toString(36).slice(2,8);
+
+  if(isVideo(file)){
+    const ext = (file.name.match(/\.(mp4|mov|webm)$/i)||['.mp4'])[0].toLowerCase();
+    const key = `wildlife-photos/${sightingId}/${date}-${rand}${ext}`;
+    const ct = ext==='.webm' ? 'video/webm' : ext==='.mov' ? 'video/quicktime' : 'video/mp4';
+    if(onStatus) onStatus('Uploading video…');
+    const buf = await file.arrayBuffer();
+    await sigv4Request({ method:'PUT', key, body: buf, contentType: ct });
+    await gsEnsureTab('wildlife_photos', TABS.wildlife_photos, ['sighting_id','key','date','caption']);
+    await gsAppendRow(TABS.wildlife_photos, [sightingId, key, date, '']);
+    state.photos.push({ sighting_id: sightingId, key, date, caption: '' });
+    return { key, date };
+  }
+
   let exifDate = await exifDateFromFile(file);
   let workingFile = file;
   if (isHeic(file)){
@@ -1585,15 +1616,15 @@ async function uploadSightingPhoto(sightingId, file, onStatus){
   }
   if (onStatus) onStatus('Resizing…');
   const resized = await resizeImage(workingFile);
-  const date = exifDate || ymd(new Date());
-  const key = `wildlife-photos/${sightingId}/${date}-${Math.random().toString(36).slice(2,8)}.jpg`;
+  const photoDate = exifDate || date;
+  const key = `wildlife-photos/${sightingId}/${photoDate}-${rand}.jpg`;
   if (onStatus) onStatus('Uploading…');
   const buf = await resized.arrayBuffer();
   await sigv4Request({ method:'PUT', key, body: buf, contentType:'image/jpeg' });
   await gsEnsureTab('wildlife_photos', TABS.wildlife_photos, ['sighting_id','key','date','caption']);
-  await gsAppendRow(TABS.wildlife_photos, [sightingId, key, date, '']);
-  state.photos.push({ sighting_id: sightingId, key, date, caption: '' });
-  return { key, date };
+  await gsAppendRow(TABS.wildlife_photos, [sightingId, key, photoDate, '']);
+  state.photos.push({ sighting_id: sightingId, key, date: photoDate, caption: '' });
+  return { key, date: photoDate };
 }
 
 $('#photoUploadInput').addEventListener('change', async e=>{
@@ -1605,10 +1636,10 @@ $('#photoUploadInput').addEventListener('change', async e=>{
   statusEl.style.display = 'block';
   for(let i=0;i<files.length;i++){
     try {
-      statusEl.textContent = `Photo ${i+1}/${files.length}: preparing…`;
-      await uploadSightingPhoto(sightingId, files[i], msg => statusEl.textContent = `Photo ${i+1}/${files.length}: ${msg}`);
+      statusEl.textContent = `File ${i+1}/${files.length}: preparing…`;
+      await uploadSightingPhoto(sightingId, files[i], msg => statusEl.textContent = `File ${i+1}/${files.length}: ${msg}`);
     } catch(err){
-      statusEl.textContent = `Photo ${i+1} failed: ${err.message}`;
+      statusEl.textContent = `File ${i+1} failed: ${err.message}`;
       await new Promise(r=>setTimeout(r, 2000));
     }
   }
@@ -1635,22 +1666,40 @@ $('#infoPhotos').addEventListener('click', e=>{
 function showLightbox(){
   if(!_lbPhotos[_lbIdx]) return;
   const p = _lbPhotos[_lbIdx];
-  $('#lightboxImg').src = r2PublicUrl(p.key);
+  const vid = isVideoKey(p.key);
+  const imgEl = $('#lightboxImg');
+  const vidEl = $('#lightboxVideo');
+  if(vid){
+    imgEl.style.display = 'none';
+    vidEl.style.display = '';
+    vidEl.src = r2PublicUrl(p.key);
+  } else {
+    vidEl.pause();
+    vidEl.style.display = 'none';
+    imgEl.style.display = '';
+    imgEl.src = r2PublicUrl(p.key);
+  }
   $('#lightboxDate').textContent = p.date || '';
   $('#lightboxCaption').value = p.caption || '';
   $('#lightbox').style.display = 'flex';
 }
 
-$('#lightboxClose').onclick = ()=>{ $('#lightbox').style.display = 'none'; };
-$('#lightbox').addEventListener('click', e=>{ if(e.target === $('#lightbox')) $('#lightbox').style.display = 'none'; });
+function closeLightbox(){
+  $('#lightboxVideo').pause();
+  $('#lightbox').style.display = 'none';
+}
+$('#lightboxClose').onclick = closeLightbox;
+$('#lightbox').addEventListener('click', e=>{ if(e.target === $('#lightbox')) closeLightbox(); });
 
 $('#lightboxPrev').onclick = ()=>{
   if(!_lbPhotos.length) return;
+  $('#lightboxVideo').pause();
   _lbIdx = (_lbIdx - 1 + _lbPhotos.length) % _lbPhotos.length;
   showLightbox();
 };
 $('#lightboxNext').onclick = ()=>{
   if(!_lbPhotos.length) return;
+  $('#lightboxVideo').pause();
   _lbIdx = (_lbIdx + 1) % _lbPhotos.length;
   showLightbox();
 };

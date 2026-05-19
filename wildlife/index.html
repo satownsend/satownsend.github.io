@@ -15,9 +15,19 @@
 
 /* ── Column visibility ── */
 #sightingTable.hide-category [data-col="category"],
-#sightingTable.hide-date [data-col="date"],
-#sightingTable.hide-location [data-col="location"],
-#sightingTable.hide-firstOfYear [data-col="firstOfYear"]{display:none}
+#sightingTable.hide-count [data-col="count"],
+#sightingTable.hide-lastSeen [data-col="lastSeen"],
+#sightingTable.hide-firstSeen [data-col="firstSeen"]{display:none}
+
+/* ── Sighting log within detail ── */
+.sighting-log{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px}
+.sighting-entry{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:13px}
+.sighting-entry .se-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.sighting-entry .se-date{font-weight:600;color:var(--ink)}
+.sighting-entry .se-location{color:var(--muted);font-size:12px}
+.sighting-entry .se-notes{color:var(--ink-soft);margin-top:4px;line-height:1.4;font-size:12px}
+.sighting-entry .se-actions{display:flex;gap:4px;margin-top:6px}
+.sighting-entry .se-foy{margin-left:6px}
 .cols-pop{position:absolute;top:calc(100% + 6px);left:0;background:var(--panel);border:1px solid var(--line);border-radius:8px;
   padding:10px 12px;box-shadow:var(--shadow);z-index:5;min-width:180px}
 .cols-pop label{display:flex;align-items:center;gap:8px;padding:4px 0;color:var(--ink);font-size:13px;cursor:pointer}
@@ -115,7 +125,7 @@ body.view-only #lightboxCaption{display:none!important}
   tbody td[data-col="species"]:before{display:none}
   tbody td[data-col="category"]{font-size:12px;color:var(--muted);margin-top:-4px}
   tbody td[data-col="category"]:before{display:none}
-  tbody td[data-col]:not([data-col="species"]):not([data-col="category"]):not([data-col="date"]):not([data-col="location"]){display:none}
+  tbody td[data-col]:not([data-col="species"]):not([data-col="category"]):not([data-col="count"]):not([data-col="lastSeen"]){display:none}
 }
 </style>
 </head>
@@ -172,7 +182,6 @@ body.view-only #lightboxCaption{display:none!important}
     <div class="filter-row">
       <input type="search" id="searchBox" placeholder="Search sightings&hellip;">
       <select id="categoryFilter"><option value="">All categories</option></select>
-      <select id="foyFilter"><option value="">All sightings</option><option value="yes">First of year only</option></select>
       <span style="position:relative">
         <button class="ghost tiny" id="colsBtn" aria-haspopup="true" aria-expanded="false">&#9881; columns</button>
         <div class="cols-pop" id="colsPop" role="dialog" aria-label="Show/hide columns" style="display:none"></div>
@@ -183,9 +192,9 @@ body.view-only #lightboxCaption{display:none!important}
         <thead><tr>
           <th data-sort="species" data-col="species">Species <span class="sort-arrow"></span></th>
           <th data-sort="category" data-col="category">Category <span class="sort-arrow"></span></th>
-          <th data-sort="date" data-col="date">Date <span class="sort-arrow"></span></th>
-          <th data-sort="location" data-col="location">Location <span class="sort-arrow"></span></th>
-          <th data-sort="firstOfYear" data-col="firstOfYear">First of Year <span class="sort-arrow"></span></th>
+          <th data-sort="count" data-col="count">Sightings <span class="sort-arrow"></span></th>
+          <th data-sort="lastSeen" data-col="lastSeen">Last Seen <span class="sort-arrow"></span></th>
+          <th data-sort="firstSeen" data-col="firstSeen">First Seen <span class="sort-arrow"></span></th>
         </tr></thead>
         <tbody id="sightingBody"></tbody>
       </table>
@@ -260,26 +269,24 @@ body.view-only #lightboxCaption{display:none!important}
     <button class="info-close" id="infoClose">&times;</button>
     <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding-right:28px">
       <div><h2 id="infoSpecies" style="margin:0"></h2><div id="infoCategory" style="color:var(--accent);font-size:14px;font-weight:600"></div></div>
-      <button class="ghost tiny edit-row" id="editBtn">Edit</button>
+      <button class="ghost tiny edit-row" id="addSightingForSpeciesBtn">+ Log Sighting</button>
     </div>
 
-    <!-- Read-only view -->
-    <div id="infoReadView">
-      <div class="info-section">
-        <h3>Details</h3>
-        <div class="info-grid" id="infoDetails"></div>
-      </div>
-
-      <div class="info-section" id="infoNotesSection">
-        <h3>Notes</h3>
-        <div class="notes-block" id="infoNotes"></div>
-      </div>
+    <!-- Summary -->
+    <div class="info-section">
+      <div class="info-grid" id="infoSummaryDetails"></div>
     </div>
 
-    <!-- Edit view -->
+    <!-- Sighting log -->
+    <div class="info-section" id="infoSightingsSection">
+      <h3>Sighting Log</h3>
+      <ul class="sighting-log" id="infoSightings"></ul>
+    </div>
+
+    <!-- Inline edit (hidden) -->
     <div id="infoEditView" style="display:none">
       <div class="info-section">
-        <h3>Details</h3>
+        <h3 id="editHeading">Edit Sighting</h3>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
           <div style="grid-column:1/-1"><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Species</label><input type="text" id="editSpecies"></div>
           <div><label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Category</label><input type="text" id="editCategory"></div>
@@ -581,7 +588,7 @@ document.addEventListener('visibilitychange', ()=>{ gallery.paused = document.hi
 $('#galleryStage').addEventListener('click', e=>{
   if(e.target.closest('button')) return;
   const item = gallery.pool[gallery.idx];
-  if(item && item.sightingId) openInfo(item.sightingId);
+  if(item && item.name) openInfo(item.name);
 });
 
 /* ── Sync status ── */
@@ -592,6 +599,10 @@ function setSyncStatus(msg, cls){
 
 /* ── Lookups ── */
 function photosFor(id){ return state.photos.filter(p=>p.sighting_id===id); }
+function photosForSpecies(species){
+  const ids = new Set(state.sightings.filter(s=>s.species===species).map(s=>s.id));
+  return state.photos.filter(p=>ids.has(p.sighting_id));
+}
 function r2PublicUrl(key){ return `${R2_CONFIG.publicUrl}/${key}`; }
 
 /* ── Category filter ── */
@@ -603,28 +614,39 @@ function buildCategoryFilter(){
 }
 
 /* ── Sort state ── */
-let sortCol = 'date';
+let sortCol = 'lastSeen';
 let sortDir = -1;
 
-/* ── Render sighting table ── */
+/* ── Render sighting table (species-grouped) ── */
 function renderSightings(){
   const q = $('#searchBox').value.toLowerCase().trim();
   const catFilt = $('#categoryFilter').value;
-  const foyFilt = $('#foyFilter').value;
 
-  let sightings = state.sightings.filter(s=>{
-    if(catFilt && s.category !== catFilt) return false;
-    if(foyFilt === 'yes' && s.firstOfYear !== 'yes') return false;
+  /* Build species groups */
+  const speciesMap = new Map();
+  for(const s of state.sightings){
+    if(catFilt && s.category !== catFilt) continue;
     if(q){
-      const hay = `${s.species} ${s.category} ${s.location} ${s.notes}`.toLowerCase();
-      if(!hay.includes(q)) return false;
+      const hay = `${s.species} ${s.category} ${s.location} ${s.notes} ${s.date}`.toLowerCase();
+      if(!hay.includes(q)) continue;
     }
-    return true;
-  });
+    const key = s.species || 'Unknown';
+    if(!speciesMap.has(key)){
+      speciesMap.set(key, { species: key, category: s.category||'', count: 0, lastSeen: '', firstSeen: '' });
+    }
+    const g = speciesMap.get(key);
+    g.count++;
+    if(!g.category && s.category) g.category = s.category;
+    if(s.date && (!g.lastSeen || s.date > g.lastSeen)) g.lastSeen = s.date;
+    if(s.date && (!g.firstSeen || s.date < g.firstSeen)) g.firstSeen = s.date;
+  }
 
-  sightings.sort((a,b)=>{
-    let va = a[sortCol]||'', vb = b[sortCol]||'';
-    return va.localeCompare(vb)*sortDir;
+  let groups = [...speciesMap.values()];
+
+  groups.sort((a,b)=>{
+    if(sortCol === 'count') return (a.count - b.count) * sortDir;
+    const va = a[sortCol]||'', vb = b[sortCol]||'';
+    return va.localeCompare(vb) * sortDir;
   });
 
   $$('#sightingTable thead th').forEach(th=>{
@@ -640,18 +662,16 @@ function renderSightings(){
   const tbody = $('#sightingBody');
   tbody.innerHTML = '';
 
-  for(const s of sightings){
+  for(const g of groups){
     const tr = document.createElement('tr');
-    tr.dataset.id = s.id;
+    tr.dataset.species = g.species;
     tr.style.cursor = 'pointer';
-    const foyHtml = s.firstOfYear === 'yes' ? '<span class="foy-badge">First</span>' : '—';
-
     tr.innerHTML = `
-      <td data-col="species"><a href="#" class="namelink" data-info="${escapeHtml(s.id)}">${escapeHtml(s.species||'Unknown')}</a></td>
-      <td data-col="category" data-label="Category">${escapeHtml(s.category||'—')}</td>
-      <td data-col="date" data-label="Date">${escapeHtml(s.date||'—')}</td>
-      <td data-col="location" data-label="Location">${escapeHtml(s.location||'—')}</td>
-      <td data-col="firstOfYear" data-label="First">${foyHtml}</td>
+      <td data-col="species"><a href="#" class="namelink" data-species="${escapeHtml(g.species)}">${escapeHtml(g.species)}</a></td>
+      <td data-col="category" data-label="Category">${escapeHtml(g.category||'—')}</td>
+      <td data-col="count" data-label="Sightings">${g.count}</td>
+      <td data-col="lastSeen" data-label="Last Seen">${escapeHtml(g.lastSeen||'—')}</td>
+      <td data-col="firstSeen" data-label="First Seen">${escapeHtml(g.firstSeen||'—')}</td>
     `;
     tbody.appendChild(tr);
   }
@@ -889,7 +909,7 @@ function renderLifeList(){
     return;
   }
   list.innerHTML = sorted.map(([species, info]) => `
-    <li class="life-item">
+    <li class="life-item" data-species="${escapeHtml(species)}" style="cursor:pointer">
       <div>
         <div class="li-species">${escapeHtml(species)}</div>
         <div class="li-meta">${escapeHtml(info.category)}${info.firstDate ? ' · first seen '+escapeHtml(info.firstDate) : ''}</div>
@@ -898,6 +918,11 @@ function renderLifeList(){
     </li>
   `).join('');
 }
+
+$('#lifeList').addEventListener('click', e=>{
+  const item = e.target.closest('[data-species]');
+  if(item) openInfo(item.dataset.species);
+});
 
 /* ── Seasonal Patterns ── */
 function renderSeasonalPatterns(){
@@ -933,42 +958,81 @@ function renderSeasonalPatterns(){
   grid.innerHTML = html;
 }
 
-/* ── Sighting detail ── */
-function openInfo(id){
-  const s = state.sightings.find(x=>x.id===id);
-  if(!s) return;
+/* ── Species detail ── */
+function openInfo(species){
+  const sightings = state.sightings.filter(s=>s.species===species);
+  if(!sightings.length) return;
 
-  $('#infoSpecies').textContent = s.species || 'Unknown';
-  $('#infoCategory').textContent = s.category || '';
+  state._currentSpecies = species;
 
-  const details = [
-    ['Species', s.species||'—'],
-    ['Category', s.category||'—'],
-    ['Date', s.date||'—'],
-    ['Location', s.location||'—'],
-    ['First of Year', s.firstOfYear==='yes' ? 'Yes ⭐' : 'No'],
+  $('#infoSpecies').textContent = species;
+  $('#infoCategory').textContent = sightings[0].category || '';
+
+  const lastSeen = sightings.reduce((max,s)=> s.date && s.date > max ? s.date : max, '');
+  const firstSeen = sightings.reduce((min,s)=> s.date && (!min || s.date < min) ? s.date : min, '');
+  const locations = [...new Set(sightings.map(s=>s.location).filter(Boolean))];
+  const foyCount = sightings.filter(s=>s.firstOfYear==='yes').length;
+
+  const summary = [
+    ['Total Sightings', String(sightings.length)],
+    ['First Seen', firstSeen || '—'],
+    ['Last Seen', lastSeen || '—'],
+    ['Locations', locations.join(', ') || '—'],
   ];
-  $('#infoDetails').innerHTML = details
+  if(foyCount) summary.push(['First of Year', String(foyCount)+'×']);
+
+  $('#infoSummaryDetails').innerHTML = summary
     .map(([k,v])=>`<dt>${escapeHtml(k)}</dt><dd>${escapeHtml(v)}</dd>`)
     .join('');
 
-  showNotes('#infoNotesSection', '#infoNotes', s.notes);
-  renderSightingPhotos(id);
-  state._currentSightingId = id;
+  renderSightingLog(species);
+  renderSpeciesPhotos(species);
 
-  $('#infoReadView').style.display = '';
   $('#infoEditView').style.display = 'none';
-  $('#editBtn').style.display = '';
+  $('#infoSightingsSection').style.display = '';
 
   $('#infoOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
 }
 
+/* ── Sighting log ── */
+function renderSightingLog(species){
+  const sightings = state.sightings
+    .filter(s=>s.species===species)
+    .sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const list = $('#infoSightings');
+  if(!sightings.length){
+    list.innerHTML = '<li style="color:var(--muted);font-style:italic;padding:8px">No sightings logged.</li>';
+    return;
+  }
+  list.innerHTML = sightings.map(s=>`
+    <li class="sighting-entry" data-sighting-id="${escapeHtml(s.id)}">
+      <div class="se-head">
+        <span class="se-date">${escapeHtml(s.date||'No date')}${s.firstOfYear==='yes'?'<span class="se-foy"><span class="foy-badge">First</span></span>':''}</span>
+        <span class="se-location">${escapeHtml(s.location||'')}</span>
+      </div>
+      ${s.notes?`<div class="se-notes">${escapeHtml(s.notes)}</div>`:''}
+      <div class="se-actions edit-row">
+        <button class="ghost tiny" data-edit-sighting="${escapeHtml(s.id)}">Edit</button>
+        <button class="ghost tiny" style="color:#f59a8a" data-delete-sighting="${escapeHtml(s.id)}">Delete</button>
+      </div>
+    </li>
+  `).join('');
+}
+
+/* ── Sighting log click handlers ── */
+$('#infoSightings').addEventListener('click', async e=>{
+  const editBtn = e.target.closest('[data-edit-sighting]');
+  if(editBtn){ startEdit(editBtn.dataset.editSighting); return; }
+  const delBtn = e.target.closest('[data-delete-sighting]');
+  if(delBtn){ await deleteSighting(delBtn.dataset.deleteSighting); return; }
+});
+
 /* ── Edit sighting ── */
-function startEdit(){
-  const id = state._currentSightingId;
-  const s = state.sightings.find(x=>x.id===id);
+function startEdit(sightingId){
+  const s = state.sightings.find(x=>x.id===sightingId);
   if(!s) return;
+  state._editingSightingId = sightingId;
   $('#editSpecies').value = s.species||'';
   $('#editCategory').value = s.category||'';
   $('#editDate').value = s.date||'';
@@ -976,22 +1040,21 @@ function startEdit(){
   $('#editFirstOfYear').value = s.firstOfYear||'';
   $('#editNotes').value = s.notes||'';
   $('#editStatusMsg').textContent = '';
-  $('#infoReadView').style.display = 'none';
+  $('#editHeading').textContent = `Edit Sighting — ${s.date||''}`;
+  $('#infoSightingsSection').style.display = 'none';
   $('#infoEditView').style.display = '';
-  $('#editBtn').style.display = 'none';
 }
 
 function cancelEdit(){
-  $('#infoReadView').style.display = '';
   $('#infoEditView').style.display = 'none';
-  $('#editBtn').style.display = '';
+  $('#infoSightingsSection').style.display = '';
+  state._editingSightingId = null;
 }
 
-$('#editBtn').onclick = startEdit;
 $('#editCancelBtn').onclick = cancelEdit;
 
 $('#editSaveBtn').onclick = async ()=>{
-  const id = state._currentSightingId;
+  const id = state._editingSightingId;
   const s = state.sightings.find(x=>x.id===id);
   if(!s) return;
   const st = $('#editStatusMsg');
@@ -1015,14 +1078,71 @@ $('#editSaveBtn').onclick = async ()=>{
     renderSeasonalPatterns();
     buildCategoryFilter();
     cancelEdit();
-    openInfo(id);
+    openInfo(updated.species || state._currentSpecies);
   } catch(e){
     st.textContent = e.message;
   }
 };
 
-function renderSightingPhotos(sightingId){
-  const photos = photosFor(sightingId).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+/* ── Delete sighting ── */
+async function gsDeleteSightingRow(sightingId){
+  const token = localStorage.getItem(GS_TOKEN_KEY);
+  if(!token) throw new Error('Not signed in to Google');
+  const getUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/sightings?majorDimension=ROWS`;
+  const gr = await fetch(getUrl, { headers:{ Authorization:'Bearer '+token } });
+  if(!gr.ok) throw new Error('Failed to read sheet');
+  const data = await gr.json();
+  const rows = data.values || [];
+  if(!rows.length) throw new Error('Sheet has no headers');
+  const idCol = rows[0].indexOf('id');
+  if(idCol<0) throw new Error('No id column');
+  let rowIdx = -1;
+  for(let i=1;i<rows.length;i++){
+    if(rows[i][idCol]===sightingId){ rowIdx = i; break; }
+  }
+  if(rowIdx<0) throw new Error('Sighting not found');
+  const delUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`;
+  await fetch(delUrl, {
+    method:'POST',
+    headers:{ Authorization:'Bearer '+token, 'Content-Type':'application/json' },
+    body: JSON.stringify({ requests:[{ deleteDimension:{ range:{ sheetId: TABS.sightings, dimension:'ROWS', startIndex: rowIdx, endIndex: rowIdx+1 }}}]}),
+  });
+}
+
+async function deleteSighting(sightingId){
+  if(!confirm('Delete this sighting? This cannot be undone.')) return;
+  try {
+    await gsDeleteSightingRow(sightingId);
+    /* Also delete associated photos from R2 + sheet */
+    const photos = photosFor(sightingId);
+    for(const p of photos){
+      try { await sigv4Request({ method:'DELETE', key: p.key }); } catch(e){ console.warn('Photo delete failed:', e); }
+      try { await gsDeletePhotoRow(p.sighting_id, p.key); } catch(e){ console.warn('Photo row delete failed:', e); }
+      const idx = state.photos.findIndex(x=>x.key===p.key);
+      if(idx>=0) state.photos.splice(idx, 1);
+    }
+    const idx = state.sightings.findIndex(x=>x.id===sightingId);
+    if(idx>=0) state.sightings.splice(idx, 1);
+    const species = state._currentSpecies;
+    renderSightings();
+    renderStats();
+    renderCalendar();
+    renderLifeList();
+    renderSeasonalPatterns();
+    buildCategoryFilter();
+    refreshGallery();
+    /* Re-open species view if still has sightings, else close */
+    const remaining = state.sightings.filter(s=>s.species===species);
+    if(remaining.length) openInfo(species);
+    else closeInfo();
+  } catch(e){
+    alert('Delete failed: ' + e.message);
+  }
+}
+
+/* ── Species photos ── */
+function renderSpeciesPhotos(species){
+  const photos = photosForSpecies(species).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
   const grid = $('#infoPhotos');
   if(!photos.length){
     grid.innerHTML = '<div class="empty">No photos or videos yet.</div>';
@@ -1038,12 +1158,6 @@ function renderSightingPhotos(sightingId){
       ${p.date ? `<div class="date">${escapeHtml(p.date)}</div>` : ''}
     </div>`;
   }).join('');
-}
-
-function showNotes(sectionSel, contentSel, text){
-  const has = text && text.trim();
-  $(sectionSel).style.display = has ? '' : 'none';
-  if(has) $(contentSel).textContent = text;
 }
 
 function closeInfo(){
@@ -1064,17 +1178,17 @@ document.addEventListener('keydown', e=>{
   }
 });
 
-/* ── Table click → open info ── */
+/* ── Table click → open species detail ── */
 $('#sightingTable').addEventListener('click', e=>{
-  const link = e.target.closest('a[data-info]');
-  if(link){ e.preventDefault(); openInfo(link.dataset.info); return; }
-  const tr = e.target.closest('tr[data-id]');
-  if(tr) openInfo(tr.dataset.id);
+  const link = e.target.closest('a[data-species]');
+  if(link){ e.preventDefault(); openInfo(link.dataset.species); return; }
+  const tr = e.target.closest('tr[data-species]');
+  if(tr) openInfo(tr.dataset.species);
 });
 
 /* ── Column visibility ── */
-const COL_KEYS = ['category','date','location','firstOfYear'];
-const COL_LABELS = {category:'Category', date:'Date', location:'Location', firstOfYear:'First of Year'};
+const COL_KEYS = ['category','count','lastSeen','firstSeen'];
+const COL_LABELS = {category:'Category', count:'Sightings', lastSeen:'Last Seen', firstSeen:'First Seen'};
 const COL_VIS_KEY = 'wildlife.colVisibility';
 
 function loadColVis(){
@@ -1140,14 +1254,13 @@ $('#sightingTable thead').addEventListener('click', e=>{
   if(!th) return;
   const col = th.dataset.sort;
   if(sortCol === col) sortDir *= -1;
-  else { sortCol = col; sortDir = col==='date' ? -1 : 1; }
+  else { sortCol = col; sortDir = (col==='lastSeen'||col==='firstSeen'||col==='count') ? -1 : 1; }
   renderSightings();
 });
 
 /* ── Search / filter ── */
 $('#searchBox').addEventListener('input', renderSightings);
 $('#categoryFilter').addEventListener('change', renderSightings);
-$('#foyFilter').addEventListener('change', renderSightings);
 
 /* ── Themes ── */
 const THEMES = [
@@ -1522,15 +1635,20 @@ async function gsEnsureTab(tabName, gid, headers){
 }
 
 /* ── Add sighting ── */
-function openAddSighting(){
+function openAddSighting(prefill){
   if (!isGsAuthed()){ alert('Sign in with Google first (Settings).'); return; }
   ['addSpecies','addCategory','addDate','addLocation','addNotes'].forEach(id=> $('#'+id).value = '');
   $('#addFirstOfYear').value = '';
   $('#addDate').value = new Date().toISOString().slice(0,10);
+  if(prefill){
+    if(prefill.species) $('#addSpecies').value = prefill.species;
+    if(prefill.category) $('#addCategory').value = prefill.category;
+  }
   $('#addStatusMsg').textContent = '';
   $('#addOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
-  $('#addSpecies').focus();
+  if(prefill && prefill.species) $('#addLocation').focus();
+  else $('#addSpecies').focus();
 }
 
 function closeAddSighting(){
@@ -1538,7 +1656,12 @@ function closeAddSighting(){
   document.body.style.overflow = '';
 }
 
-$('#addSightingBtn').onclick = openAddSighting;
+$('#addSightingBtn').onclick = ()=> openAddSighting();
+$('#addSightingForSpeciesBtn').onclick = ()=>{
+  const species = state._currentSpecies;
+  const sightings = state.sightings.filter(s=>s.species===species);
+  openAddSighting({ species, category: sightings[0]?.category||'' });
+};
 $('#addClose').onclick = closeAddSighting;
 $('#addCancel').onclick = closeAddSighting;
 $('#addOverlay').addEventListener('click', e=>{ if(e.target === $('#addOverlay')) closeAddSighting(); });
@@ -1571,7 +1694,7 @@ $('#addSaveBtn').onclick = async ()=>{
     renderSeasonalPatterns();
     buildCategoryFilter();
     closeAddSighting();
-    openInfo(id);
+    openInfo(species);
   } catch(e){
     st.textContent = e.message;
   }
@@ -1630,8 +1753,14 @@ async function uploadSightingPhoto(sightingId, file, onStatus){
 $('#photoUploadInput').addEventListener('change', async e=>{
   const files = [...e.target.files];
   if(!files.length) return;
-  const sightingId = state._currentSightingId;
-  if(!sightingId) return;
+  /* Attach to most recent sighting for this species */
+  const species = state._currentSpecies;
+  if(!species) return;
+  const speciesSightings = state.sightings
+    .filter(s=>s.species===species)
+    .sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const sightingId = speciesSightings[0]?.id;
+  if(!sightingId){ alert('No sighting to attach photos to. Log a sighting first.'); return; }
   const statusEl = $('#photoStatus');
   statusEl.style.display = 'block';
   for(let i=0;i<files.length;i++){
@@ -1645,7 +1774,7 @@ $('#photoUploadInput').addEventListener('change', async e=>{
   }
   statusEl.textContent = 'Done!';
   setTimeout(()=>{ statusEl.style.display = 'none'; }, 2000);
-  renderSightingPhotos(sightingId);
+  renderSpeciesPhotos(species);
   refreshGallery();
   e.target.value = '';
 });
@@ -1657,8 +1786,8 @@ let _lbIdx = 0;
 $('#infoPhotos').addEventListener('click', e=>{
   const ph = e.target.closest('.ph');
   if(!ph) return;
-  const sightingId = state._currentSightingId;
-  _lbPhotos = photosFor(sightingId).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+  const species = state._currentSpecies;
+  _lbPhotos = photosForSpecies(species).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
   _lbIdx = parseInt(ph.dataset.idx, 10);
   showLightbox();
 });
@@ -1728,7 +1857,7 @@ $('#lightboxDelete').onclick = async ()=>{
       _lbIdx = Math.min(_lbIdx, _lbPhotos.length - 1);
       showLightbox();
     }
-    renderSightingPhotos(state._currentSightingId);
+    if(state._currentSpecies) renderSpeciesPhotos(state._currentSpecies);
     refreshGallery();
   } catch(e){
     alert('Delete failed: ' + e.message);

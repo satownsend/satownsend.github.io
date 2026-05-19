@@ -33,6 +33,11 @@
 .cols-pop label{display:flex;align-items:center;gap:8px;padding:4px 0;color:var(--ink);font-size:13px;cursor:pointer}
 .cols-pop label input[type=checkbox]{margin:0}
 
+/* ── Media icons ── */
+.media-icons{display:inline-flex;gap:4px;margin-left:6px;vertical-align:middle}
+.media-icons .mi{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;
+  background:rgba(77,208,193,.12);color:var(--accent);font-size:11px;line-height:1;flex:none}
+
 /* ── First-of-year badge ── */
 .foy-badge{display:inline-block;padding:1px 7px;border-radius:999px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;
   background:rgba(77,208,193,.15);color:var(--accent);border:1px solid rgba(77,208,193,.3)}
@@ -632,10 +637,17 @@ function renderSightings(){
     }
     const key = s.species || 'Unknown';
     if(!speciesMap.has(key)){
-      speciesMap.set(key, { species: key, category: s.category||'', count: 0, lastSeen: '', firstSeen: '' });
+      speciesMap.set(key, { species: key, category: s.category||'', count: 0, lastSeen: '', firstSeen: '', hasPhoto: false, hasVideo: false });
     }
     const g = speciesMap.get(key);
     g.count++;
+    if(!g.hasPhoto || !g.hasVideo){
+      const media = state.photos.filter(p=>p.sighting_id===s.id);
+      for(const m of media){
+        if(isVideoKey(m.key)) g.hasVideo = true;
+        else g.hasPhoto = true;
+      }
+    }
     if(!g.category && s.category) g.category = s.category;
     if(s.date && (!g.lastSeen || s.date > g.lastSeen)) g.lastSeen = s.date;
     if(s.date && (!g.firstSeen || s.date < g.firstSeen)) g.firstSeen = s.date;
@@ -666,8 +678,9 @@ function renderSightings(){
     const tr = document.createElement('tr');
     tr.dataset.species = g.species;
     tr.style.cursor = 'pointer';
+    const icons = (g.hasPhoto || g.hasVideo) ? `<span class="media-icons">${g.hasPhoto?'<span class="mi" title="Has photos">📷</span>':''}${g.hasVideo?'<span class="mi" title="Has videos">🎬</span>':''}</span>` : '';
     tr.innerHTML = `
-      <td data-col="species"><a href="#" class="namelink" data-species="${escapeHtml(g.species)}">${escapeHtml(g.species)}</a></td>
+      <td data-col="species"><a href="#" class="namelink" data-species="${escapeHtml(g.species)}">${escapeHtml(g.species)}</a>${icons}</td>
       <td data-col="category" data-label="Category">${escapeHtml(g.category||'—')}</td>
       <td data-col="count" data-label="Sightings">${g.count}</td>
       <td data-col="lastSeen" data-label="Last Seen">${escapeHtml(g.lastSeen||'—')}</td>

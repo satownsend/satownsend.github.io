@@ -386,7 +386,7 @@ body.view-only #addMaintenanceBtn{display:none!important}
 
     <div style="margin-bottom:16px">
       <h3 style="margin:0 0 8px">Photo storage (Cloudflare R2)</h3>
-      <div class="small" style="color:var(--muted);margin-bottom:6px">Credentials are stored locally on this device only.</div>
+      <div class="small" style="color:var(--muted);margin-bottom:6px">Enter these once while signed in with Google. They're saved to a private Google vault, so signing in on any other device loads them automatically.</div>
       <input type="text" id="r2KeyInput" placeholder="Access Key ID" style="width:100%;margin-bottom:6px">
       <input type="password" id="r2SecretInput" placeholder="Secret Access Key" style="width:100%">
       <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
@@ -1379,6 +1379,96 @@ function setR2Creds(c){
   else localStorage.removeItem(R2_CREDS_KEY);
 }
 
+/* ── R2 credential vault (issue #47) ──
+   "Signed in with Google" is enough to upload — no separate Cloudflare entry
+   per device. The R2 key/secret live in a PRIVATE spreadsheet only the owner's
+   Google token can read; its id sits in a `config` tab of the main (public)
+   sheet (the id is not a secret). Public/anonymous viewing is unaffected. */
+const R2_VAULT_TITLE = 'satownsend • R2 vault (private — do not share)';
+const CONFIG_TAB = 'config';
+
+async function vaultApiFetch(url, opts = {}){
+  const token = localStorage.getItem(GS_TOKEN_KEY);
+  if (!token) throw new Error('Not signed in');
+  const headers = { Authorization: 'Bearer ' + token, ...(opts.headers || {}) };
+  const r = await fetch(url, { ...opts, headers });
+  if (!r.ok){ throw new Error(`Sheets API ${r.status}: ${(await r.text().catch(()=>'')).slice(0,200)}`); }
+  return r.json();
+}
+
+async function gsReadConfig(){
+  try {
+    const data = await vaultApiFetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(CONFIG_TAB)}`);
+    const map = {};
+    for (const r of (data.values || [])){ if (r[0]) map[r[0]] = r[1] || ''; }
+    return map;
+  } catch(e){ return {}; }
+}
+
+async function gsWriteConfigValue(key, value){
+  const base = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}`;
+  try {
+    await vaultApiFetch(`${base}:batchUpdate`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ requests:[{ addSheet:{ properties:{ title: CONFIG_TAB } } }] }),
+    });
+  } catch(e){ /* already exists → fine */ }
+  const map = await gsReadConfig();
+  map[key] = value;
+  const rows = [['key','value'], ...Object.entries(map)];
+  await vaultApiFetch(`${base}/values/${encodeURIComponent(CONFIG_TAB)}:clear`, {
+    method:'POST', headers:{'Content-Type':'application/json'}, body:'{}',
+  });
+  await vaultApiFetch(`${base}/values/${encodeURIComponent(CONFIG_TAB+'!A1')}?valueInputOption=RAW`, {
+    method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ values: rows }),
+  });
+}
+
+async function gsCreateVault(){
+  const data = await vaultApiFetch('https://sheets.googleapis.com/v4/spreadsheets', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ properties:{ title: R2_VAULT_TITLE }, sheets:[{ properties:{ title:'r2' } }] }),
+  });
+  return data.spreadsheetId;
+}
+
+async function gsReadVaultCreds(vaultId){
+  const data = await vaultApiFetch(`https://sheets.googleapis.com/v4/spreadsheets/${vaultId}/values/r2!A2:B2`);
+  const row = (data.values || [])[0] || [];
+  const accessKey = (row[0]||'').trim(), secretKey = (row[1]||'').trim();
+  return (accessKey && secretKey) ? { accessKey, secretKey } : null;
+}
+
+async function gsWriteVaultCreds(vaultId, creds){
+  await vaultApiFetch(`https://sheets.googleapis.com/v4/spreadsheets/${vaultId}/values/r2!A1?valueInputOption=RAW`, {
+    method:'PUT', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ values: [['accessKey','secretKey'], [creds.accessKey, creds.secretKey]] }),
+  });
+}
+
+async function saveR2CredsToVault(creds){
+  if (!isGsAuthed()) return;
+  const cfg = await gsReadConfig();
+  let vaultId = cfg.r2_vault_id;
+  if (!vaultId){ vaultId = await gsCreateVault(); await gsWriteConfigValue('r2_vault_id', vaultId); }
+  await gsWriteVaultCreds(vaultId, creds);
+}
+
+async function autoLoadR2CredsFromVault(){
+  if (!isGsAuthed()) return false;
+  const have = getR2Creds();
+  if (have.accessKey && have.secretKey) return false;
+  try {
+    const cfg = await gsReadConfig();
+    if (!cfg.r2_vault_id) return false;
+    const creds = await gsReadVaultCreds(cfg.r2_vault_id);
+    if (!creds) return false;
+    setR2Creds(creds);
+    if (typeof refreshR2Input === 'function') refreshR2Input();
+    return true;
+  } catch(e){ console.warn('[vault] auto-load failed:', e); return false; }
+}
+
 /* ── SigV4 signing ── */
 async function sha256hex(data){
   const buf = typeof data === 'string' ? new TextEncoder().encode(data) : data;
@@ -1808,13 +1898,24 @@ function refreshR2Input(){
   st.textContent = c.accessKey && c.secretKey ? 'Configured.' : 'Not configured.';
   st.style.color = c.accessKey && c.secretKey ? 'var(--accent)' : 'var(--muted)';
 }
-$('#r2SaveBtn').onclick = ()=>{
+$('#r2SaveBtn').onclick = async ()=>{
   const k = $('#r2KeyInput').value.trim();
   let s = $('#r2SecretInput').value.trim();
   if (s.startsWith('•')) s = (getR2Creds().secretKey || '');
   if (!k || !s){ alert('Paste both Access Key ID and Secret Access Key.'); return; }
-  setR2Creds({ accessKey: k, secretKey: s });
+  const creds = { accessKey: k, secretKey: s };
+  setR2Creds(creds);
   refreshR2Input();
+  if (isGsAuthed()){
+    const st = $('#r2Status');
+    st.textContent = 'Saving to your private Google vault…'; st.style.color = 'var(--muted)';
+    try {
+      await saveR2CredsToVault(creds);
+      st.textContent = 'Saved. Signing in with Google on any device now loads these automatically.'; st.style.color = 'var(--accent)';
+    } catch(e){
+      st.textContent = 'Saved on this device, but vault sync failed: '+e.message; st.style.color = '#e8a06a';
+    }
+  }
 };
 $('#r2TestBtn').onclick = async ()=>{
   const st = $('#r2Status');
@@ -1839,6 +1940,7 @@ handleOAuthReturn();
 const savedTheme = localStorage.getItem(THEME_KEY);
 if(savedTheme && savedTheme !== 'default') applyTheme(savedTheme);
 refreshGsStatus();
+autoLoadR2CredsFromVault();
 loadData().then(refreshGsStatus);
 </script>
 </body>

@@ -914,6 +914,10 @@ const GS_TOKEN_KEY = 'yardDashboard.gsToken';
 let gsSyncing = false;
 let gsSyncTimer = null;
 let gsSuspendSync = false;
+// True only after a pull has successfully loaded real plant data this session.
+// Auto-sync won't push before this, so a transient empty/seed state can never
+// overwrite the sheet before we've seen what's actually on it.
+let gsPulledOnce = false;
 function getGsToken(){
   try { const t = JSON.parse(localStorage.getItem(GS_TOKEN_KEY)||'null'); if (!t) return null; if (t.expires_at && t.expires_at < Date.now()) return null; return t; } catch(e){ return null; }
 }
@@ -3938,6 +3942,17 @@ async function pullFromSheets(){
     const rawPhotos = rowsToObjects(photosRows);
     const rawLog = rowsToObjects(logRows);
 
+    // Guard against transient empty reads from Google's CSV endpoint: if the
+    // plants tab came back empty but we still have plants locally, or the photo
+    // or log tabs returned data, treat it as a spurious read and keep the
+    // current state rather than clobbering it (a later push could persist the
+    // wipe). Reloading retries the fetch.
+    if (rawPlants.length === 0 && ((state.plants && state.plants.length) || rawPhotos.length || rawLog.length)){
+      setStatus('Sheet returned 0 plants (transient read?) — kept current data. Reload to retry.', 'err');
+      setSyncStatus('pull skipped: empty read', 'err');
+      return;
+    }
+
     // Build tags lookup: plant_id -> comma-separated tags
     const tagsByPlant = new Map();
     for (const t of rawTags){
@@ -4016,6 +4031,7 @@ async function pullFromSheets(){
 
     state.plants = plants;
     state.log = [...remoteLog, ...localOnlyLog];
+    gsPulledOnce = true;
     gsSuspendSync = true; saveLocal(); gsSuspendSync = false;
     render();
     setStatus(`${plants.length} plants loaded at ${new Date().toLocaleTimeString()}`, 'ok');
@@ -4108,8 +4124,23 @@ async function gsClearAndWrite(tabName, rows){
   });
 }
 
-async function gsPushNow(){
+async function gsPushNow(force){
   if (!isGsAuthed() || gsSyncing) return;
+  // Safety valve: never let an empty/unloaded local state overwrite the sheet.
+  // Google's CSV endpoint occasionally returns only the header for a tab; if that
+  // empty read were adopted and then pushed back, gsClearAndWrite would wipe the
+  // sheet. Refuse to push when we have no plants loaded.
+  if (!(state.plants && state.plants.length)){
+    setSyncStatus('sync paused: no plants loaded', 'err');
+    return;
+  }
+  // Don't auto-push before a successful pull — otherwise a transient empty pull
+  // that left us on the local seed could overwrite the real sheet. The manual
+  // "Push now" button passes force=true to override.
+  if (!gsPulledOnce && !force){
+    setSyncStatus('sync paused until loaded', 'err');
+    return;
+  }
   gsSyncing = true;
   try {
     setSyncStatus('pushing…');
@@ -4129,7 +4160,7 @@ async function gsPushNow(){
 function queueGsSync(){
   if (gsSuspendSync || !isGsAuthed()) return;
   clearTimeout(gsSyncTimer);
-  gsSyncTimer = setTimeout(gsPushNow, 2000);
+  gsSyncTimer = setTimeout(()=>gsPushNow(), 2000);
 }
 
 function setSyncStatus(label, kind){
@@ -4183,7 +4214,7 @@ function refreshGsStatus(){
 
 $('#gsSaveTokenBtn').onclick = gsSignIn;
 $('#gsPullBtn').onclick = pullFromSheets;
-$('#gsPushBtn').onclick = gsPushNow;
+$('#gsPushBtn').onclick = ()=>gsPushNow(true);
 $('#gsSignOutBtn').onclick = ()=>{
   if (!confirm('Sign out? You can still view plants but edits won\'t sync.')) return;
   setGsToken(null); refreshGsStatus(); setSyncStatus('read-only', '');

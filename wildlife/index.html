@@ -1840,6 +1840,21 @@ function isVideoKey(key){ return /\.(mp4|mov|webm)$/i.test(key||''); }
 
 /* ── Photo/video upload ── */
 function ymd(d){ return d.toISOString().slice(0,10); }
+function ymdLocal(d){
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+// Best-effort capture date from the file's own timestamp. Camera-roll photos and
+// videos carry their capture time in lastModified, so this recovers the real
+// date when EXIF isn't available — notably HEIC photos and all videos. Returns
+// null if missing or implausible (future / pre-1990).
+function captureDateFromFile(file){
+  const t = file && file.lastModified;
+  if(!t) return null;
+  const d = new Date(t);
+  if(isNaN(d.getTime())) return null;
+  if(d.getFullYear() < 1990 || d.getTime() > Date.now() + 86400000) return null;
+  return ymdLocal(d);
+}
 
 async function uploadSightingPhoto(sightingId, file, onStatus){
   const creds = getR2Creds();
@@ -1849,15 +1864,16 @@ async function uploadSightingPhoto(sightingId, file, onStatus){
 
   if(isVideo(file)){
     const ext = (file.name.match(/\.(mp4|mov|webm)$/i)||['.mp4'])[0].toLowerCase();
-    const key = `wildlife-photos/${sightingId}/${date}-${rand}${ext}`;
+    const vidDate = captureDateFromFile(file) || date;
+    const key = `wildlife-photos/${sightingId}/${vidDate}-${rand}${ext}`;
     const ct = ext==='.webm' ? 'video/webm' : ext==='.mov' ? 'video/quicktime' : 'video/mp4';
     if(onStatus) onStatus('Uploading video…');
     const buf = await file.arrayBuffer();
     await sigv4Request({ method:'PUT', key, body: buf, contentType: ct });
     await gsEnsureTab('wildlife_photos', TABS.wildlife_photos, ['sighting_id','key','date','caption','hideFromGallery']);
-    await gsAppendRow(TABS.wildlife_photos, [sightingId, key, date, '', 'FALSE']);
-    state.photos.push({ sighting_id: sightingId, key, date, caption: '' });
-    return { key, date };
+    await gsAppendRow(TABS.wildlife_photos, [sightingId, key, vidDate, '', 'FALSE']);
+    state.photos.push({ sighting_id: sightingId, key, date: vidDate, caption: '' });
+    return { key, date: vidDate };
   }
 
   let exifDate = await exifDateFromFile(file);
@@ -1870,7 +1886,7 @@ async function uploadSightingPhoto(sightingId, file, onStatus){
   }
   if (onStatus) onStatus('Resizing…');
   const resized = await resizeImage(workingFile);
-  const photoDate = exifDate || date;
+  const photoDate = exifDate || captureDateFromFile(file) || date;
   const key = `wildlife-photos/${sightingId}/${photoDate}-${rand}.jpg`;
   if (onStatus) onStatus('Uploading…');
   const buf = await resized.arrayBuffer();

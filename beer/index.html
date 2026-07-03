@@ -10,6 +10,7 @@
 <link rel="preconnect" href="https://use.typekit.net" crossorigin>
 <link rel="stylesheet" href="https://use.typekit.net/twp1irx.css">
 <link rel="stylesheet" href="/shared/styles.css">
+<script defer src="/shared/nav.js"></script>
 <style>
 /* ── Beer-specific styles ── */
 .info-card .info-style{color:var(--accent);font-size:14px;font-weight:600}
@@ -67,12 +68,7 @@ body.view-only #lightboxCaption{display:none!important}
     <div>
       <div style="display:flex;align-items:baseline;gap:16px;flex-wrap:wrap">
         <h1>Beer</h1>
-        <nav style="display:flex;gap:4px;font-size:13px">
-          <a href="/plants" style="color:var(--muted);text-decoration:none;padding:4px 10px;border:1px solid var(--line);border-radius:6px;transition:color .15s,border-color .15s">Plants</a>
-          <a href="/instruments" style="color:var(--muted);text-decoration:none;padding:4px 10px;border:1px solid var(--line);border-radius:6px;transition:color .15s,border-color .15s">Instruments</a>
-          <a href="/wildlife" style="color:var(--muted);text-decoration:none;padding:4px 10px;border:1px solid var(--line);border-radius:6px;transition:color .15s,border-color .15s">Wildlife</a>
-          <a href="/" style="color:var(--muted);text-decoration:none;padding:4px 10px;border:1px solid var(--line);border-radius:6px;transition:color .15s,border-color .15s">Home</a>
-        </nav>
+        <div id="siteNav"></div>
       </div>
     </div>
     <div class="row">

@@ -903,6 +903,7 @@
 
 </div>
 
+<script src="/shared/gauth.js"></script>
 <script>
 /* ---------- storage ---------- */
 const KEY = 'yardDashboard.v4';
@@ -919,11 +920,10 @@ let gsSuspendSync = false;
 // Auto-sync won't push before this, so a transient empty/seed state can never
 // overwrite the sheet before we've seen what's actually on it.
 let gsPulledOnce = false;
-function getGsToken(){
-  try { const t = JSON.parse(localStorage.getItem(GS_TOKEN_KEY)||'null'); if (!t) return null; if (t.expires_at && t.expires_at < Date.now()) return null; return t; } catch(e){ return null; }
-}
-function setGsToken(t){ if (t) localStorage.setItem(GS_TOKEN_KEY, JSON.stringify(t)); else localStorage.removeItem(GS_TOKEN_KEY); }
-function isGsAuthed(){ return !!getGsToken(); }
+// Auth is handled by the shared GAuth module (/shared/gauth.js): one token
+// shared across all dashboards, with near-silent renewal on load.
+function getGsToken(){ const t = GAuth.token(); return t ? { access_token: t } : null; }
+function isGsAuthed(){ return GAuth.isAuthed(); }
 const defaultState = {
   settings: {
     city: 'Lilly, PA 15938',
@@ -4207,31 +4207,6 @@ function setSyncStatus(label, kind){
 }
 
 // --- Google OAuth (implicit grant for browser apps) ---
-function gsSignIn(){
-  const redirect = location.origin + location.pathname;
-  const params = new URLSearchParams({
-    client_id: GS_CLIENT_ID,
-    redirect_uri: redirect,
-    response_type: 'token',
-    scope: GS_SCOPES,
-    include_granted_scopes: 'true',
-  });
-  location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params;
-}
-
-function gsHandleRedirect(){
-  const hash = location.hash.slice(1);
-  if (!hash || !hash.includes('access_token')) return false;
-  const params = new URLSearchParams(hash);
-  const token = {
-    access_token: params.get('access_token'),
-    expires_at: Date.now() + (parseInt(params.get('expires_in'),10)||3600) * 1000,
-  };
-  setGsToken(token);
-  history.replaceState(null, '', location.pathname + location.search);
-  return true;
-}
-
 function refreshGsStatus(){
   const authed = isGsAuthed();
   document.body.classList.toggle('view-only', !authed);
@@ -4246,12 +4221,12 @@ function refreshGsStatus(){
   }
 }
 
-$('#gsSaveTokenBtn').onclick = gsSignIn;
+$('#gsSaveTokenBtn').onclick = ()=> GAuth.signIn();
 $('#gsPullBtn').onclick = pullFromSheets;
 $('#gsPushBtn').onclick = ()=>gsPushNow(true);
 $('#gsSignOutBtn').onclick = ()=>{
   if (!confirm('Sign out? You can still view plants but edits won\'t sync.')) return;
-  setGsToken(null); refreshGsStatus(); setSyncStatus('read-only', '');
+  GAuth.signOut(); refreshGsStatus(); setSyncStatus('read-only', '');
 };
 
 /* ---------- (GitHub sync removed — data now lives in Google Sheets) ---------- */
@@ -4725,13 +4700,15 @@ function render(slices){
 render();
 fetchForecast();
 refreshR2Input();
-gsHandleRedirect();
-refreshGsStatus();
-autoLoadR2CredsFromVault();
-loadFeaturedKey();
-(async ()=>{
-  await pullFromSheets();
-})();
+GAuth.handleReturn();
+if(!GAuth.trySilent()){
+  refreshGsStatus();
+  autoLoadR2CredsFromVault();
+  loadFeaturedKey();
+  (async ()=>{
+    await pullFromSheets();
+  })();
+}
 </script>
 
 <!-- Print-only inventory sheet. Hidden in normal viewing; revealed when

@@ -301,6 +301,7 @@ body.view-only #lightboxCaption{display:none!important}
   </div>
 </div>
 
+<script src="/shared/gauth.js"></script>
 <script>
 /* ── Helpers ── */
 const $ = s => document.querySelector(s);
@@ -963,11 +964,9 @@ const GS_SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
 const GS_TOKEN_KEY = 'beerDashboard.gsToken';
 const GS_EXPIRY_KEY = 'beerDashboard.gsExpiry';
 
-function isGsAuthed(){
-  const t = localStorage.getItem(GS_TOKEN_KEY);
-  const exp = Number(localStorage.getItem(GS_EXPIRY_KEY));
-  return t && exp && Date.now() < exp;
-}
+// Auth is handled by the shared GAuth module (/shared/gauth.js): one token
+// shared across all dashboards, with near-silent renewal on load.
+function isGsAuthed(){ return GAuth.isAuthed(); }
 
 function refreshGsStatus(){
   const authed = isGsAuthed();
@@ -982,31 +981,7 @@ function refreshGsStatus(){
   }
 }
 
-function startGsAuth(){
-  const redirect = location.origin + location.pathname;
-  const params = new URLSearchParams({
-    client_id: GS_CLIENT_ID,
-    redirect_uri: redirect,
-    response_type: 'token',
-    scope: GS_SCOPES,
-    include_granted_scopes: 'true',
-  });
-  location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params;
-}
-
-function handleOAuthReturn(){
-  if(!location.hash.includes('access_token')) return;
-  const params = new URLSearchParams(location.hash.substring(1));
-  const token = params.get('access_token');
-  const expiresIn = Number(params.get('expires_in')) || 3600;
-  if(token){
-    localStorage.setItem(GS_TOKEN_KEY, token);
-    localStorage.setItem(GS_EXPIRY_KEY, String(Date.now() + expiresIn * 1000));
-  }
-  history.replaceState(null, '', location.pathname + location.search);
-}
-
-$('#gsSaveTokenBtn').onclick = startGsAuth;
+$('#gsSaveTokenBtn').onclick = ()=> GAuth.signIn();
 
 /* ── R2 credentials ── */
 function getR2Creds(){ try { return JSON.parse(localStorage.getItem(R2_CREDS_KEY) || '{}'); } catch(e){ return {}; } }
@@ -1024,7 +999,7 @@ const R2_VAULT_TITLE = 'satownsend • R2 vault (private — do not share)';
 const CONFIG_TAB = 'config';
 
 async function vaultApiFetch(url, opts = {}){
-  const token = localStorage.getItem(GS_TOKEN_KEY);
+  const token = GAuth.token();
   if (!token) throw new Error('Not signed in');
   const headers = { Authorization: 'Bearer ' + token, ...(opts.headers || {}) };
   const r = await fetch(url, { ...opts, headers });
@@ -1243,7 +1218,7 @@ async function resizeImage(file, maxDim=1600, quality=0.85){
 
 /* ── Sheets API append ── */
 async function gsAppendRow(gid, values){
-  const token = localStorage.getItem(GS_TOKEN_KEY);
+  const token = GAuth.token();
   if (!token) throw new Error('Not signed in to Google');
   const sheetName = Object.keys(TABS).find(k=>TABS[k]===gid);
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(sheetName)}!A1:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`;
@@ -1256,7 +1231,7 @@ async function gsAppendRow(gid, values){
 }
 
 async function gsDeletePhotoRow(brewId, key){
-  const token = localStorage.getItem(GS_TOKEN_KEY);
+  const token = GAuth.token();
   if (!token) return;
   const sheetName = 'brew_photos';
   const getUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(sheetName)}?majorDimension=ROWS`;
@@ -1279,7 +1254,7 @@ async function gsDeletePhotoRow(brewId, key){
 
 /* ── Auto-create sheet tab ── */
 async function gsEnsureTab(tabName, gid, headers){
-  const token = localStorage.getItem(GS_TOKEN_KEY);
+  const token = GAuth.token();
   if (!token) throw new Error('Not signed in to Google');
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`;
   const r = await fetch(url, {
@@ -1555,13 +1530,15 @@ openSettings = function(){
 };
 
 /* ── Init ── */
-handleOAuthReturn();
+GAuth.handleReturn();
 const savedTheme = localStorage.getItem(THEME_KEY);
 if(savedTheme && savedTheme !== 'default') applyTheme(savedTheme);
-refreshGsStatus();
-autoLoadR2CredsFromVault();
-loadFeaturedKey();
-loadData().then(refreshGsStatus);
+if(!GAuth.trySilent()){
+  refreshGsStatus();
+  autoLoadR2CredsFromVault();
+  loadFeaturedKey();
+  loadData().then(refreshGsStatus);
+}
 </script>
 </body>
 </html>

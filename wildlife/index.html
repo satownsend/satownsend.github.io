@@ -360,9 +360,10 @@ body.view-only #lightboxCaption{display:none!important}
         <input type="checkbox" id="lightboxHideFromGallery" style="margin:0">
         Hide from slideshow
       </label>
-      <div style="display:flex;gap:8px;justify-content:center;margin-top:10px">
+      <div style="display:flex;gap:8px;justify-content:center;margin-top:10px;flex-wrap:wrap">
         <button id="lightboxPrev" class="ghost tiny" style="color:#fff;border-color:rgba(255,255,255,.2)">&lsaquo; Prev</button>
         <button id="lightboxNext" class="ghost tiny" style="color:#fff;border-color:rgba(255,255,255,.2)">Next &rsaquo;</button>
+        <button id="lightboxFeature" class="ghost tiny edit-row" style="color:#fff;border-color:rgba(255,255,255,.2)">&#9734; Feature on homepage</button>
         <button id="lightboxDelete" class="ghost tiny" style="color:#f59a8a;border-color:rgba(245,154,138,.3)">Delete</button>
       </div>
     </div>
@@ -1971,7 +1972,43 @@ function showLightbox(){
   $('#lightboxCaption').value = p.caption || '';
   const canonical = state.photos.find(x=>x.key===p.key);
   $('#lightboxHideFromGallery').checked = !!(canonical && canonical.hideFromGallery);
+  updateFeatureBtn(p, vid);
   $('#lightbox').style.display = 'flex';
+}
+
+/* ── Feature-on-homepage toggle (issue #50) ── */
+function updateFeatureBtn(p, isVid){
+  const btn = $('#lightboxFeature');
+  if(!btn || !p) return;
+  // The homepage hero is an <img>, so videos can't be featured.
+  btn.style.display = isVid ? 'none' : '';
+  const on = state._featuredKey && state._featuredKey === p.key;
+  btn.innerHTML = on ? '&#9733; Featured on homepage' : '&#9734; Feature on homepage';
+  btn.style.color = on ? 'var(--accent)' : '#fff';
+  btn.style.borderColor = on ? 'var(--accent)' : 'rgba(255,255,255,.2)';
+}
+
+$('#lightboxFeature').addEventListener('click', async ()=>{
+  const p = _lbPhotos[_lbIdx];
+  if(!p || isVideoKey(p.key)) return;
+  const makeFeatured = state._featuredKey !== p.key;
+  const newKey = makeFeatured ? p.key : '';
+  const prev = state._featuredKey || '';
+  state._featuredKey = newKey;
+  updateFeatureBtn(p, false);
+  try {
+    await gsWriteConfigValue('homepage_featured_key', newKey);
+  } catch(e){
+    state._featuredKey = prev;
+    updateFeatureBtn(p, false);
+    alert('Could not update homepage feature: ' + e.message);
+  }
+});
+
+async function loadFeaturedKey(){
+  if(!isGsAuthed()) return;
+  try { const cfg = await gsReadConfig(); state._featuredKey = cfg.homepage_featured_key || ''; }
+  catch(e){ /* config tab may not exist yet */ }
 }
 
 function closeLightbox(){
@@ -2090,6 +2127,7 @@ if(saved && saved !== 'default') applyTheme(saved);
 handleOAuthReturn();
 refreshGsStatus();
 autoLoadR2CredsFromVault();
+loadFeaturedKey();
 loadData();
 </script>
 </body>

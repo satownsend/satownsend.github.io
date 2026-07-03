@@ -172,12 +172,35 @@ async function fetchSheet(sheetId, gid){
   return csvToObjects(parseCSV((await r.text()).replace(/^﻿/,'')));
 }
 
+/* Read a dashboard's `config` tab (by name, so we don't need its gid) into a
+   {key:value} map. Holds homepage_featured_key — the photo tagged to feature
+   on the homepage card (issue #50). Returns {} if the tab doesn't exist. */
+async function fetchConfig(sheetId){
+  try {
+    const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=config`;
+    const r = await fetch(url, {cache:'no-store'});
+    if(!r.ok) return {};
+    const rows = csvToObjects(parseCSV((await r.text()).replace(/^﻿/,'')));
+    const map = {};
+    for(const row of rows){ if(row.key) map[row.key] = row.value || ''; }
+    return map;
+  } catch(e){ return {}; }
+}
+
+/* Pick the hero image for a card: the tagged featured photo if present and
+   still exists, otherwise the most recent photo. */
+function pickHero(sorted, cfg){
+  const key = (cfg && cfg.homepage_featured_key) || '';
+  return (key && sorted.find(p=>p.key===key)) || sorted[0];
+}
+
 /* ── Load plants data ── */
 async function loadPlants(){
   try {
-    const [plants, photos] = await Promise.all([
+    const [plants, photos, cfg] = await Promise.all([
       fetchSheet(PLANTS_SHEET, PLANTS_GID.plants),
       fetchSheet(PLANTS_SHEET, PLANTS_GID.photos).catch(()=>[]),
+      fetchConfig(PLANTS_SHEET),
     ]);
     const alive = plants.filter(p => p.status !== 'dead' && p.status !== 'removed');
     $('#plantCount').textContent = alive.length;
@@ -191,7 +214,7 @@ async function loadPlants(){
     if(recent.length){
       el.innerHTML = recent.map(p=>`<img src="${R2_PUBLIC}/${p.key}" loading="lazy" alt="">`).join('');
       const heroImg = $('#plantsImg');
-      heroImg.outerHTML = `<img class="card-img" src="${R2_PUBLIC}/${recent[0].key}" alt="">`;
+      heroImg.outerHTML = `<img class="card-img" src="${R2_PUBLIC}/${pickHero(sorted, cfg).key}" alt="">`;
     } else {
       el.innerHTML = '<span class="empty">No photos yet.</span>';
     }
@@ -204,9 +227,10 @@ async function loadPlants(){
 /* ── Load beer data ── */
 async function loadBeer(){
   try {
-    const [brews, photos] = await Promise.all([
+    const [brews, photos, cfg] = await Promise.all([
       fetchSheet(BEER_SHEET, BEER_GID.brews),
       fetchSheet(BEER_SHEET, BEER_GID.photos).catch(()=>[]),
+      fetchConfig(BEER_SHEET),
     ]);
     $('#brewCount').textContent = brews.length;
     const styles = new Set(brews.map(b=>b.style).filter(Boolean));
@@ -221,7 +245,7 @@ async function loadBeer(){
     if(recent.length){
       el.innerHTML = recent.map(p=>`<img src="${R2_PUBLIC}/${p.key}" loading="lazy" alt="">`).join('');
       const heroImg = $('#beerImg');
-      heroImg.outerHTML = `<img class="card-img" src="${R2_PUBLIC}/${recent[0].key}" alt="">`;
+      heroImg.outerHTML = `<img class="card-img" src="${R2_PUBLIC}/${pickHero(sorted, cfg).key}" alt="">`;
     } else {
       el.innerHTML = '<span class="empty">No photos yet.</span>';
     }
@@ -234,10 +258,11 @@ async function loadBeer(){
 /* ── Load instruments data ── */
 async function loadInstruments(){
   try {
-    const [instruments, photos, maintenance] = await Promise.all([
+    const [instruments, photos, maintenance, cfg] = await Promise.all([
       fetchSheet(INSTRUMENTS_SHEET, INSTRUMENTS_GID.instruments),
       fetchSheet(INSTRUMENTS_SHEET, INSTRUMENTS_GID.photos).catch(()=>[]),
       fetchSheet(INSTRUMENTS_SHEET, INSTRUMENTS_GID.maintenance).catch(()=>[]),
+      fetchConfig(INSTRUMENTS_SHEET),
     ]);
     $('#instrumentCount').textContent = instruments.length;
     const types = new Set(instruments.map(i=>i.type).filter(Boolean));
@@ -250,7 +275,7 @@ async function loadInstruments(){
     if(recent.length){
       el.innerHTML = recent.map(p=>`<img src="${R2_PUBLIC}/${p.key}" loading="lazy" alt="">`).join('');
       const heroImg = $('#instrumentsImg');
-      heroImg.outerHTML = `<img class="card-img" src="${R2_PUBLIC}/${recent[0].key}" alt="">`;
+      heroImg.outerHTML = `<img class="card-img" src="${R2_PUBLIC}/${pickHero(sorted, cfg).key}" alt="">`;
     } else {
       el.innerHTML = '<span class="empty">No photos yet.</span>';
     }
@@ -263,22 +288,25 @@ async function loadInstruments(){
 /* ── Load wildlife data ── */
 async function loadWildlife(){
   try {
-    const [sightings, photos] = await Promise.all([
+    const [sightings, photos, cfg] = await Promise.all([
       fetchSheet(WILDLIFE_SHEET, WILDLIFE_GID.sightings),
       fetchSheet(WILDLIFE_SHEET, WILDLIFE_GID.photos).catch(()=>[]),
+      fetchConfig(WILDLIFE_SHEET),
     ]);
     $('#wildlifeSightings').textContent = sightings.length;
     const species = new Set(sightings.map(s=>s.species).filter(Boolean));
     $('#wildlifeSpecies').textContent = species.size;
     $('#wildlifePhotos').textContent = photos.length;
 
-    const sorted = photos.filter(p=>p.key).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    // Exclude videos — the homepage renders images only.
+    const isVid = k => /\.(mp4|mov|webm)$/i.test(k||'');
+    const sorted = photos.filter(p=>p.key && !isVid(p.key)).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
     const recent = sorted.slice(0,6);
     const el = $('#wildlifeRecent');
     if(recent.length){
       el.innerHTML = recent.map(p=>`<img src="${R2_PUBLIC}/${p.key}" loading="lazy" alt="">`).join('');
       const heroImg = $('#wildlifeImg');
-      heroImg.outerHTML = `<img class="card-img" src="${R2_PUBLIC}/${recent[0].key}" alt="">`;
+      heroImg.outerHTML = `<img class="card-img" src="${R2_PUBLIC}/${pickHero(sorted, cfg).key}" alt="">`;
     } else {
       el.innerHTML = '<span class="empty">No photos yet.</span>';
     }

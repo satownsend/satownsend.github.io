@@ -359,9 +359,10 @@ body.view-only #addMaintenanceBtn{display:none!important}
     <div id="lightboxMeta" style="flex:none;color:#ddd;font-size:13px;text-align:center;max-width:100%;padding:0 4px">
       <span id="lightboxDate" style="display:inline-block;color:#fff;font-weight:600;padding:5px 10px"></span>
       <input type="text" id="lightboxCaption" placeholder="add caption&hellip;" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:6px;padding:6px 10px;margin-top:6px;width:280px;max-width:90vw">
-      <div style="display:flex;gap:8px;justify-content:center;margin-top:10px">
+      <div style="display:flex;gap:8px;justify-content:center;margin-top:10px;flex-wrap:wrap">
         <button id="lightboxPrev" class="ghost tiny" style="color:#fff;border-color:rgba(255,255,255,.2)">&lsaquo; Prev</button>
         <button id="lightboxNext" class="ghost tiny" style="color:#fff;border-color:rgba(255,255,255,.2)">Next &rsaquo;</button>
+        <button id="lightboxFeature" class="ghost tiny edit-row" style="color:#fff;border-color:rgba(255,255,255,.2)">&#9734; Feature on homepage</button>
         <button id="lightboxDelete" class="ghost tiny" style="color:#f59a8a;border-color:rgba(245,154,138,.3)">Delete</button>
       </div>
     </div>
@@ -1850,6 +1851,40 @@ function showLightboxIdx(){
   $('#lightboxImg').src = r2PublicUrl(ph.key);
   $('#lightboxDate').textContent = ph.date || '';
   $('#lightboxCaption').value = ph.caption || '';
+  updateFeatureBtn(ph);
+}
+
+/* ── Feature-on-homepage toggle (issue #50) ── */
+function updateFeatureBtn(ph){
+  const btn = $('#lightboxFeature');
+  if(!btn || !ph) return;
+  const on = state._featuredKey && state._featuredKey === ph.key;
+  btn.innerHTML = on ? '&#9733; Featured on homepage' : '&#9734; Feature on homepage';
+  btn.style.color = on ? 'var(--accent)' : '#fff';
+  btn.style.borderColor = on ? 'var(--accent)' : 'rgba(255,255,255,.2)';
+}
+
+$('#lightboxFeature').addEventListener('click', async ()=>{
+  const ph = (state._lightboxPhotos||[])[lightboxIdx];
+  if(!ph) return;
+  const makeFeatured = state._featuredKey !== ph.key;
+  const newKey = makeFeatured ? ph.key : '';
+  const prev = state._featuredKey || '';
+  state._featuredKey = newKey;
+  updateFeatureBtn(ph);
+  try {
+    await gsWriteConfigValue('homepage_featured_key', newKey);
+  } catch(e){
+    state._featuredKey = prev;
+    updateFeatureBtn(ph);
+    alert('Could not update homepage feature: ' + e.message);
+  }
+});
+
+async function loadFeaturedKey(){
+  if(!isGsAuthed()) return;
+  try { const cfg = await gsReadConfig(); state._featuredKey = cfg.homepage_featured_key || ''; }
+  catch(e){ /* config tab may not exist yet */ }
 }
 
 $('#lightboxClose').onclick = ()=> $('#lightbox').style.display='none';
@@ -1941,6 +1976,7 @@ const savedTheme = localStorage.getItem(THEME_KEY);
 if(savedTheme && savedTheme !== 'default') applyTheme(savedTheme);
 refreshGsStatus();
 autoLoadR2CredsFromVault();
+loadFeaturedKey();
 loadData().then(refreshGsStatus);
 </script>
 </body>

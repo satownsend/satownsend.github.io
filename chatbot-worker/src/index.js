@@ -70,6 +70,11 @@ function systemPrompt(context, today){
     `- For calculations (averages, counts, "last time", "how many"), work precisely from the rows and show the key numbers you used. ABV values may include a "%" sign — strip it before averaging.`,
     `- Dates are YYYY-MM-DD. Today is ${today}.`,
     ``,
+    `# REFERENCE (site facts not in the sheets)`,
+    `Location: Lilly, PA 15938 (USDA hardiness zone 6a).`,
+    `Average last spring frost: around May 13. Average first fall frost: around October 1.`,
+    `The plants_log sheet also records individual frost events and low temperatures — use those for questions about specific/most-recent frosts.`,
+    ``,
     `# DATA`,
     context,
   ].join('\n');

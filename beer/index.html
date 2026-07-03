@@ -64,8 +64,20 @@ body.view-only #lightboxCaption{display:none!important}
   tbody td[data-col="name"]:before{display:none}
   tbody td[data-col="style"]{font-size:12px;color:var(--muted);margin-top:-4px}
   tbody td[data-col="style"]:before{display:none}
-  tbody td[data-col]:not([data-col="name"]):not([data-col="style"]):not([data-col="abv"]):not([data-col="brewDate"]){display:none}
+  tbody td[data-col]:not([data-col="name"]):not([data-col="style"]):not([data-col="abv"]):not([data-col="brewDate"]):not([data-col="thumb"]){display:none}
+  tbody td[data-col="thumb"]{margin-bottom:6px}
+  tbody td[data-col="thumb"]:before{display:none}
+  .brew-thumb{width:54px;height:54px}
+  .thumb-preview{display:none!important}
 }
+/* Beer label thumbnail (issue #44) */
+.thumb-wrap{position:relative;display:inline-block}
+.brew-thumb{width:38px;height:38px;border-radius:6px;object-fit:cover;vertical-align:middle;cursor:pointer;background:var(--bg2);border:1px solid var(--line2)}
+.thumb-preview{display:none;position:absolute;left:50%;top:100%;transform:translateX(-50%);width:200px;height:200px;object-fit:cover;
+  border-radius:10px;border:2px solid var(--line2);box-shadow:var(--shadow);z-index:50;margin-top:6px;background:var(--panel)}
+.thumb-preview.flip-up{top:auto;bottom:100%;margin-top:0;margin-bottom:6px}
+.thumb-wrap:hover .thumb-preview{display:block}
+#brewTable th[data-col="thumb"],#brewTable td[data-col="thumb"]{width:46px}
 </style>
 </head>
 <body>
@@ -107,6 +119,7 @@ body.view-only #lightboxCaption{display:none!important}
     <div class="table-scroll">
       <table id="brewTable">
         <thead><tr>
+          <th data-col="thumb"></th>
           <th data-sort="name" data-col="name">Name <span class="sort-arrow"></span></th>
           <th data-sort="style" data-col="style">Style <span class="sort-arrow"></span></th>
           <th data-sort="version" data-col="version">V <span class="sort-arrow"></span></th>
@@ -264,6 +277,7 @@ body.view-only #lightboxCaption{display:none!important}
         <button id="lightboxPrev" class="ghost tiny" style="color:#fff;border-color:rgba(255,255,255,.2)">&lsaquo; Prev</button>
         <button id="lightboxNext" class="ghost tiny" style="color:#fff;border-color:rgba(255,255,255,.2)">Next &rsaquo;</button>
         <button id="lightboxFeature" class="ghost tiny edit-row" style="color:#fff;border-color:rgba(255,255,255,.2)">&#9734; Feature on homepage</button>
+        <button id="lightboxLabel" class="ghost tiny edit-row" style="color:#fff;border-color:rgba(255,255,255,.2)">&#127991; Set as label</button>
         <button id="lightboxDelete" class="ghost tiny" style="color:#f59a8a;border-color:rgba(245,154,138,.3)">Delete</button>
       </div>
     </div>
@@ -401,13 +415,14 @@ const state = { brews:[], grains:[], hops:[], yeast:[], photos:[], fermentTemps:
 async function loadData(){
   setSyncStatus('loading…','');
   try{
-    const [brewRows, grainRows, hopRows, yeastRows, photoRows, tempRows] = await Promise.all([
+    const [brewRows, grainRows, hopRows, yeastRows, photoRows, tempRows, cfg] = await Promise.all([
       fetchTab(TABS.brews),
       fetchTab(TABS.brew_grains),
       fetchTab(TABS.brew_hops),
       fetchTab(TABS.brew_yeast),
       fetchTab(TABS.brew_photos).catch(()=>[]),
       fetchTab(TABS.brew_ferment_temps).catch(()=>[]),
+      fetchConfigMap(),
     ]);
     state.brews = csvToObjects(brewRows);
     state.grains = csvToObjects(grainRows);
@@ -415,6 +430,8 @@ async function loadData(){
     state.yeast = csvToObjects(yeastRows);
     state.photos = csvToObjects(photoRows);
     state.fermentTemps = csvToObjects(tempRows);
+    state.labelKeys = {};
+    for(const k in cfg){ if(k.indexOf('label_') === 0) state.labelKeys[k.slice(6)] = cfg[k]; }
     setSyncStatus(`${state.brews.length} brews loaded`, 'ok');
     buildStyleFilter();
     renderBrews();
@@ -436,6 +453,31 @@ function grainsFor(id){ return state.grains.filter(g=>g.brew_id===id); }
 function hopsFor(id){ return state.hops.filter(h=>h.brew_id===id); }
 function yeastFor(id){ return state.yeast.filter(y=>y.brew_id===id); }
 function photosFor(id){ return state.photos.filter(p=>p.brew_id===id); }
+
+/* The brew's label thumbnail: the photo the owner tagged as the label
+   (config `label_<brewId>`, issue #44), else the most recent photo. */
+function labelThumbFor(brewId){
+  const photos = photosFor(brewId).filter(p=>p.key);
+  if(!photos.length) return null;
+  const lk = (state.labelKeys||{})[brewId];
+  const labeled = lk && photos.find(p=>p.key===lk);
+  if(labeled) return labeled.key;
+  return photos.slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''))[0].key;
+}
+
+/* Read the public `config` tab (by name) so label tags show for everyone,
+   not just when signed in. */
+async function fetchConfigMap(){
+  try {
+    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=config`;
+    const r = await fetch(url, {cache:'no-store'});
+    if(!r.ok) return {};
+    const rows = csvToObjects(parseCSV((await r.text()).replace(/^﻿/,'')));
+    const map = {};
+    for(const row of rows){ if(row.key) map[row.key] = row.value || ''; }
+    return map;
+  } catch(e){ return {}; }
+}
 function r2PublicUrl(key){ return `${R2_CONFIG.publicUrl}/${key}`; }
 
 /* ── Style filter ── */
@@ -473,6 +515,7 @@ function renderBrews(){
 
   $$('#brewTable thead th').forEach(th=>{
     const arrow = th.querySelector('.sort-arrow');
+    if(!arrow) return;
     if(th.dataset.sort === sortCol){
       arrow.textContent = sortDir > 0 ? '▲' : '▼';
       arrow.style.opacity = '1';
@@ -494,8 +537,13 @@ function renderBrews(){
       : escapeHtml(b.colorSrm||'—');
     const abvDisplay = b.abv && b.abv !== '-' ? b.abv + (b.abv.includes('%') ? '' : '%') : '—';
     const againDisplay = b.brewAgain || '—';
+    const thumbKey = labelThumbFor(b.id);
+    const thumbCell = thumbKey
+      ? `<span class="thumb-wrap"><img class="brew-thumb" loading="lazy" src="${r2PublicUrl(thumbKey)}" alt=""><img class="thumb-preview" data-src="${r2PublicUrl(thumbKey)}" alt=""></span>`
+      : '';
 
     tr.innerHTML = `
+      <td data-col="thumb">${thumbCell}</td>
       <td data-col="name"><a href="#" class="namelink" data-info="${b.id}">${escapeHtml(b.name)}</a>${b.version && b.version!=='1' ? ` <span class="pill">v${escapeHtml(b.version)}</span>`:''}</td>
       <td data-col="style" data-label="Style">${escapeHtml(b.style||'—')}</td>
       <td data-col="version" data-label="Version">${escapeHtml(b.version||'1')}</td>
@@ -854,6 +902,17 @@ $('#brewTable').addEventListener('click', e=>{
   const tr = e.target.closest('tr[data-id]');
   if(tr) openInfo(tr.dataset.id);
 });
+
+/* ── Label thumbnail hover preview (lazy-load full image, flip up near edge) ── */
+$('#brewTable').addEventListener('mouseenter', (e)=>{
+  const wrap = e.target.closest('.thumb-wrap');
+  if(!wrap) return;
+  const img = wrap.querySelector('.thumb-preview');
+  if(!img) return;
+  if(img.dataset.src){ img.src = img.dataset.src; delete img.dataset.src; }
+  const rect = wrap.getBoundingClientRect();
+  img.classList.toggle('flip-up', (window.innerHeight - rect.bottom) < 220);
+}, true);
 
 /* ── Sort ── */
 $('#brewTable thead').addEventListener('click', e=>{
@@ -1408,7 +1467,39 @@ function showLightboxIdx(){
   $('#lightboxDate').textContent = ph.date || '';
   $('#lightboxCaption').value = ph.caption || '';
   updateFeatureBtn(ph);
+  updateLabelBtn(ph);
 }
+
+/* ── Set-as-label toggle (issue #44) ── */
+function updateLabelBtn(ph){
+  const btn = $('#lightboxLabel');
+  if(!btn || !ph) return;
+  const on = (state.labelKeys||{})[state._currentBrewId] === ph.key;
+  btn.innerHTML = on ? '\u{1F3F7} Label ✓' : '\u{1F3F7} Set as label';
+  btn.style.color = on ? 'var(--accent)' : '#fff';
+  btn.style.borderColor = on ? 'var(--accent)' : 'rgba(255,255,255,.2)';
+}
+
+$('#lightboxLabel').addEventListener('click', async ()=>{
+  const ph = (state._lightboxPhotos||[])[lightboxIdx];
+  const brewId = state._currentBrewId;
+  if(!ph || !brewId) return;
+  state.labelKeys = state.labelKeys || {};
+  const makeLabel = state.labelKeys[brewId] !== ph.key;
+  const newKey = makeLabel ? ph.key : '';
+  const prev = state.labelKeys[brewId] || '';
+  if(newKey) state.labelKeys[brewId] = newKey; else delete state.labelKeys[brewId];
+  updateLabelBtn(ph);
+  renderBrews();
+  try {
+    await gsWriteConfigValue('label_' + brewId, newKey);
+  } catch(e){
+    if(prev) state.labelKeys[brewId] = prev; else delete state.labelKeys[brewId];
+    updateLabelBtn(ph);
+    renderBrews();
+    alert('Could not set label: ' + e.message);
+  }
+});
 
 /* ── Feature-on-homepage toggle (issue #50) ── */
 function updateFeatureBtn(ph){

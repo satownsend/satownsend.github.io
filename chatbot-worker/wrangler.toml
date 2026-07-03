@@ -1,0 +1,7 @@
+name = "satownsend-chatbot"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+
+# Cloudflare Workers AI binding — gives the Worker `env.AI.run(...)`.
+[ai]
+binding = "AI"

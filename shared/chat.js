@@ -8,7 +8,7 @@
  * into CHAT_WORKER_URL below. Until then the panel shows a "not configured" note.
  */
 (function(){
-  const CHAT_WORKER_URL = ''; // e.g. 'https://satownsend-chatbot.<subdomain>.workers.dev'
+  const CHAT_WORKER_URL = 'https://satownsend-chatbot.satownsend.workers.dev';
 
   const SUGGESTIONS = [
     'When is my last frost date?',

@@ -895,7 +895,15 @@ async function sigv4Request({method, key, body, contentType}){
   const auth = `AWS4-HMAC-SHA256 Credential=${creds.accessKey}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
   const fetchHeaders = { ...headers, Authorization: auth };
   delete fetchHeaders.host;
-  const r2 = await fetch(url, { method, headers: fetchHeaders, body: body || undefined });
+  let r2;
+  try {
+    r2 = await fetch(url, { method, headers: fetchHeaders, body: body || undefined });
+  } catch(netErr){
+    // R2's error responses (e.g. 403 on bad/missing credentials) don't carry
+    // CORS headers, so the browser hides them behind a generic "Failed to
+    // fetch". Translate that into an actionable message instead.
+    throw new Error('R2 request blocked — this is almost always wrong or missing credentials (a hidden 403). Open Settings → Photo storage, enter your R2 keys, and hit Test.');
+  }
   if (!r2.ok){ const txt = await r2.text(); throw new Error(`R2 ${method} ${r2.status}: ${txt.slice(0,200)}`); }
   return r2;
 }

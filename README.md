@@ -26,6 +26,7 @@ theming, navigation, auth, and photo pipeline.
 | **[Beer](https://satownsend.com/beer)** | Homebrew log | Recipes (grain/hop/yeast bills), fermentation temps, OG/FG/ABV/SRM, tasting notes, **label thumbnail** per brew |
 | **[Instruments](https://satownsend.com/instruments)** | Instrument collection | Maintenance log (string changes, setups), string/pickup specs, value stats (hidden unless signed in) |
 | **[Wildlife](https://satownsend.com/wildlife)** | Sighting log | One row per species (grouped sightings), calendar view, seasonal patterns, life list, first-of-year tracking, **photo _and_ video** support |
+| **[Photography](https://satownsend.com/photography)** | Photo wall | Standalone photos (a photo _is_ the record) in a masonry wall, category chips (astro/landscape/trips/misc/Puck + auto-discovered), full-screen slideshow, larger/less-compressed uploads |
 | **[Home](https://satownsend.com)** | Hub | Live stat cards per section, a **combined slideshow** of photos from every dashboard, and the [chatbot](#the-chatbot) |
 
 Shared per-dashboard features:
@@ -134,6 +135,7 @@ Google Analytics 4 (`G-SSCCK0JXVB`) is loaded in the `<head>` of every page.
 ├── beer/index.html       # beer dashboard
 ├── instruments/index.html
 ├── wildlife/index.html
+├── photography/index.html # photo wall (standalone photos, read by tab name)
 ├── shared/
 │   ├── styles.css        # themes + shared component styles
 │   ├── nav.js            # cross-page dropdown menu
@@ -179,6 +181,12 @@ These IDs live in the page source (the site is public, so none are secrets):
   in the private vault sheet.
 - **Chatbot Worker:** `satownsend-chatbot.satownsend.workers.dev` (set as
   `CHAT_WORKER_URL` in `shared/chat.js`).
+- **Photography sheet:** each dashboard hardcodes its own Google Sheet id. The
+  photography dashboard's id goes in two places — `PHOTO_SHEET_ID` in
+  `photography/index.html` and `PHOTOGRAPHY_SHEET` in `index.html` (for the
+  homepage card + slideshow). Unlike the others it reads its `photos` tab **by
+  name** (gviz), so there's no gid to configure; the tab is auto-created on the
+  first upload.
 
 ## Notes for future changes
 

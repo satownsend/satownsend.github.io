@@ -150,6 +150,21 @@ footer{text-align:center;color:var(--muted);font-size:12px;padding:32px 0 16px}
         <div class="card-recent" id="wildlifeRecent"><span class="empty">Loading&hellip;</span></div>
       </div>
     </div>
+
+    <!-- Photography card -->
+    <div class="card">
+      <div class="card-img-placeholder" id="photographyImg">&#128247;</div>
+      <div class="card-body">
+        <h2><a href="/photography">Photography</a></h2>
+        <div class="card-desc">A photo wall of astro, landscapes, trips, and more &mdash; filterable by category, with a full-screen slideshow.</div>
+        <div class="card-stats" id="photographyStats">
+          <div class="card-stat"><div class="num" id="photographyCount">&mdash;</div><div class="label">Photos</div></div>
+          <div class="card-stat"><div class="num" id="photographyCategories">&mdash;</div><div class="label">Categories</div></div>
+          <div class="card-stat"><div class="num" id="photographyYears">&mdash;</div><div class="label">Years</div></div>
+        </div>
+        <div class="card-recent" id="photographyRecent"><span class="empty">Loading&hellip;</span></div>
+      </div>
+    </div>
   </div>
 
   <footer>Data synced live from Google Sheets.</footer>
@@ -216,6 +231,9 @@ const INSTRUMENTS_SHEET = '1dWWWIFBpWvNOIBuxA1EIoaffKckDFhsHvPDzhbxdnYg';
 const INSTRUMENTS_GID = { instruments: 0, photos: 617283945, maintenance: 834291047 };
 const WILDLIFE_SHEET = '1Uq2Fgzron3yDZqYFWsUx1cYigp4w8GmQP2pmk33DG54';
 const WILDLIFE_GID = { sightings: 0, photos: 518293746 };
+// Photography (issue #4) — standalone photos, read by tab name (no fixed gid).
+// PASTE the public Google Sheet id here to light up the homepage card + slideshow.
+const PHOTOGRAPHY_SHEET = '1JXlI9RgLfwrpYgMZxyo8TipEiEn675Bwpnr9ORxUJFA';
 const R2_PUBLIC = 'https://pub-59a926166fd84970bea75caf38a52d27.r2.dev';
 
 function csvUrl(sheetId, gid){
@@ -225,6 +243,16 @@ async function fetchSheet(sheetId, gid){
   const r = await fetch(csvUrl(sheetId, gid), {cache:'no-store'});
   if(!r.ok) throw new Error(`HTTP ${r.status}`);
   return csvToObjects(parseCSV((await r.text()).replace(/^﻿/,'')));
+}
+/* Read a tab by name (gviz) — used when a sheet has no fixed gid, e.g. the
+   photography `photos` tab which is auto-created. Returns [] on any failure. */
+async function fetchSheetByName(sheetId, name){
+  try {
+    const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(name)}`;
+    const r = await fetch(url, {cache:'no-store'});
+    if(!r.ok) return [];
+    return csvToObjects(parseCSV((await r.text()).replace(/^﻿/,'')));
+  } catch(e){ return []; }
 }
 
 /* Read a dashboard's `config` tab (by name, so we don't need its gid) into a
@@ -380,6 +408,42 @@ async function loadWildlife(){
   }
 }
 
+/* ── Load photography data (issue #4) ── */
+async function loadPhotography(){
+  const el = $('#photographyRecent');
+  if(!PHOTOGRAPHY_SHEET){ el.innerHTML = '<span class="empty">Not set up yet.</span>'; return []; }
+  try {
+    const [photos, cfg] = await Promise.all([
+      fetchSheetByName(PHOTOGRAPHY_SHEET, 'photos'),
+      fetchConfig(PHOTOGRAPHY_SHEET),
+    ]);
+    const valid = photos.filter(p=>p.key);
+    $('#photographyCount').textContent = valid.length;
+    const cats = new Set(valid.map(p=>p.category).filter(Boolean));
+    $('#photographyCategories').textContent = cats.size;
+    const years = new Set(valid.map(p=>(p.date||'').slice(0,4)).filter(Boolean));
+    $('#photographyYears').textContent = years.size;
+
+    const isVid = k => /\.(mp4|mov|webm)$/i.test(k||'');
+    const sorted = valid.filter(p=>!isVid(p.key)).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    const recent = sorted.slice(0,6);
+    if(recent.length){
+      el.innerHTML = recent.map(p=>`<img src="${R2_PUBLIC}/${p.key}" loading="lazy" alt="">`).join('');
+      const heroImg = $('#photographyImg');
+      heroImg.outerHTML = `<img class="card-img" src="${R2_PUBLIC}/${pickHero(sorted, cfg).key}" alt="">`;
+    } else {
+      el.innerHTML = '<span class="empty">No photos yet.</span>';
+    }
+    // Standalone photos: each row is its own "item" (name = title or category).
+    const items = valid.map(p=>({ id:p.key, title:p.title, category:p.category }));
+    return galleryItems(photos, items, 'key', it=>it.title || it.category || '', 'Photography', '📷', '/photography');
+  } catch(e){
+    console.warn('Photography load failed:', e);
+    el.innerHTML = '<span class="empty">Could not load.</span>';
+    return [];
+  }
+}
+
 /* ── Themes ── */
 const THEMES = [
   { id:'default', label:'Teal Dark',   bg:'#08191c', accent:'#4dd0c1' },
@@ -479,7 +543,7 @@ $('#hgStage').addEventListener('click', (e)=>{
 /* ── Init ── */
 const saved = localStorage.getItem(THEME_KEY);
 if(saved && saved !== 'default') applyTheme(saved);
-Promise.all([loadPlants(), loadBeer(), loadInstruments(), loadWildlife()])
+Promise.all([loadPlants(), loadBeer(), loadInstruments(), loadWildlife(), loadPhotography()])
   .then(groups => buildHomeGallery(groups.flat().filter(Boolean)));
 </script>
 </body>

@@ -15,6 +15,7 @@
     { href:'/beer',        label:'Beer',        icon:'\u{1F37A}', key:'beer' },
     { href:'/instruments', label:'Instruments', icon:'\u{1F3B8}', key:'instruments' },
     { href:'/wildlife',    label:'Wildlife',    icon:'\u{1F989}', key:'wildlife' },
+    { href:'/photography', label:'Photography', icon:'\u{1F4F7}', key:'photography' },
   ];
 
   function currentKey(){

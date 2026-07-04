@@ -1,0 +1,1327 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-SSCCK0JXVB"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-SSCCK0JXVB');
+</script>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#08191c">
+<title>Photography</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%93%B7%3C/text%3E%3C/svg%3E">
+
+<link rel="preconnect" href="https://use.typekit.net" crossorigin>
+<link rel="stylesheet" href="https://use.typekit.net/twp1irx.css">
+<link rel="stylesheet" href="/shared/styles.css">
+<script defer src="/shared/nav.js"></script>
+<script defer src="/shared/chat.js"></script>
+<style>
+/* ── Photography-specific styles ── */
+
+/* ── Gallery (shared slideshow look) ── */
+.gallery{margin-bottom:16px;border-radius:14px;overflow:hidden;box-shadow:var(--shadow);border:1px solid var(--line);background:#000}
+.gallery-stage{position:relative;width:100%;aspect-ratio:16/9;background:#0a0a0a;max-height:620px}
+@media (max-width:700px){.gallery-stage{aspect-ratio:4/3;max-height:none}}
+.gallery-img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:0;transition:opacity .9s ease;cursor:pointer}
+.gallery-stage[data-fit="cover"] .gallery-img{object-fit:cover}
+.gallery-img.is-current{opacity:1}
+.gallery-caption{position:absolute;left:0;right:0;bottom:0;padding:14px 16px 12px;color:#fff;font-size:13px;
+  background:linear-gradient(to top, rgba(0,0,0,.65), rgba(0,0,0,0));pointer-events:none;text-shadow:0 1px 2px rgba(0,0,0,.7)}
+.gallery-caption .gname{font-weight:600;font-size:15px;display:block;letter-spacing:-.01em}
+.gallery-caption .gmeta{opacity:.85;font-size:12px}
+.gallery-dots{position:absolute;top:10px;right:12px;display:flex;gap:4px;background:rgba(0,0,0,.45);padding:5px 9px;border-radius:999px;color:#fff;font-size:11px;font-variant-numeric:tabular-nums}
+.gallery-fit-btn{position:absolute;top:10px;left:12px;background:rgba(0,0,0,.45);color:#fff;border:1px solid rgba(255,255,255,.15);
+  border-radius:999px;padding:5px 11px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:5px}
+.gallery-nav{position:absolute;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.15);
+  color:#fff;width:36px;height:36px;border-radius:50%;font-size:22px;line-height:1;cursor:pointer;opacity:0;transition:opacity .2s;
+  display:flex;align-items:center;justify-content:center;padding:0}
+.gallery-nav.prev{left:10px}
+.gallery-nav.next{right:10px}
+.gallery-stage:hover .gallery-nav{opacity:1}
+@media (hover:none){.gallery-nav{opacity:.7}}
+
+/* ── Category chips ── */
+.cat-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.cat-chip{background:var(--panel2);border:1px solid var(--line);color:var(--ink);border-radius:999px;padding:6px 14px;
+  font:inherit;font-size:13px;cursor:pointer;transition:border-color .15s,background .15s,color .15s}
+.cat-chip:hover{border-color:var(--accent)}
+.cat-chip.active{background:var(--accent);color:#04211d;border-color:var(--accent);font-weight:600}
+.cat-chip .cc-count{opacity:.7;font-size:11px;margin-left:5px;font-variant-numeric:tabular-nums}
+
+/* ── Photo wall (masonry via CSS columns → big, aspect-preserving tiles) ── */
+.pg{column-gap:12px;column-width:270px}
+@media (max-width:520px){.pg{column-width:100%;column-gap:0}}
+.pg .ph{position:relative;break-inside:avoid;margin:0 0 12px;border-radius:12px;overflow:hidden;cursor:pointer;
+  background:var(--bg2);border:1px solid var(--line2)}
+.pg .ph img{width:100%;height:auto;display:block;transition:transform .25s}
+.pg .ph video{width:100%;height:auto;display:block}
+.pg .ph:hover img{transform:scale(1.03)}
+.pg .ph .ph-info{position:absolute;left:0;right:0;bottom:0;padding:22px 11px 9px;color:#fff;font-size:12px;
+  background:linear-gradient(transparent,rgba(0,0,0,.75));opacity:0;transition:opacity .2s;text-shadow:0 1px 2px rgba(0,0,0,.6)}
+.pg .ph:hover .ph-info,.pg .ph:focus-within .ph-info{opacity:1}
+.pg .ph .ph-cat{font-weight:600}
+.pg .ph .ph-title{opacity:.9}
+.pg .ph .ph-hidden{position:absolute;top:6px;left:6px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;padding:2px 6px;border-radius:8px;line-height:1}
+.pg .ph .play-icon{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.pg .ph .play-icon::after{content:'▶';font-size:26px;color:#fff;background:rgba(0,0,0,.5);width:46px;height:46px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center}
+.pg .empty{color:var(--muted);font-size:13px;font-style:italic;text-align:center;padding:26px}
+
+body.view-only #addPhotosBtn,
+body.view-only .edit-row,
+body.view-only #lightboxDelete,
+body.view-only #lightboxCaption,
+body.view-only #lightboxTitle,
+body.view-only #lightboxCategory{display:none!important}
+
+/* Owner-only "set the sheet id" note */
+.setup-note{background:rgba(240,168,104,.1);border:1px solid rgba(240,168,104,.4);color:var(--ink);
+  border-radius:10px;padding:12px 14px;font-size:13px;line-height:1.5;margin-bottom:16px}
+.setup-note code{background:var(--panel2);padding:1px 5px;border-radius:4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- Header -->
+  <header>
+    <div>
+      <div style="display:flex;align-items:baseline;gap:16px;flex-wrap:wrap">
+        <h1 style="position:absolute;width:1px;height:1px;padding:0;margin:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0">Photography</h1>
+        <div id="siteNav"></div>
+      </div>
+    </div>
+    <div class="row">
+      <span style="position:relative">
+        <span class="chip" id="themechip" title="Pick theme" style="cursor:pointer">&#9684; theme</span>
+        <div id="themePop" style="display:none;position:absolute;right:0;top:110%;background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:10px;z-index:30;box-shadow:var(--shadow);min-width:160px"></div>
+      </span>
+      <button class="ghost tiny" id="settingsBtn">Settings</button>
+    </div>
+  </header>
+
+  <!-- Sync status -->
+  <div class="sync-row">
+    <span class="sync-dot" id="syncDot"></span>
+    <span id="syncText">loading&hellip;</span>
+  </div>
+
+  <!-- Owner setup note (only if the sheet id isn't set yet) -->
+  <div class="setup-note" id="setupNote" style="display:none"></div>
+
+  <!-- Gallery -->
+  <div class="gallery" id="galleryPanel" style="display:none">
+    <div class="gallery-stage" id="galleryStage">
+      <img class="gallery-img is-current" id="galleryImgA" alt="">
+      <img class="gallery-img" id="galleryImgB" alt="">
+      <div class="gallery-caption" id="galleryCaption"></div>
+      <div class="gallery-dots" id="galleryDots"></div>
+      <button class="gallery-fit-btn" id="galleryFitBtn" title="Toggle full-size vs cropped">&#9986; crop</button>
+      <button class="gallery-nav prev" id="galleryPrev" aria-label="Previous">&#8249;</button>
+      <button class="gallery-nav next" id="galleryNext" aria-label="Next">&#8250;</button>
+    </div>
+  </div>
+
+  <!-- Photo wall -->
+  <div class="panel">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+      <h2 style="margin:0">Photos</h2>
+      <button id="addPhotosBtn" class="tiny">+ Add Photos</button>
+    </div>
+    <div class="filter-row" style="margin-bottom:12px">
+      <input type="search" id="searchBox" placeholder="Search photos&hellip;">
+      <select id="sortSel">
+        <option value="date-desc">Newest first</option>
+        <option value="date-asc">Oldest first</option>
+        <option value="cat">By category</option>
+      </select>
+    </div>
+    <div class="cat-chips" id="catChips"></div>
+    <div class="pg" id="photoGrid"></div>
+  </div>
+
+  <!-- Stats -->
+  <div class="panel" id="statsPanel" style="margin-top:16px">
+    <h2>Stats</h2>
+    <div class="grid3" id="statsCards"></div>
+    <div class="grid2" style="margin-top:20px">
+      <div>
+        <div class="stats-chart-label">By category</div>
+        <div id="chartCategories"></div>
+      </div>
+      <div>
+        <div class="stats-chart-label">Photos per month</div>
+        <div id="chartMonths"></div>
+      </div>
+    </div>
+    <div class="grid2" style="margin-top:20px">
+      <div>
+        <div class="stats-chart-label">Photos per year</div>
+        <div id="chartYears"></div>
+      </div>
+      <div></div>
+    </div>
+  </div>
+
+  <!-- Bottom settings -->
+  <div style="text-align:center;margin:24px 0 8px">
+    <button class="ghost tiny" id="settingsBtnBottom">Settings</button>
+  </div>
+
+  <div style="text-align:center" class="meta">Data synced with Google Sheets.</div>
+</div>
+
+<!-- Add photos overlay -->
+<div class="settings-overlay" id="addOverlay">
+  <div class="settings-card" style="max-width:520px">
+    <button class="info-close" id="addClose">&times;</button>
+    <h2 style="margin:0 0 16px;font-size:18px;text-transform:none;letter-spacing:0;color:var(--ink)">Add Photos</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div>
+        <label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Category</label>
+        <input type="text" id="addCategory" list="catList" placeholder="e.g. Landscape" autocomplete="off">
+        <datalist id="catList"></datalist>
+      </div>
+      <div>
+        <label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Date override <span style="opacity:.6">(optional)</span></label>
+        <input type="date" id="addDate">
+      </div>
+      <div style="grid-column:1/-1">
+        <label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Caption <span style="opacity:.6">(optional, applied to all)</span></label>
+        <input type="text" id="addCaption" placeholder="Any caption…">
+      </div>
+      <div style="grid-column:1/-1">
+        <label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Files</label>
+        <input type="file" id="addFiles" accept="image/*,.heic,.heif,video/mp4,video/quicktime,video/webm,.mov,.mp4,.webm" multiple>
+        <div class="small" style="color:var(--muted);margin-top:4px">Capture date is read from each file automatically unless you set a date override.</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;align-items:center">
+      <span id="addStatusMsg" style="font-size:12px;color:var(--muted)"></span>
+      <button class="ghost tiny" id="addCancel">Cancel</button>
+      <button id="addSaveBtn" class="tiny">Upload</button>
+    </div>
+  </div>
+</div>
+
+<!-- Lightbox -->
+<div class="modal-back" id="lightbox" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.94);z-index:60;align-items:center;justify-content:center">
+  <div style="display:flex;flex-direction:column;align-items:center;gap:10px;max-width:94vw;max-height:94vh;width:960px;padding:20px 0">
+    <button class="close" id="lightboxClose" style="position:absolute;top:12px;right:12px;color:#fff;font-size:28px;background:rgba(0,0,0,.4);border-radius:50%;width:36px;height:36px;line-height:1;z-index:1;border:none;cursor:pointer">&times;</button>
+    <img id="lightboxImg" style="flex:1 1 auto;min-height:0;width:100%;object-fit:contain;border-radius:8px;background:#0a0a0a">
+    <video id="lightboxVideo" controls playsinline style="display:none;flex:1 1 auto;min-height:0;width:100%;max-height:82vh;border-radius:8px;background:#0a0a0a"></video>
+    <div id="lightboxMeta" style="flex:none;color:#ddd;font-size:13px;text-align:center;max-width:100%;padding:0 4px;width:100%;max-width:520px">
+      <span id="lightboxDate" style="display:inline-block;color:#fff;font-weight:600;padding:5px 10px"></span>
+      <div class="edit-row" style="display:flex;gap:8px;justify-content:center;margin-top:6px;flex-wrap:wrap">
+        <input type="text" id="lightboxTitle" placeholder="title…" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:6px;padding:6px 10px;width:180px;max-width:44vw">
+        <input type="text" id="lightboxCategory" list="catList" placeholder="category…" autocomplete="off" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:6px;padding:6px 10px;width:150px;max-width:44vw">
+      </div>
+      <input type="text" id="lightboxCaption" placeholder="add caption&hellip;" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:6px;padding:6px 10px;margin-top:6px;width:340px;max-width:90vw">
+      <label id="lightboxHideRow" class="edit-row" style="margin-top:8px;color:#ccc;font-size:12px;display:inline-flex;align-items:center;gap:6px;cursor:pointer">
+        <input type="checkbox" id="lightboxHideFromGallery" style="margin:0">
+        Hide from slideshow
+      </label>
+      <div style="display:flex;gap:8px;justify-content:center;margin-top:10px;flex-wrap:wrap">
+        <button id="lightboxPrev" class="ghost tiny" style="color:#fff;border-color:rgba(255,255,255,.2)">&lsaquo; Prev</button>
+        <button id="lightboxNext" class="ghost tiny" style="color:#fff;border-color:rgba(255,255,255,.2)">Next &rsaquo;</button>
+        <button id="lightboxFeature" class="ghost tiny edit-row" style="color:#fff;border-color:rgba(255,255,255,.2)">&#9734; Feature on homepage</button>
+        <button id="lightboxDelete" class="ghost tiny" style="color:#f59a8a;border-color:rgba(245,154,138,.3)">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Settings overlay -->
+<div class="settings-overlay" id="settingsOverlay">
+  <div class="settings-card">
+    <button class="info-close" id="settingsClose">&times;</button>
+    <h2>Settings</h2>
+
+    <div style="margin-bottom:16px">
+      <div class="small" style="color:var(--muted);margin-bottom:6px">Theme</div>
+      <div class="theme-swatches" id="themeSwatches"></div>
+    </div>
+
+    <div style="margin-bottom:16px">
+      <div class="small" style="color:var(--muted);margin-bottom:6px">Google Sheets sync</div>
+      <button id="gsSaveTokenBtn" class="ghost tiny">Sign in with Google</button>
+    </div>
+
+    <div style="margin-bottom:16px">
+      <h3 style="margin:0 0 8px">Photo storage (Cloudflare R2)</h3>
+      <div class="small" style="color:var(--muted);margin-bottom:6px">Enter these once while signed in with Google. They're saved to a private Google vault, so signing in on any other device loads them automatically.</div>
+      <input type="text" id="r2KeyInput" placeholder="Access Key ID" style="width:100%;margin-bottom:6px">
+      <input type="password" id="r2SecretInput" placeholder="Secret Access Key" style="width:100%">
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+        <button id="r2SaveBtn" class="ghost tiny">Save</button>
+        <button id="r2TestBtn" class="ghost tiny">Test</button>
+        <button id="r2ClearBtn" class="ghost tiny" style="color:#f59a8a">Forget</button>
+      </div>
+      <div class="small" id="r2Status" style="margin-top:6px;color:var(--muted)">Not configured.</div>
+    </div>
+
+    <div style="text-align:right;margin-top:20px">
+      <button class="ghost tiny" id="settingsDone">Done</button>
+    </div>
+  </div>
+</div>
+
+<script src="/shared/gauth.js"></script>
+<script>
+/* ── Helpers ── */
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+function escapeHtml(s){ const d = document.createElement('div'); d.textContent = s==null?'':String(s); return d.innerHTML; }
+
+/* ── CSV parser ── */
+function parseCSV(text){
+  const rows=[]; let row=[]; let cell=''; let inQ=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(inQ){
+      if(c==='"'&&text[i+1]==='"'){cell+='"';i++}
+      else if(c==='"') inQ=false;
+      else cell+=c;
+    } else {
+      if(c==='"') inQ=true;
+      else if(c===','){row.push(cell);cell=''}
+      else if(c==='\n'||c==='\r'){
+        if(c==='\r'&&text[i+1]==='\n') i++;
+        row.push(cell);cell='';
+        if(row.length>1||row[0]!=='') rows.push(row);
+        row=[];
+      } else cell+=c;
+    }
+  }
+  row.push(cell);
+  if(row.length>1||row[0]!=='') rows.push(row);
+  return rows;
+}
+function csvToObjects(rows){
+  if(!rows.length) return [];
+  const hdr=rows[0];
+  return rows.slice(1).map(r=>{
+    const o={};
+    hdr.forEach((h,i)=> o[h]=r[i]||'');
+    return o;
+  });
+}
+
+/* ── Config ──
+   PASTE the public ("anyone with the link → viewer") Google Sheet ID below.
+   The dashboard auto-creates the `photos` tab on first upload; nothing else to
+   set up. Until this is filled in the page shows an owner-only setup note. */
+const PHOTO_SHEET_ID = '1JXlI9RgLfwrpYgMZxyo8TipEiEn675Bwpnr9ORxUJFA';
+const PHOTOS_TAB = 'photos';
+const CONFIG_TAB = 'config';
+const PHOTO_HEADERS = ['id','key','category','title','date','caption','hideFromGallery'];
+const SEED_CATEGORIES = ['Astrophotography','Landscape','Trips','Misc','Puck'];
+
+/* ── R2 config ── */
+const R2_CONFIG = {
+  bucket: 'plant-photos',
+  accountId: '5321847b835f166ceacebf2c8c142610',
+  publicUrl: 'https://pub-59a926166fd84970bea75caf38a52d27.r2.dev',
+};
+const R2_CREDS_KEY = 'photographyDashboard.r2creds';
+
+function r2PublicUrl(key){ return `${R2_CONFIG.publicUrl}/${key}`; }
+
+/* ── Reads (gviz by tab name → no gid needed for a fresh sheet) ── */
+async function fetchTab(tab){
+  const url = `https://docs.google.com/spreadsheets/d/${PHOTO_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tab)}`;
+  const r = await fetch(url, {cache:'no-store'});
+  if(!r.ok) throw new Error(`Sheet fetch failed: HTTP ${r.status}`);
+  const text = (await r.text()).replace(/^﻿/, '');
+  return csvToObjects(parseCSV(text));
+}
+
+/* ── State ── */
+const state = { photos:[], _featuredKey:'' };
+let activeCategory = '';   // '' = all
+
+function normalizePhoto(p){
+  if(p.hideFromGallery === 'TRUE' || p.hideFromGallery === true) p.hideFromGallery = true;
+  else delete p.hideFromGallery;
+  return p;
+}
+
+async function loadData(){
+  if(!PHOTO_SHEET_ID){
+    setSyncStatus('not configured yet', 'err');
+    showSetupNote();
+    return;
+  }
+  setSyncStatus('loading…','');
+  try{
+    const rows = await fetchTab(PHOTOS_TAB).catch(()=>[]);
+    state.photos = rows.map(normalizePhoto).filter(p=>p.key);
+    setSyncStatus(`${state.photos.length} photo${state.photos.length===1?'':'s'} loaded`, 'ok');
+    refreshGsStatus();
+    buildCategoryChips();
+    buildCatDatalist();
+    renderGrid();
+    renderStats();
+    refreshGallery();
+  } catch(e){
+    console.error(e);
+    setSyncStatus('failed to load data', 'err');
+  }
+}
+
+function showSetupNote(){
+  const note = $('#setupNote');
+  note.style.display = '';
+  note.innerHTML = `<strong>Set up needed:</strong> paste your public Google Sheet ID into
+    <code>PHOTO_SHEET_ID</code> near the top of <code>photography/index.html</code>.
+    Create a Google Sheet, share it <em>“anyone with the link → viewer”</em>, and copy the id from its URL
+    (the part between <code>/d/</code> and <code>/edit</code>). The <code>${PHOTOS_TAB}</code> tab is created
+    automatically the first time you add a photo.`;
+}
+
+/* ── Sync status ── */
+function setSyncStatus(msg, cls){
+  $('#syncText').textContent = msg;
+  $('#syncDot').className = 'sync-dot' + (cls ? ' '+cls : '');
+}
+
+/* ── Categories ── */
+function allCategories(){
+  const set = new Set(SEED_CATEGORIES);
+  for(const p of state.photos){ if(p.category) set.add(p.category); }
+  return [...set].sort((a,b)=>a.localeCompare(b));
+}
+function categoryCounts(){
+  const m = {};
+  for(const p of state.photos){ const c = p.category || 'Uncategorized'; m[c] = (m[c]||0)+1; }
+  return m;
+}
+
+function buildCategoryChips(){
+  const counts = categoryCounts();
+  const cats = allCategories();
+  // Only show categories that either seed or have photos.
+  const shown = cats.filter(c => SEED_CATEGORIES.includes(c) || counts[c]);
+  if(counts['Uncategorized']) shown.push('Uncategorized');
+  const chips = [`<button class="cat-chip${activeCategory===''?' active':''}" data-cat="">All <span class="cc-count">${state.photos.length}</span></button>`];
+  for(const c of shown){
+    chips.push(`<button class="cat-chip${activeCategory===c?' active':''}" data-cat="${escapeHtml(c)}">${escapeHtml(c)}<span class="cc-count">${counts[c]||0}</span></button>`);
+  }
+  $('#catChips').innerHTML = chips.join('');
+}
+
+function buildCatDatalist(){
+  $('#catList').innerHTML = allCategories().map(c=>`<option value="${escapeHtml(c)}">`).join('');
+}
+
+$('#catChips').addEventListener('click', e=>{
+  const chip = e.target.closest('[data-cat]');
+  if(!chip) return;
+  activeCategory = chip.dataset.cat;
+  buildCategoryChips();
+  renderGrid();
+});
+
+/* ── Photo wall ── */
+function filteredSortedPhotos(){
+  const q = $('#searchBox').value.toLowerCase().trim();
+  let list = state.photos.filter(p=>{
+    const cat = p.category || 'Uncategorized';
+    if(activeCategory && cat !== activeCategory) return false;
+    if(q){
+      const hay = `${p.category} ${p.title} ${p.caption} ${p.date}`.toLowerCase();
+      if(!hay.includes(q)) return false;
+    }
+    return true;
+  });
+  const sort = $('#sortSel').value;
+  list.sort((a,b)=>{
+    if(sort === 'cat'){
+      const c = (a.category||'').localeCompare(b.category||'');
+      if(c) return c;
+      return (b.date||'').localeCompare(a.date||'');
+    }
+    const cmp = (a.date||'').localeCompare(b.date||'');
+    return sort === 'date-asc' ? cmp : -cmp;
+  });
+  return list;
+}
+
+function renderGrid(){
+  const grid = $('#photoGrid');
+  const list = filteredSortedPhotos();
+  state._gridList = list;
+  if(!list.length){
+    grid.innerHTML = '<div class="empty">No photos yet.</div>';
+    return;
+  }
+  grid.innerHTML = list.map((p,i)=>{
+    const vid = isVideoKey(p.key);
+    const media = vid
+      ? `<video src="${r2PublicUrl(p.key)}" preload="metadata" muted playsinline></video><div class="play-icon"></div>`
+      : `<img src="${r2PublicUrl(p.key)}" loading="lazy" alt="${escapeHtml(p.title||p.category||'')}">`;
+    const hidden = p.hideFromGallery ? '<div class="ph-hidden" title="Hidden from slideshow">🚫</div>' : '';
+    const label = p.title || p.category || '';
+    const info = (label || p.date)
+      ? `<div class="ph-info"><span class="ph-cat">${escapeHtml(p.category||'')}</span>${p.title?` · <span class="ph-title">${escapeHtml(p.title)}</span>`:''}${p.date?`<div>${escapeHtml(p.date)}</div>`:''}</div>`
+      : '';
+    return `<div class="ph" data-idx="${i}">${media}${info}${hidden}</div>`;
+  }).join('');
+}
+
+$('#photoGrid').addEventListener('click', e=>{
+  const ph = e.target.closest('.ph');
+  if(!ph) return;
+  _lbPhotos = state._gridList || [];
+  _lbIdx = parseInt(ph.dataset.idx, 10);
+  showLightbox();
+});
+
+$('#searchBox').addEventListener('input', renderGrid);
+$('#sortSel').addEventListener('change', renderGrid);
+
+/* ── Photo gallery slideshow ── */
+const GALLERY_FIT_KEY = 'photographyDashboard.galleryFit';
+const gallery = { pool: [], idx: 0, current: 'A', timer: null, paused: false };
+
+function getGalleryFit(){
+  return localStorage.getItem(GALLERY_FIT_KEY) === 'cover' ? 'cover' : 'contain';
+}
+function applyGalleryFit(){
+  const fit = getGalleryFit();
+  const stage = $('#galleryStage');
+  if(stage) stage.dataset.fit = fit;
+  const btn = $('#galleryFitBtn');
+  if(btn) btn.textContent = fit === 'cover' ? '✂ crop' : '🖼 full';
+}
+
+function buildGalleryPool(){
+  const items = [];
+  for(const p of state.photos){
+    if(!p.key || isVideoKey(p.key) || p.hideFromGallery) continue;
+    items.push({ key: p.key, category: p.category||'', title: p.title||'', date: p.date||'', caption: p.caption||'' });
+  }
+  for(let i = items.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [items[i], items[j]] = [items[j], items[i]];
+  }
+  gallery.pool = items;
+  gallery.idx = 0;
+}
+
+function showGalleryPhoto(item){
+  if(!item) return;
+  const a = $('#galleryImgA'), b = $('#galleryImgB');
+  const incoming = gallery.current === 'A' ? b : a;
+  const outgoing = gallery.current === 'A' ? a : b;
+  incoming.onload = ()=>{
+    incoming.classList.add('is-current');
+    outgoing.classList.remove('is-current');
+    gallery.current = gallery.current === 'A' ? 'B' : 'A';
+    gallery._errStreak = 0;
+  };
+  incoming.onerror = ()=>{
+    gallery._errStreak = (gallery._errStreak||0) + 1;
+    if(gallery._errStreak < gallery.pool.length) advanceGallery(1);
+  };
+  incoming.src = r2PublicUrl(item.key);
+  const name = item.title || item.category;
+  const meta = [item.category && item.title ? item.category : '', item.date, item.caption].filter(Boolean).join(' · ');
+  $('#galleryCaption').innerHTML = `<span class="gname">${escapeHtml(name)}</span><span class="gmeta">${escapeHtml(meta)}</span>`;
+  $('#galleryDots').textContent = `${gallery.idx + 1} / ${gallery.pool.length}`;
+}
+
+function advanceGallery(step){
+  if(!gallery.pool.length) return;
+  gallery.idx = (gallery.idx + step + gallery.pool.length) % gallery.pool.length;
+  showGalleryPhoto(gallery.pool[gallery.idx]);
+}
+function startGallery(){
+  if(!gallery.pool.length || gallery.timer) return;
+  showGalleryPhoto(gallery.pool[gallery.idx]);
+  gallery.timer = setInterval(()=>{ if(!gallery.paused) advanceGallery(1); }, 5000);
+}
+function stopGallery(){ if(gallery.timer){ clearInterval(gallery.timer); gallery.timer = null; } }
+
+function refreshGallery(){
+  stopGallery();
+  buildGalleryPool();
+  const panel = $('#galleryPanel');
+  if(gallery.pool.length){
+    panel.style.display = '';
+    applyGalleryFit();
+    startGallery();
+  } else {
+    panel.style.display = 'none';
+  }
+}
+
+$('#galleryPrev').onclick = ()=> advanceGallery(-1);
+$('#galleryNext').onclick = ()=> advanceGallery(1);
+$('#galleryFitBtn').onclick = ()=>{
+  const next = getGalleryFit() === 'cover' ? 'contain' : 'cover';
+  localStorage.setItem(GALLERY_FIT_KEY, next);
+  applyGalleryFit();
+};
+$('#galleryStage').addEventListener('mouseenter', ()=>{ gallery.paused = true; });
+$('#galleryStage').addEventListener('mouseleave', ()=>{ gallery.paused = false; });
+document.addEventListener('visibilitychange', ()=>{ gallery.paused = document.hidden; });
+$('#galleryStage').addEventListener('click', e=>{
+  if(e.target.closest('button')) return;
+  const item = gallery.pool[gallery.idx];
+  if(!item) return;
+  // Open this photo in the lightbox against the full grid list.
+  _lbPhotos = state.photos.slice();
+  _lbIdx = Math.max(0, _lbPhotos.findIndex(p=>p.key===item.key));
+  showLightbox();
+});
+
+/* ── Stats ── */
+const palette = ['#4dd0c1','#f0a868','#7ec4cc','#e08a4a','#8fc06a','#d2554a','#9aafc4','#d49858','#b08090','#5d8a3e','#c2d6d9','#993028'];
+
+function renderStats(){
+  const photos = state.photos;
+  const total = photos.length;
+  const catCounts = categoryCounts();
+  const years = new Set(photos.map(p=>(p.date||'').slice(0,4)).filter(Boolean));
+
+  $('#statsCards').innerHTML = `
+    <div class="stat-card"><div class="stat-num">${total}</div><div class="stat-label">Total Photos</div></div>
+    <div class="stat-card"><div class="stat-num">${Object.keys(catCounts).length}</div><div class="stat-label">Categories</div></div>
+    <div class="stat-card"><div class="stat-num">${years.size}</div><div class="stat-label">Years</div></div>
+  `;
+
+  drawPie('#chartCategories', new Map(Object.entries(catCounts)));
+
+  const byMonth = new Map();
+  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  photos.forEach(p=>{
+    const m = parseInt((p.date||'').slice(5,7), 10);
+    if(m>=1 && m<=12){ const l = monthNames[m-1]; byMonth.set(l, (byMonth.get(l)||0)+1); }
+  });
+  drawBars('#chartMonths', monthNames.filter(m=>byMonth.has(m)).map(m=>[m, byMonth.get(m)]), 'photos');
+
+  const byYear = new Map();
+  photos.forEach(p=>{
+    const y = parseInt((p.date||'').slice(0,4), 10);
+    if(y && y>1900) byYear.set(y, (byYear.get(y)||0)+1);
+  });
+  drawYearBars('#chartYears', byYear, 'photos');
+}
+
+function drawPie(target, dataMap){
+  const el = typeof target==='string' ? $(target) : target;
+  if(!el || !dataMap.size){ if(el) el.innerHTML='<span class="meta">No data</span>'; return; }
+  const entries = [...dataMap.entries()].sort((a,b)=>b[1]-a[1]);
+  const total = entries.reduce((s,[,n])=>s+n, 0);
+  const w=260, h=260, cx=w/2, cy=h/2, r=Math.min(cx,cy)-4;
+  let angle = -Math.PI/2;
+  const slices = entries.map(([label, n], i)=>{
+    const frac = n/total;
+    const start = angle; angle += frac * 2 * Math.PI; const end = angle;
+    const x1 = cx + r*Math.cos(start), y1 = cy + r*Math.sin(start);
+    const x2 = cx + r*Math.cos(end),   y2 = cy + r*Math.sin(end);
+    const largeArc = frac > 0.5 ? 1 : 0;
+    const pathD = frac >= 1
+      ? `M${cx-r},${cy}A${r},${r},0,1,1,${cx+r},${cy}A${r},${r},0,1,1,${cx-r},${cy}`
+      : `M${cx},${cy}L${x1.toFixed(2)},${y1.toFixed(2)}A${r},${r},0,${largeArc},1,${x2.toFixed(2)},${y2.toFixed(2)}Z`;
+    return `<path d="${pathD}" fill="${palette[i%palette.length]}"/>`;
+  }).join('');
+  const legend = entries.map(([label, n], i)=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:2px 0">
+      <div style="width:10px;height:10px;border-radius:3px;background:${palette[i%palette.length]};flex:none"></div>
+      <span style="font-size:12px;color:var(--ink);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(label)}</span>
+      <span style="font-size:12px;color:var(--muted);white-space:nowrap">${(n/total*100).toFixed(1)}%</span>
+    </div>`).join('');
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+      <svg viewBox="0 0 ${w} ${h}" width="120" height="120">${slices}</svg>
+      <div style="flex:1;min-width:100px">${legend}</div>
+    </div>`;
+}
+
+function drawBars(target, series, noun){
+  const el = typeof target==='string' ? $(target) : target;
+  if(!el || !series.length){ if(el) el.innerHTML='<span class="meta">No data</span>'; return; }
+  const total = series.reduce((s,[,n])=>s+n, 0);
+  const w=360, h=180, padL=20, padR=10, padT=20, padB=28;
+  const max = Math.max(1, ...series.map(s=>s[1]));
+  const bw = Math.min(40, (w-padL-padR)/series.length);
+  const chartW = padL + series.length*bw + padR;
+  const bars = series.map(([label,n],i)=>{
+    const bh = n===0?0:(h-padT-padB)*(n/max);
+    const x = padL+i*bw+bw*0.15, yy = h-padB-bh, wd = bw*0.7;
+    return `<g>
+      <rect x="${x.toFixed(2)}" y="${yy.toFixed(2)}" width="${wd.toFixed(2)}" height="${bh.toFixed(2)}" fill="var(--accent)" rx="2"/>
+      ${n?`<text x="${(x+wd/2).toFixed(2)}" y="${(yy-4).toFixed(2)}" text-anchor="middle" font-size="10" fill="var(--ink-soft)">${n}</text>`:''}
+      <text x="${(x+wd/2).toFixed(2)}" y="${h-padB+14}" text-anchor="middle" font-size="10" fill="var(--ink-soft)">${label}</text>
+    </g>`;
+  }).join('');
+  const axis = `<line x1="${padL}" y1="${h-padB}" x2="${chartW-padR}" y2="${h-padB}" stroke="var(--line)"/>`;
+  el.innerHTML = `<svg viewBox="0 0 ${chartW} ${h}" width="100%" preserveAspectRatio="xMidYMid meet">${axis}${bars}</svg>
+    <div class="stats-total">Total: ${total} ${noun || 'items'}</div>`;
+}
+function drawYearBars(target, byYear, noun){
+  const el = typeof target==='string' ? $(target) : target;
+  if(!el || !byYear.size){ if(el) el.innerHTML='<span class="meta">No data</span>'; return; }
+  drawBars(target, [...byYear.entries()].sort((a,b)=>a[0]-b[0]), noun);
+}
+
+/* ── Themes ── */
+const THEMES = [
+  { id:'default', label:'Teal Dark',    bg:'#08191c', accent:'#4dd0c1' },
+  { id:'light',   label:'Cream Light',  bg:'#e6f1f2', accent:'#118a7d' },
+  { id:'redwood', label:'Dawn Redwood',  bg:'#dde9d4', accent:'#5a8a32' },
+  { id:'slate',   label:'Slate',        bg:'#13171b', accent:'#9aafc4' },
+  { id:'maple',   label:'Maple',        bg:'#16080a', accent:'#d2554a' },
+  { id:'forest',  label:'Forest',       bg:'#0d1611', accent:'#8fc06a' },
+];
+const THEME_KEY = 'satownsend.theme';
+
+function applyTheme(id){
+  if(id === 'default') document.documentElement.removeAttribute('data-theme');
+  else document.documentElement.setAttribute('data-theme', id);
+  localStorage.setItem(THEME_KEY, id);
+  $$('.theme-swatch').forEach(s=> s.classList.toggle('active', s.dataset.theme===id));
+}
+function currentTheme(){ return document.documentElement.getAttribute('data-theme') || 'default'; }
+
+function buildThemeSwatches(){
+  $('#themeSwatches').innerHTML = THEMES.map(t=>`
+    <div class="theme-swatch" data-theme="${t.id}" title="${t.label}">
+      <div class="ts-left" style="background:${t.bg}"></div>
+      <div class="ts-right" style="background:${t.accent}"></div>
+    </div>`).join('');
+  const cur = currentTheme();
+  $$('.theme-swatch').forEach(s=> s.classList.toggle('active', s.dataset.theme===cur));
+  $('#themeSwatches').addEventListener('click', e=>{
+    const sw = e.target.closest('.theme-swatch');
+    if(sw) applyTheme(sw.dataset.theme);
+  });
+}
+function buildThemePop(){
+  const pop = $('#themePop');
+  const cur = currentTheme();
+  pop.innerHTML = THEMES.map(t=>`
+    <div class="theme-pop-row" data-theme="${t.id}" style="display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:6px;cursor:pointer;${t.id===cur?'background:var(--panel2)':''}">
+      <div style="display:flex;width:48px;height:28px;border-radius:6px;overflow:hidden;border:1px solid var(--line)">
+        <div style="flex:1;background:${t.bg}"></div><div style="flex:1;background:${t.accent}"></div>
+      </div>
+      <span style="font-size:13px">${t.label}</span>
+      ${t.id===cur?'<span style="margin-left:auto;color:var(--accent)">✓</span>':''}
+    </div>`).join('');
+  pop.addEventListener('click', e=>{
+    const row = e.target.closest('[data-theme]');
+    if(row){ applyTheme(row.dataset.theme); buildThemePop(); }
+  });
+}
+$('#themechip').onclick = ()=>{
+  const pop = $('#themePop');
+  if(pop.style.display==='none'){ buildThemePop(); pop.style.display='block'; }
+  else pop.style.display='none';
+};
+document.addEventListener('click', e=>{
+  if(!e.target.closest('#themechip') && !e.target.closest('#themePop')) $('#themePop').style.display='none';
+});
+
+/* ── Settings ── */
+function openSettings(){
+  buildThemeSwatches();
+  $('#settingsOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  refreshR2Input();
+}
+function closeSettings(){
+  $('#settingsOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+$('#settingsBtn').onclick = openSettings;
+$('#settingsBtnBottom').onclick = openSettings;
+$('#settingsClose').onclick = closeSettings;
+$('#settingsDone').onclick = closeSettings;
+$('#settingsOverlay').addEventListener('click', e=>{ if(e.target === $('#settingsOverlay')) closeSettings(); });
+
+/* ── Google OAuth (shared GAuth module) ── */
+function isGsAuthed(){ return GAuth.isAuthed(); }
+function refreshGsStatus(){
+  const authed = isGsAuthed();
+  document.body.classList.toggle('view-only', !authed);
+  if(authed){
+    setSyncStatus(`${state.photos.length} photo${state.photos.length===1?'':'s'} loaded · signed in`, 'ok');
+    $('#gsSaveTokenBtn').textContent = 'Signed in ✓';
+    $('#gsSaveTokenBtn').disabled = true;
+  } else {
+    $('#gsSaveTokenBtn').textContent = 'Sign in with Google';
+    $('#gsSaveTokenBtn').disabled = false;
+  }
+}
+$('#gsSaveTokenBtn').onclick = ()=> GAuth.signIn();
+
+/* ── R2 credentials ── */
+function getR2Creds(){ try { return JSON.parse(localStorage.getItem(R2_CREDS_KEY) || '{}'); } catch(e){ return {}; } }
+function setR2Creds(c){
+  if (c && c.accessKey && c.secretKey) localStorage.setItem(R2_CREDS_KEY, JSON.stringify(c));
+  else localStorage.removeItem(R2_CREDS_KEY);
+}
+
+/* ── Google Sheets API (writes need the signed-in token) ── */
+async function sheetsApi(url, opts = {}){
+  const token = GAuth.token();
+  if (!token) throw new Error('Not signed in');
+  const headers = { Authorization: 'Bearer ' + token, ...(opts.headers || {}) };
+  const r = await fetch(url, { ...opts, headers });
+  if (!r.ok){ throw new Error(`Sheets API ${r.status}: ${(await r.text().catch(()=>'')).slice(0,200)}`); }
+  return r.json();
+}
+const SHEET_BASE = () => `https://sheets.googleapis.com/v4/spreadsheets/${PHOTO_SHEET_ID}`;
+
+/* ── R2 credential vault (issue #47) ── */
+const R2_VAULT_TITLE = 'satownsend • R2 vault (private — do not share)';
+
+async function gsReadConfig(){
+  try {
+    const data = await sheetsApi(`${SHEET_BASE()}/values/${encodeURIComponent(CONFIG_TAB)}`);
+    const map = {};
+    for (const r of (data.values || [])){ if (r[0]) map[r[0]] = r[1] || ''; }
+    return map;
+  } catch(e){ return {}; }
+}
+async function gsWriteConfigValue(key, value){
+  const base = SHEET_BASE();
+  try {
+    await sheetsApi(`${base}:batchUpdate`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ requests:[{ addSheet:{ properties:{ title: CONFIG_TAB } } }] }),
+    });
+  } catch(e){ /* already exists → fine */ }
+  const map = await gsReadConfig();
+  map[key] = value;
+  const rows = [['key','value'], ...Object.entries(map)];
+  await sheetsApi(`${base}/values/${encodeURIComponent(CONFIG_TAB)}:clear`, {
+    method:'POST', headers:{'Content-Type':'application/json'}, body:'{}',
+  });
+  await sheetsApi(`${base}/values/${encodeURIComponent(CONFIG_TAB+'!A1')}?valueInputOption=RAW`, {
+    method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ values: rows }),
+  });
+}
+async function gsCreateVault(){
+  const data = await sheetsApi('https://sheets.googleapis.com/v4/spreadsheets', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ properties:{ title: R2_VAULT_TITLE }, sheets:[{ properties:{ title:'r2' } }] }),
+  });
+  return data.spreadsheetId;
+}
+async function gsReadVaultCreds(vaultId){
+  const data = await sheetsApi(`https://sheets.googleapis.com/v4/spreadsheets/${vaultId}/values/r2!A2:B2`);
+  const row = (data.values || [])[0] || [];
+  const accessKey = (row[0]||'').trim(), secretKey = (row[1]||'').trim();
+  return (accessKey && secretKey) ? { accessKey, secretKey } : null;
+}
+async function gsWriteVaultCreds(vaultId, creds){
+  await sheetsApi(`https://sheets.googleapis.com/v4/spreadsheets/${vaultId}/values/r2!A1?valueInputOption=RAW`, {
+    method:'PUT', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ values: [['accessKey','secretKey'], [creds.accessKey, creds.secretKey]] }),
+  });
+}
+async function saveR2CredsToVault(creds){
+  if (!isGsAuthed()) return;
+  const cfg = await gsReadConfig();
+  let vaultId = cfg.r2_vault_id;
+  if (!vaultId){ vaultId = await gsCreateVault(); await gsWriteConfigValue('r2_vault_id', vaultId); }
+  await gsWriteVaultCreds(vaultId, creds);
+}
+async function autoLoadR2CredsFromVault(){
+  if (!isGsAuthed()) return false;
+  const have = getR2Creds();
+  if (have.accessKey && have.secretKey) return false;
+  try {
+    const cfg = await gsReadConfig();
+    if (!cfg.r2_vault_id) return false;
+    const creds = await gsReadVaultCreds(cfg.r2_vault_id);
+    if (!creds) return false;
+    setR2Creds(creds);
+    if (typeof refreshR2Input === 'function') refreshR2Input();
+    return true;
+  } catch(e){ console.warn('[vault] auto-load failed:', e); return false; }
+}
+
+/* ── SigV4 signing ── */
+async function sha256hex(data){
+  const buf = typeof data === 'string' ? new TextEncoder().encode(data) : data;
+  const hash = await crypto.subtle.digest('SHA-256', buf);
+  return [...new Uint8Array(hash)].map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+async function hmacRaw(key, data){
+  const k = typeof key === 'string' ? new TextEncoder().encode(key) : key;
+  const d = typeof data === 'string' ? new TextEncoder().encode(data) : data;
+  const ck = await crypto.subtle.importKey('raw', k, {name:'HMAC', hash:'SHA-256'}, false, ['sign']);
+  return new Uint8Array(await crypto.subtle.sign('HMAC', ck, d));
+}
+async function hmacHex(key, data){
+  const sig = await hmacRaw(key, data);
+  return [...sig].map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+async function sigv4Request({method, key, body, contentType}){
+  const creds = getR2Creds();
+  if (!creds.accessKey || !creds.secretKey) throw new Error('R2 credentials not set');
+  const host = `${R2_CONFIG.accountId}.r2.cloudflarestorage.com`;
+  const path = `/${R2_CONFIG.bucket}/${key.split('/').map(encodeURIComponent).join('/')}`;
+  const url = `https://${host}${path}`;
+  const region = 'auto', service = 's3';
+  const now = new Date();
+  const amzDate = now.toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');
+  const date = amzDate.slice(0,8);
+  const payload = body ? (body instanceof ArrayBuffer ? new Uint8Array(body) : body) : new Uint8Array();
+  const payloadHash = await sha256hex(payload);
+  const headers = { host, 'x-amz-content-sha256': payloadHash, 'x-amz-date': amzDate };
+  if (contentType) headers['content-type'] = contentType;
+  const sortedHeaderNames = Object.keys(headers).sort();
+  const canonicalHeaders = sortedHeaderNames.map(n=>`${n}:${headers[n]}`).join('\n') + '\n';
+  const signedHeaders = sortedHeaderNames.join(';');
+  const canonicalRequest = `${method}\n${path}\n\n${canonicalHeaders}\n${signedHeaders}\n${payloadHash}`;
+  const crHash = await sha256hex(canonicalRequest);
+  const credentialScope = `${date}/${region}/${service}/aws4_request`;
+  const stringToSign = `AWS4-HMAC-SHA256\n${amzDate}\n${credentialScope}\n${crHash}`;
+  const kDate    = await hmacRaw('AWS4' + creds.secretKey, date);
+  const kRegion  = await hmacRaw(kDate, region);
+  const kService = await hmacRaw(kRegion, service);
+  const kSigning = await hmacRaw(kService, 'aws4_request');
+  const signature = await hmacHex(kSigning, stringToSign);
+  const auth = `AWS4-HMAC-SHA256 Credential=${creds.accessKey}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
+  const fetchHeaders = { ...headers, Authorization: auth };
+  delete fetchHeaders.host;
+  const r2 = await fetch(url, { method, headers: fetchHeaders, body: body || undefined });
+  if (!r2.ok){ const txt = await r2.text(); throw new Error(`R2 ${method} ${r2.status}: ${txt.slice(0,200)}`); }
+  return r2;
+}
+
+/* ── HEIC / EXIF / Resize ── */
+function isHeic(file){ return /^image\/hei[cf]/i.test(file.type || '') || /\.hei[cf]$/i.test(file.name || ''); }
+let _heic2anyPromise = null;
+function loadHeic2Any(){
+  if (_heic2anyPromise) return _heic2anyPromise;
+  _heic2anyPromise = new Promise((resolve, reject) => {
+    if (window.heic2any) return resolve(window.heic2any);
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js';
+    s.onload = () => window.heic2any ? resolve(window.heic2any) : reject(new Error('heic2any global missing'));
+    s.onerror = () => { _heic2anyPromise = null; reject(new Error('Failed to load HEIC converter (offline?)')); };
+    document.head.appendChild(s);
+  });
+  return _heic2anyPromise;
+}
+async function exifDateFromFile(file){
+  try {
+    const buf = await file.slice(0, 256 * 1024).arrayBuffer();
+    const view = new DataView(buf);
+    if (view.getUint16(0) !== 0xFFD8) return null;
+    let offset = 2;
+    while (offset < view.byteLength - 4){
+      if (view.getUint8(offset) !== 0xFF) return null;
+      const marker = view.getUint8(offset + 1);
+      const size = view.getUint16(offset + 2);
+      if (marker === 0xE1){
+        const headerStart = offset + 4;
+        if (view.getUint32(headerStart) === 0x45786966 && view.getUint16(headerStart + 4) === 0x0000){
+          const tiffStart = headerStart + 6;
+          const endian = view.getUint16(tiffStart);
+          if (endian !== 0x4949 && endian !== 0x4D4D) return null;
+          const little = endian === 0x4949;
+          const get16 = (o) => view.getUint16(o, little);
+          const get32 = (o) => view.getUint32(o, little);
+          if (get16(tiffStart + 2) !== 0x002A) return null;
+          const ifd0Offset = tiffStart + get32(tiffStart + 4);
+          const numEntries = get16(ifd0Offset);
+          let exifIfdOffset = null;
+          for (let i = 0; i < numEntries; i++){
+            const e = ifd0Offset + 2 + i * 12;
+            if (get16(e) === 0x8769){ exifIfdOffset = tiffStart + get32(e + 8); break; }
+          }
+          if (!exifIfdOffset) return null;
+          const numExifEntries = get16(exifIfdOffset);
+          for (let i = 0; i < numExifEntries; i++){
+            const e = exifIfdOffset + 2 + i * 12;
+            const tag = get16(e);
+            if (tag === 0x9003 || tag === 0x9004){
+              const valOffset = tiffStart + get32(e + 8);
+              const bytes = new Uint8Array(buf, valOffset, 19);
+              const str = new TextDecoder().decode(bytes);
+              const m = str.match(/^(\d{4}):(\d{2}):(\d{2})/);
+              if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+            }
+          }
+        }
+      }
+      offset += 2 + size;
+    }
+  } catch(e){ console.warn('EXIF parse error:', e); }
+  return null;
+}
+async function resizeImage(file, maxDim=2400, quality=0.92){
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((res,rej)=>{ const i = new Image(); i.onload = ()=>res(i); i.onerror = rej; i.src = url; });
+    const ratio = Math.min(1, maxDim / Math.max(img.width, img.height));
+    const w = Math.max(1, Math.round(img.width * ratio));
+    const h = Math.max(1, Math.round(img.height * ratio));
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+    return await new Promise(res => canvas.toBlob(res, 'image/jpeg', quality));
+  } finally { URL.revokeObjectURL(url); }
+}
+
+/* ── Media / date helpers ── */
+function isVideo(fileOrKey){
+  if(typeof fileOrKey === 'string') return /\.(mp4|mov|webm)$/i.test(fileOrKey);
+  return /^video\//i.test(fileOrKey.type || '') || /\.(mp4|mov|webm)$/i.test(fileOrKey.name || '');
+}
+function isVideoKey(key){ return /\.(mp4|mov|webm)$/i.test(key||''); }
+function ymd(d){ return d.toISOString().slice(0,10); }
+function ymdLocal(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function captureDateFromFile(file){
+  const t = file && file.lastModified;
+  if(!t) return null;
+  const d = new Date(t);
+  if(isNaN(d.getTime())) return null;
+  if(d.getFullYear() < 1990 || d.getTime() > Date.now() + 86400000) return null;
+  return ymdLocal(d);
+}
+function slug(s){ return (s||'misc').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'') || 'misc'; }
+
+/* ── Sheets: ensure photos tab + append/update/delete ── */
+async function ensurePhotosTab(){
+  const base = SHEET_BASE();
+  try {
+    await sheetsApi(`${base}:batchUpdate`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ requests:[{ addSheet:{ properties:{ title: PHOTOS_TAB } } }] }),
+    });
+    // Freshly created → write the header row.
+    await sheetsApi(`${base}/values/${encodeURIComponent(PHOTOS_TAB+'!A1')}?valueInputOption=RAW`, {
+      method:'PUT', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ values: [PHOTO_HEADERS] }),
+    });
+  } catch(e){ /* already exists → assume headers present */ }
+}
+async function appendPhotoRow(values){
+  const base = SHEET_BASE();
+  await sheetsApi(`${base}/values/${encodeURIComponent(PHOTOS_TAB)}!A1:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ values: [values] }),
+  });
+}
+let _photosSheetGid = null;
+async function getPhotosSheetGid(){
+  if(_photosSheetGid != null) return _photosSheetGid;
+  const data = await sheetsApi(`${SHEET_BASE()}?fields=sheets.properties`);
+  const sh = (data.sheets||[]).find(s=>s.properties.title===PHOTOS_TAB);
+  _photosSheetGid = sh ? sh.properties.sheetId : null;
+  return _photosSheetGid;
+}
+async function readPhotoRows(){
+  const data = await sheetsApi(`${SHEET_BASE()}/values/${encodeURIComponent(PHOTOS_TAB)}?majorDimension=ROWS`);
+  return data.values || [];
+}
+async function updatePhotoRow(photo){
+  const rows = await readPhotoRows();
+  if(!rows.length) return;
+  const headers = rows[0];
+  const idCol = headers.indexOf('id');
+  let rowIdx = -1;
+  for(let i=1;i<rows.length;i++){
+    if((idCol>=0 && rows[i][idCol]===photo.id) || rows[i][1]===photo.key){ rowIdx = i; break; }
+  }
+  if(rowIdx<0) return;
+  const newRow = headers.map(h=>{
+    if(h==='hideFromGallery') return photo.hideFromGallery ? 'TRUE' : 'FALSE';
+    return photo[h] != null ? photo[h] : '';
+  });
+  const range = `${PHOTOS_TAB}!A${rowIdx+1}:${String.fromCharCode(64+headers.length)}${rowIdx+1}`;
+  await sheetsApi(`${SHEET_BASE()}/values/${encodeURIComponent(range)}?valueInputOption=RAW`, {
+    method:'PUT', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ range, majorDimension:'ROWS', values:[newRow] }),
+  });
+}
+async function deletePhotoRow(photo){
+  const rows = await readPhotoRows();
+  const idCol = rows.length ? rows[0].indexOf('id') : -1;
+  let rowIdx = -1;
+  for(let i=1;i<rows.length;i++){
+    if((idCol>=0 && rows[i][idCol]===photo.id) || rows[i][1]===photo.key){ rowIdx = i; break; }
+  }
+  if(rowIdx<0) return;
+  const gid = await getPhotosSheetGid();
+  if(gid == null) return;
+  await sheetsApi(`${SHEET_BASE()}:batchUpdate`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ requests:[{ deleteDimension:{ range:{ sheetId: gid, dimension:'ROWS', startIndex: rowIdx, endIndex: rowIdx+1 }}}]}),
+  });
+}
+
+/* ── Feature-on-homepage (issue #50) ── */
+async function loadFeaturedKey(){
+  if(!isGsAuthed()) return;
+  try { const cfg = await gsReadConfig(); state._featuredKey = cfg.homepage_featured_key || ''; }
+  catch(e){ /* config tab may not exist yet */ }
+}
+
+/* ── Upload ── */
+async function uploadPhoto(file, category, caption, dateOverride, onStatus){
+  const creds = getR2Creds();
+  if (!creds.accessKey || !creds.secretKey) throw new Error('Save R2 credentials first (Settings → Photo storage)');
+  const today = ymd(new Date());
+  const rand = Math.random().toString(36).slice(2,8);
+  const catSlug = slug(category);
+  const id = Math.random().toString(36).slice(2,10);
+
+  if(isVideo(file)){
+    const ext = (file.name.match(/\.(mp4|mov|webm)$/i)||['.mp4'])[0].toLowerCase();
+    const vidDate = dateOverride || captureDateFromFile(file) || today;
+    const key = `photography/${catSlug}/${vidDate}-${rand}${ext}`;
+    const ct = ext==='.webm' ? 'video/webm' : ext==='.mov' ? 'video/quicktime' : 'video/mp4';
+    if(onStatus) onStatus('Uploading video…');
+    const buf = await file.arrayBuffer();
+    await sigv4Request({ method:'PUT', key, body: buf, contentType: ct });
+    await appendPhotoRow([id, key, category, '', vidDate, caption, 'FALSE']);
+    state.photos.push({ id, key, category, title:'', date: vidDate, caption });
+    return;
+  }
+
+  let exifDate = await exifDateFromFile(file);
+  let workingFile = file;
+  if (isHeic(file)){
+    if (onStatus) onStatus('Converting HEIC…');
+    const converter = await loadHeic2Any();
+    const blob = await converter({ blob: file, toType: 'image/jpeg', quality: 0.92 });
+    workingFile = new File([blob], file.name.replace(/\.hei[cf]$/i, '.jpg'), { type: 'image/jpeg' });
+  }
+  if (onStatus) onStatus('Resizing…');
+  const resized = await resizeImage(workingFile);
+  const photoDate = dateOverride || exifDate || captureDateFromFile(file) || today;
+  const key = `photography/${catSlug}/${photoDate}-${rand}.jpg`;
+  if (onStatus) onStatus('Uploading…');
+  const buf = await resized.arrayBuffer();
+  await sigv4Request({ method:'PUT', key, body: buf, contentType:'image/jpeg' });
+  await appendPhotoRow([id, key, category, '', photoDate, caption, 'FALSE']);
+  state.photos.push({ id, key, category, title:'', date: photoDate, caption });
+}
+
+/* ── Add photos overlay ── */
+function openAddPhotos(){
+  if (!isGsAuthed()){ alert('Sign in with Google first (Settings).'); return; }
+  $('#addCategory').value = activeCategory && activeCategory !== 'Uncategorized' ? activeCategory : '';
+  $('#addCaption').value = '';
+  $('#addDate').value = '';
+  $('#addFiles').value = '';
+  $('#addStatusMsg').textContent = '';
+  buildCatDatalist();
+  $('#addOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  $('#addCategory').focus();
+}
+function closeAddPhotos(){
+  $('#addOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+$('#addPhotosBtn').onclick = openAddPhotos;
+$('#addClose').onclick = closeAddPhotos;
+$('#addCancel').onclick = closeAddPhotos;
+$('#addOverlay').addEventListener('click', e=>{ if(e.target === $('#addOverlay')) closeAddPhotos(); });
+
+$('#addSaveBtn').onclick = async ()=>{
+  const category = $('#addCategory').value.trim() || 'Misc';
+  const caption = $('#addCaption').value.trim();
+  const dateOverride = $('#addDate').value || '';
+  const files = [...$('#addFiles').files];
+  if(!files.length){ $('#addFiles').focus(); return; }
+  const st = $('#addStatusMsg');
+  try {
+    await ensurePhotosTab();
+    _photosSheetGid = null;   // force re-read of gid after (possible) create
+    for(let i=0;i<files.length;i++){
+      st.textContent = `File ${i+1}/${files.length}: preparing…`;
+      try {
+        await uploadPhoto(files[i], category, caption, dateOverride, msg => st.textContent = `File ${i+1}/${files.length}: ${msg}`);
+      } catch(err){
+        st.textContent = `File ${i+1} failed: ${err.message}`;
+        await new Promise(r=>setTimeout(r, 2200));
+      }
+    }
+    st.textContent = 'Done!';
+    buildCategoryChips();
+    buildCatDatalist();
+    renderGrid();
+    renderStats();
+    refreshGallery();
+    setTimeout(closeAddPhotos, 700);
+  } catch(e){
+    st.textContent = e.message;
+  }
+};
+
+/* ── Lightbox ── */
+let _lbPhotos = [];
+let _lbIdx = 0;
+
+function showLightbox(){
+  const p = _lbPhotos[_lbIdx];
+  if(!p) return;
+  const vid = isVideoKey(p.key);
+  const imgEl = $('#lightboxImg'), vidEl = $('#lightboxVideo');
+  if(vid){
+    imgEl.style.display = 'none';
+    vidEl.style.display = '';
+    vidEl.src = r2PublicUrl(p.key);
+  } else {
+    vidEl.pause();
+    vidEl.style.display = 'none';
+    imgEl.style.display = '';
+    imgEl.src = r2PublicUrl(p.key);
+  }
+  $('#lightboxDate').textContent = p.date || '';
+  $('#lightboxTitle').value = p.title || '';
+  $('#lightboxCategory').value = p.category || '';
+  $('#lightboxCaption').value = p.caption || '';
+  const canonical = state.photos.find(x=>x.key===p.key);
+  $('#lightboxHideFromGallery').checked = !!(canonical && canonical.hideFromGallery);
+  updateFeatureBtn(p, vid);
+  $('#lightbox').style.display = 'flex';
+}
+function closeLightbox(){
+  $('#lightboxVideo').pause();
+  $('#lightbox').style.display = 'none';
+}
+$('#lightboxClose').onclick = closeLightbox;
+$('#lightbox').addEventListener('click', e=>{ if(e.target === $('#lightbox')) closeLightbox(); });
+$('#lightboxPrev').onclick = ()=>{ if(!_lbPhotos.length) return; $('#lightboxVideo').pause(); _lbIdx = (_lbIdx-1+_lbPhotos.length)%_lbPhotos.length; showLightbox(); };
+$('#lightboxNext').onclick = ()=>{ if(!_lbPhotos.length) return; $('#lightboxVideo').pause(); _lbIdx = (_lbIdx+1)%_lbPhotos.length; showLightbox(); };
+
+function currentLbCanonical(){
+  const p = _lbPhotos[_lbIdx];
+  if(!p) return null;
+  return state.photos.find(x=>x.key===p.key) || p;
+}
+async function saveLbField(){
+  const p = _lbPhotos[_lbIdx];
+  if(!p) return;
+  const sp = state.photos.find(x=>x.key===p.key) || p;
+  sp.title = p.title = $('#lightboxTitle').value.trim();
+  sp.category = p.category = $('#lightboxCategory').value.trim();
+  sp.caption = p.caption = $('#lightboxCaption').value.trim();
+  await updatePhotoRow(sp);
+  buildCategoryChips(); buildCatDatalist(); renderGrid(); renderStats();
+}
+$('#lightboxTitle').addEventListener('change', saveLbField);
+$('#lightboxCategory').addEventListener('change', saveLbField);
+$('#lightboxCaption').addEventListener('change', saveLbField);
+
+$('#lightboxHideFromGallery').addEventListener('change', async ()=>{
+  const p = _lbPhotos[_lbIdx];
+  if(!p) return;
+  const hidden = $('#lightboxHideFromGallery').checked;
+  const sp = state.photos.find(x=>x.key===p.key) || p;
+  if(hidden) sp.hideFromGallery = true; else delete sp.hideFromGallery;
+  p.hideFromGallery = hidden || undefined;
+  await updatePhotoRow(sp);
+  renderGrid();
+  refreshGallery();
+});
+
+function updateFeatureBtn(p, isVid){
+  const btn = $('#lightboxFeature');
+  if(!btn || !p) return;
+  btn.style.display = isVid ? 'none' : '';
+  const on = state._featuredKey && state._featuredKey === p.key;
+  btn.innerHTML = on ? '&#9733; Featured on homepage' : '&#9734; Feature on homepage';
+  btn.style.color = on ? 'var(--accent)' : '#fff';
+  btn.style.borderColor = on ? 'var(--accent)' : 'rgba(255,255,255,.2)';
+}
+$('#lightboxFeature').addEventListener('click', async ()=>{
+  const p = _lbPhotos[_lbIdx];
+  if(!p || isVideoKey(p.key)) return;
+  const makeFeatured = state._featuredKey !== p.key;
+  const newKey = makeFeatured ? p.key : '';
+  const prev = state._featuredKey || '';
+  state._featuredKey = newKey;
+  updateFeatureBtn(p, false);
+  try { await gsWriteConfigValue('homepage_featured_key', newKey); }
+  catch(e){ state._featuredKey = prev; updateFeatureBtn(p, false); alert('Could not update homepage feature: ' + e.message); }
+});
+
+$('#lightboxDelete').onclick = async ()=>{
+  const p = _lbPhotos[_lbIdx];
+  if(!p) return;
+  if(!confirm('Delete this photo? This cannot be undone.')) return;
+  try {
+    await sigv4Request({ method:'DELETE', key: p.key });
+    await deletePhotoRow(p);
+    const gi = state.photos.findIndex(x=>x.key===p.key);
+    if(gi>=0) state.photos.splice(gi, 1);
+    _lbPhotos.splice(_lbIdx, 1);
+    if(!_lbPhotos.length){ closeLightbox(); }
+    else { _lbIdx = Math.min(_lbIdx, _lbPhotos.length - 1); showLightbox(); }
+    buildCategoryChips(); buildCatDatalist(); renderGrid(); renderStats(); refreshGallery();
+  } catch(e){ alert('Delete failed: ' + e.message); }
+};
+
+document.addEventListener('keydown', e=>{
+  if(e.key==='Escape'){
+    if($('#lightbox').style.display==='flex'){ closeLightbox(); return; }
+    if($('#settingsOverlay').classList.contains('open')) closeSettings();
+    else if($('#addOverlay').classList.contains('open')) closeAddPhotos();
+  }
+  if($('#lightbox').style.display==='flex' && !/input|textarea/i.test((e.target.tagName||''))){
+    if(e.key==='ArrowLeft') $('#lightboxPrev').click();
+    else if(e.key==='ArrowRight') $('#lightboxNext').click();
+  }
+});
+
+/* ── R2 credential UI ── */
+function refreshR2Input(){
+  const creds = getR2Creds();
+  const has = creds.accessKey && creds.secretKey;
+  $('#r2KeyInput').value = creds.accessKey || '';
+  $('#r2SecretInput').value = creds.secretKey || '';
+  $('#r2Status').textContent = has ? 'Credentials saved locally.' : 'Not configured.';
+}
+$('#r2SaveBtn').onclick = async ()=>{
+  const creds = { accessKey: $('#r2KeyInput').value.trim(), secretKey: $('#r2SecretInput').value.trim() };
+  setR2Creds(creds);
+  refreshR2Input();
+  if (creds.accessKey && creds.secretKey && isGsAuthed()){
+    const st = $('#r2Status');
+    st.textContent = 'Saving to your private Google vault…';
+    try { await saveR2CredsToVault(creds); st.textContent = 'Saved. Signing in with Google on any device now loads these automatically.'; }
+    catch(e){ st.textContent = 'Saved on this device, but vault sync failed: ' + e.message; }
+  }
+};
+$('#r2ClearBtn').onclick = ()=>{ setR2Creds(null); refreshR2Input(); };
+$('#r2TestBtn').onclick = async ()=>{
+  const st = $('#r2Status');
+  st.textContent = 'Testing…';
+  try { await sigv4Request({ method:'HEAD', key: 'photography/.keep' }); st.textContent = 'Connected ✓'; }
+  catch(e){
+    if(e.message.includes('404') || e.message.includes('NoSuchKey')) st.textContent = 'Connected ✓ (test file not found, but auth works)';
+    else st.textContent = 'Error: ' + e.message;
+  }
+};
+
+/* ── Init ── */
+const savedTheme = localStorage.getItem(THEME_KEY);
+if(savedTheme && savedTheme !== 'default') applyTheme(savedTheme);
+GAuth.handleReturn();
+if(!GAuth.trySilent()){
+  refreshGsStatus();
+  autoLoadR2CredsFromVault();
+  loadFeaturedKey();
+  loadData();
+}
+</script>
+</body>
+</html>

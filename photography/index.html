@@ -835,16 +835,41 @@ async function saveR2CredsToVault(creds){
   if (!vaultId){ vaultId = await gsCreateVault(); await gsWriteConfigValue('r2_vault_id', vaultId); }
   await gsWriteVaultCreds(vaultId, creds);
 }
+// Public sheets of the other dashboards. Their config tabs hold an
+// `r2_vault_id` pointer (public — the id isn't a secret). Photography's own
+// sheet is new and has no pointer yet, so we fall back to a sibling's, which
+// makes the SAME R2 keys the other dashboards already use load here
+// automatically — no per-dashboard re-entry (which is where typos → 403s crept in).
+const SIBLING_SHEETS = [
+  '1BXFTqV6xCZU63IutRAeAFPrZKLyDPkuGQ-SykIdAy_k', // beer
+  '1Q1kRZG0jjkYF7pCSZXZIgE5B_kCorDovO2I7ATE3vUM', // plants
+  '1dWWWIFBpWvNOIBuxA1EIoaffKckDFhsHvPDzhbxdnYg', // instruments
+  '1Uq2Fgzron3yDZqYFWsUx1cYigp4w8GmQP2pmk33DG54', // wildlife
+];
+async function discoverVaultIdFromSiblings(){
+  for(const id of SIBLING_SHEETS){
+    try {
+      const r = await fetch(`https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(CONFIG_TAB)}`, {cache:'no-store'});
+      if(!r.ok) continue;
+      const rows = csvToObjects(parseCSV((await r.text()).replace(/^﻿/,'')));
+      for(const row of rows){ if(row.key === 'r2_vault_id' && row.value) return row.value; }
+    } catch(e){ /* try next sibling */ }
+  }
+  return '';
+}
 async function autoLoadR2CredsFromVault(){
   if (!isGsAuthed()) return false;
   const have = getR2Creds();
   if (have.accessKey && have.secretKey) return false;
   try {
-    const cfg = await gsReadConfig();
-    if (!cfg.r2_vault_id) return false;
-    const creds = await gsReadVaultCreds(cfg.r2_vault_id);
+    let vaultId = (await gsReadConfig()).r2_vault_id;
+    if (!vaultId) vaultId = await discoverVaultIdFromSiblings();
+    if (!vaultId) return false;
+    const creds = await gsReadVaultCreds(vaultId);
     if (!creds) return false;
     setR2Creds(creds);
+    // Cache the pointer in this sheet's own config so next load is a single read.
+    try { await gsWriteConfigValue('r2_vault_id', vaultId); } catch(e){ /* best-effort */ }
     if (typeof refreshR2Input === 'function') refreshR2Input();
     return true;
   } catch(e){ console.warn('[vault] auto-load failed:', e); return false; }
@@ -1309,7 +1334,16 @@ $('#r2SaveBtn').onclick = async ()=>{
     catch(e){ st.textContent = 'Saved on this device, but vault sync failed: ' + e.message; }
   }
 };
-$('#r2ClearBtn').onclick = ()=>{ setR2Creds(null); refreshR2Input(); };
+$('#r2ClearBtn').onclick = async ()=>{
+  setR2Creds(null); refreshR2Input();
+  // Immediately try to repopulate from your vault (the keys the other
+  // dashboards use), so "Forget" doubles as "reset to my known-good keys".
+  if(isGsAuthed()){
+    const st = $('#r2Status'); st.textContent = 'Loading your saved keys from the vault…';
+    const ok = await autoLoadR2CredsFromVault();
+    st.textContent = ok ? 'Loaded your saved R2 keys from the vault — hit Test.' : 'Not configured.';
+  }
+};
 $('#r2TestBtn').onclick = async ()=>{
   const st = $('#r2Status');
   st.textContent = 'Testing…';

@@ -16,6 +16,28 @@
 // Swap to '@cf/openai/gpt-oss-120b' (128k ctx, stronger) if you want more power.
 const MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 
+// Owner-only: the chatbot requires a valid Google login for this site's OAuth
+// client (the same one the dashboards use). The browser sends the Google access
+// token; we verify it below before answering. Optionally lock it to specific
+// Google accounts by listing emails here (leave empty to allow anyone who has
+// signed into this app — for a personal/testing OAuth app that's just you).
+const GS_CLIENT_ID = '936411146633-16fq9oc08auslfprvgbl9bpoafbvo9uk.apps.googleusercontent.com';
+const ALLOWED_EMAILS = []; // e.g. ['scott@example.com']
+
+async function verifyGoogleToken(token){
+  if(!token) return { ok: false };
+  try {
+    const r = await fetch('https://oauth2.googleapis.com/tokeninfo?access_token=' + encodeURIComponent(token));
+    if(!r.ok) return { ok: false };
+    const info = await r.json();
+    // Must be a token minted for THIS app.
+    if(info.aud !== GS_CLIENT_ID && info.azp !== GS_CLIENT_ID) return { ok: false };
+    // Optional per-email allowlist (only enforced if an email is present + list non-empty).
+    if(ALLOWED_EMAILS.length && info.email && !ALLOWED_EMAILS.includes(info.email)) return { ok: false };
+    return { ok: true, email: info.email || null };
+  } catch(e){ return { ok: false }; }
+}
+
 const SHEETS = {
   plants:       { id: '1Q1kRZG0jjkYF7pCSZXZIgE5B_kCorDovO2I7ATE3vUM', gid: '0' },
   plants_log:   { id: '1Q1kRZG0jjkYF7pCSZXZIgE5B_kCorDovO2I7ATE3vUM', gid: '322094770' },
@@ -38,7 +60,7 @@ function corsHeaders(origin){
   return {
     'Access-Control-Allow-Origin': allow,
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Max-Age': '86400',
   };
 }
@@ -110,6 +132,8 @@ function computeTotals(byName){
   const last10Abv = last10.map(b => num(b.abv)).filter(n => n > 0);
   const avgLast10 = last10Abv.length ? last10Abv.reduce((a, c) => a + c, 0) / last10Abv.length : 0;
 
+  const instValue = I.reduce((s, i) => s + num(i.price), 0);
+
   const species = new Set(W.map(s => (s.species || '').trim()).filter(Boolean));
 
   return [
@@ -119,7 +143,7 @@ function computeTotals(byName){
     `Plants: ${P.length} total rows, ${living.length} living (excludes dead and wishlist).`,
     `Plant spending is price × quantity (some plants have quantity > 1). Total spent on plants: ${money(spendYearTotal)} — report THIS figure; it matches the "Money spent per year" chart on the site. (Aside, only if relevant: a few plants have a price but no purchase date; including those the fuller total would be ${money(spendAll)}.) Spend by year: ${perYear || 'none'}.`,
     `Beers: ${B.length} total. Average ABV across all with a value: ${avgAbv.toFixed(1)}%. Average ABV of the most recent 10 by brew date: ${avgLast10.toFixed(1)}% (from ${last10Abv.length} of those 10 that list an ABV).`,
-    `Instruments: ${I.length} total, with ${M.length} maintenance-log entries.`,
+    `Instruments: ${I.length} total. Combined value / total spent (sum of prices): ${money(instValue)}. Maintenance-log entries: ${M.length}.`,
     `Wildlife: ${W.length} sightings across ${species.size} distinct species.`,
   ].join('\n');
 }
@@ -155,6 +179,16 @@ export default {
 
     if(request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
     if(request.method !== 'POST') return new Response('POST only', { status: 405, headers: cors });
+
+    // Owner-only gate: require a valid Google login for this app.
+    const auth = request.headers.get('Authorization') || '';
+    const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+    const v = await verifyGoogleToken(token);
+    if(!v.ok){
+      return new Response(JSON.stringify({ error: 'Sign in with Google to use the assistant.' }), {
+        status: 401, headers: { ...cors, 'Content-Type': 'application/json' },
+      });
+    }
 
     try {
       const body = await request.json();

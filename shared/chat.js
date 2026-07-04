@@ -123,13 +123,18 @@
         addMsg('error', "The chatbot isn't wired up yet — deploy the Worker (chatbot-worker/) and set its URL in /shared/chat.js.");
         return;
       }
+      const token = (window.GAuth && GAuth.token && GAuth.token()) || '';
+      if(!token){
+        addMsg('error', 'Please sign in with Google (Settings on any dashboard) to use the assistant.');
+        return;
+      }
 
       busy = true; sendBtn.disabled = true;
       const typing = el('div', 'cb-typing', 'thinking…'); body.appendChild(typing); scrollDown();
       try {
         const r = await fetch(CHAT_WORKER_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
           body: JSON.stringify({ messages: messages.slice(-8) }),
         });
         const data = await r.json().catch(()=>({}));
@@ -154,6 +159,21 @@
     });
     input.addEventListener('input', ()=>{ input.style.height = 'auto'; input.style.height = Math.min(120, input.scrollHeight) + 'px'; });
     document.addEventListener('keydown', e=>{ if(e.key === 'Escape' && panel.classList.contains('open')) close(); });
+
+    // Owner-only: the assistant is available only when signed in with Google.
+    // Show/hide the button as auth state changes (sign in/out, silent renewal).
+    function authed(){ return !!(window.GAuth && GAuth.isAuthed()); }
+    function syncAuth(){
+      if(!authed()){
+        if(panel.classList.contains('open')) close();
+        fab.style.display = 'none';
+      } else if(!panel.classList.contains('open')){
+        fab.style.display = '';
+      }
+    }
+    syncAuth();
+    setInterval(syncAuth, 2500);
+    window.addEventListener('focus', syncAuth);
   }
 
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', render);

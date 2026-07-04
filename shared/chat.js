@@ -50,6 +50,8 @@
   .cb-send{flex:none;background:var(--accent);color:#04211d;border:none;border-radius:10px;padding:9px 14px;font:inherit;
     font-weight:700;font-size:14px;cursor:pointer}
   .cb-send:disabled{opacity:.5;cursor:default}
+  .cb-model{flex:none;padding:0 12px 8px;font-size:10px;color:var(--muted);text-align:center}
+  .cb-model:empty{display:none}
   @media (max-width:520px){
     .cb-panel{right:8px;left:8px;bottom:8px;width:auto;height:min(78vh,560px)}
     .cb-fab{right:12px;bottom:12px}
@@ -74,7 +76,8 @@
        <div class="cb-foot">
          <textarea class="cb-input" rows="1" placeholder="Ask about your data…"></textarea>
          <button class="cb-send">Send</button>
-       </div>`;
+       </div>
+       <div class="cb-model" id="cb-model"></div>`;
 
     document.body.appendChild(fab);
     document.body.appendChild(panel);
@@ -105,8 +108,24 @@
       body.appendChild(m); scrollDown(); return m;
     }
 
-    function open(){ panel.classList.add('open'); fab.style.display = 'none'; if(!messages.length) showIntro(); input.focus(); }
+    function open(){ panel.classList.add('open'); fab.style.display = 'none'; if(!messages.length) showIntro(); showModel(); input.focus(); }
     function close(){ panel.classList.remove('open'); fab.style.display = ''; }
+
+    // Show which model the Worker is using (issue #54). Fetched once, from the
+    // Worker so it stays correct if the model is ever swapped there.
+    let modelShown = false;
+    async function showModel(){
+      if(modelShown || !CHAT_WORKER_URL) return;
+      modelShown = true;
+      try {
+        const r = await fetch(CHAT_WORKER_URL, { method: 'GET' });
+        if(!r.ok) throw 0;
+        const d = await r.json();
+        const label = d.modelLabel || d.model;
+        const line = panel.querySelector('#cb-model');
+        if(label && line) line.textContent = `⚡ ${label}${d.provider ? ' · ' + d.provider : ''}`;
+      } catch(e){ modelShown = false; }
+    }
 
     fab.onclick = open;
     panel.querySelector('.cb-x').onclick = close;

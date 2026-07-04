@@ -16,6 +16,14 @@
 // Swap to '@cf/openai/gpt-oss-120b' (128k ctx, stronger) if you want more power.
 const MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 
+// Friendly names for display (issue #54). Falls back to the raw id.
+const MODEL_LABELS = {
+  '@cf/meta/llama-3.3-70b-instruct-fp8-fast': 'Llama 3.3 70B',
+  '@cf/openai/gpt-oss-120b': 'GPT-OSS 120B',
+};
+const modelLabel = id => MODEL_LABELS[id] || id;
+const PROVIDER = 'Cloudflare Workers AI';
+
 // Owner-only: the chatbot requires a valid Google login for this site's OAuth
 // client (the same one the dashboards use). The browser sends the Google access
 // token; we verify it below before answering. Optionally lock it to specific
@@ -59,7 +67,7 @@ function corsHeaders(origin){
   const allow = ALLOW_ORIGINS.includes(origin) ? origin : 'https://satownsend.com';
   return {
     'Access-Control-Allow-Origin': allow,
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Max-Age': '86400',
   };
@@ -178,6 +186,13 @@ export default {
     const cors = corsHeaders(origin);
 
     if(request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
+
+    // Public info endpoint: which model is answering (issue #54). Not sensitive.
+    if(request.method === 'GET'){
+      return new Response(JSON.stringify({ model: MODEL, modelLabel: modelLabel(MODEL), provider: PROVIDER }), {
+        status: 200, headers: { ...cors, 'Content-Type': 'application/json' },
+      });
+    }
     if(request.method !== 'POST') return new Response('POST only', { status: 405, headers: cors });
 
     // Owner-only gate: require a valid Google login for this app.
@@ -207,7 +222,7 @@ export default {
       const answer = String((ai && (ai.response ?? ai.result)) || '').trim()
         || "Sorry, I couldn't come up with an answer for that.";
 
-      return new Response(JSON.stringify({ answer }), {
+      return new Response(JSON.stringify({ answer, model: MODEL, modelLabel: modelLabel(MODEL), provider: PROVIDER }), {
         status: 200,
         headers: { ...cors, 'Content-Type': 'application/json' },
       });

@@ -52,6 +52,10 @@
 .cat-chip:hover{border-color:var(--accent)}
 .cat-chip.active{background:var(--accent);color:#04211d;border-color:var(--accent);font-weight:600}
 .cat-chip .cc-count{opacity:.7;font-size:11px;margin-left:5px;font-variant-numeric:tabular-nums}
+/* Second-level (sub-category) chips — lighter, dashed to read as a drill-down */
+.sub-chips{display:flex;flex-wrap:wrap;gap:6px;margin:-4px 0 14px;padding-left:2px}
+.cat-chip.sub{font-size:12px;padding:5px 12px}
+.cat-chip.sub:not(.active){background:transparent;border-style:dashed}
 
 /* ── Photo wall (masonry via CSS columns → big, aspect-preserving tiles) ── */
 .pg{column-gap:12px;column-width:270px}
@@ -77,7 +81,8 @@ body.view-only .edit-row,
 body.view-only #lightboxDelete,
 body.view-only #lightboxCaption,
 body.view-only #lightboxTitle,
-body.view-only #lightboxCategory{display:none!important}
+body.view-only #lightboxCategory,
+body.view-only #lightboxSubcategory{display:none!important}
 
 /* Owner-only "set the sheet id" note */
 .setup-note{background:rgba(240,168,104,.1);border:1px solid rgba(240,168,104,.4);color:var(--ink);
@@ -142,6 +147,7 @@ body.view-only #lightboxCategory{display:none!important}
       </select>
     </div>
     <div class="cat-chips" id="catChips"></div>
+    <div class="sub-chips" id="subChips" style="display:none"></div>
     <div class="pg" id="photoGrid"></div>
   </div>
 
@@ -188,9 +194,15 @@ body.view-only #lightboxCategory{display:none!important}
         <datalist id="catList"></datalist>
       </div>
       <div>
+        <label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Sub-category <span style="opacity:.6">(optional)</span></label>
+        <input type="text" id="addSubcategory" list="subList" placeholder="e.g. Hawaii" autocomplete="off">
+        <datalist id="subList"></datalist>
+      </div>
+      <div>
         <label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Date override <span style="opacity:.6">(optional)</span></label>
         <input type="date" id="addDate">
       </div>
+      <div></div>
       <div style="grid-column:1/-1">
         <label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Caption <span style="opacity:.6">(optional, applied to all)</span></label>
         <input type="text" id="addCaption" placeholder="Any caption…">
@@ -220,6 +232,7 @@ body.view-only #lightboxCategory{display:none!important}
       <div class="edit-row" style="display:flex;gap:8px;justify-content:center;margin-top:6px;flex-wrap:wrap">
         <input type="text" id="lightboxTitle" placeholder="title…" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:6px;padding:6px 10px;width:180px;max-width:44vw">
         <input type="text" id="lightboxCategory" list="catList" placeholder="category…" autocomplete="off" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:6px;padding:6px 10px;width:150px;max-width:44vw">
+        <input type="text" id="lightboxSubcategory" list="subList" placeholder="sub-category…" autocomplete="off" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:6px;padding:6px 10px;width:150px;max-width:44vw">
       </div>
       <input type="text" id="lightboxCaption" placeholder="add caption&hellip;" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:6px;padding:6px 10px;margin-top:6px;width:340px;max-width:90vw">
       <label id="lightboxHideRow" class="edit-row" style="margin-top:8px;color:#ccc;font-size:12px;display:inline-flex;align-items:center;gap:6px;cursor:pointer">
@@ -319,8 +332,11 @@ function csvToObjects(rows){
 const PHOTO_SHEET_ID = '1JXlI9RgLfwrpYgMZxyo8TipEiEn675Bwpnr9ORxUJFA';
 const PHOTOS_TAB = 'photos';
 const CONFIG_TAB = 'config';
-const PHOTO_HEADERS = ['id','key','category','title','date','caption','hideFromGallery'];
+const PHOTO_HEADERS = ['id','key','category','title','date','caption','hideFromGallery','subcategory'];
 const SEED_CATEGORIES = ['Astrophotography','Landscape','Trips','Misc','Puck'];
+// Optional second level under a category (e.g. individual trips). Auto-discovered
+// from data too — these just seed the chips/suggestions so they're there up front.
+const SEED_SUBCATEGORIES = { 'Trips': ['Hawaii'] };
 
 /* ── R2 config ── */
 const R2_CONFIG = {
@@ -344,6 +360,7 @@ async function fetchTab(tab){
 /* ── State ── */
 const state = { photos:[], _featuredKey:'' };
 let activeCategory = '';   // '' = all
+let activeSub = '';        // '' = all sub-categories within the active category
 
 function normalizePhoto(p){
   if(p.hideFromGallery === 'TRUE' || p.hideFromGallery === true) p.hideFromGallery = true;
@@ -401,6 +418,16 @@ function categoryCounts(){
   for(const p of state.photos){ const c = p.category || 'Uncategorized'; m[c] = (m[c]||0)+1; }
   return m;
 }
+function subcategoriesFor(cat){
+  const set = new Set(SEED_SUBCATEGORIES[cat] || []);
+  for(const p of state.photos){ if((p.category||'') === cat && p.subcategory) set.add(p.subcategory); }
+  return [...set].sort((a,b)=>a.localeCompare(b));
+}
+function subCounts(cat){
+  const m = {};
+  for(const p of state.photos){ if((p.category||'') === cat && p.subcategory) m[p.subcategory] = (m[p.subcategory]||0)+1; }
+  return m;
+}
 
 function buildCategoryChips(){
   const counts = categoryCounts();
@@ -413,17 +440,47 @@ function buildCategoryChips(){
     chips.push(`<button class="cat-chip${activeCategory===c?' active':''}" data-cat="${escapeHtml(c)}">${escapeHtml(c)}<span class="cc-count">${counts[c]||0}</span></button>`);
   }
   $('#catChips').innerHTML = chips.join('');
+  buildSubChips();
+}
+
+// Second-level chips: shown only when the active category has sub-categories
+// (e.g. Trips → Hawaii). "All <Category>" clears the sub-filter.
+function buildSubChips(){
+  const wrap = $('#subChips');
+  const subs = activeCategory ? subcategoriesFor(activeCategory) : [];
+  if(!activeCategory || !subs.length){ wrap.style.display = 'none'; wrap.innerHTML = ''; return; }
+  const counts = subCounts(activeCategory);
+  const catTotal = state.photos.filter(p=>(p.category||'') === activeCategory).length;
+  const chips = [`<button class="cat-chip sub${activeSub===''?' active':''}" data-sub="">All ${escapeHtml(activeCategory)} <span class="cc-count">${catTotal}</span></button>`];
+  for(const s of subs){
+    chips.push(`<button class="cat-chip sub${activeSub===s?' active':''}" data-sub="${escapeHtml(s)}">${escapeHtml(s)}<span class="cc-count">${counts[s]||0}</span></button>`);
+  }
+  wrap.innerHTML = chips.join('');
+  wrap.style.display = 'flex';
 }
 
 function buildCatDatalist(){
   $('#catList').innerHTML = allCategories().map(c=>`<option value="${escapeHtml(c)}">`).join('');
+}
+function buildSubDatalist(cat){
+  const subs = cat ? subcategoriesFor(cat) : [];
+  $('#subList').innerHTML = subs.map(s=>`<option value="${escapeHtml(s)}">`).join('');
 }
 
 $('#catChips').addEventListener('click', e=>{
   const chip = e.target.closest('[data-cat]');
   if(!chip) return;
   activeCategory = chip.dataset.cat;
+  activeSub = '';               // reset the sub-filter when the category changes
   buildCategoryChips();
+  renderGrid();
+});
+
+$('#subChips').addEventListener('click', e=>{
+  const chip = e.target.closest('[data-sub]');
+  if(!chip) return;
+  activeSub = chip.dataset.sub;
+  buildSubChips();
   renderGrid();
 });
 
@@ -433,8 +490,9 @@ function filteredSortedPhotos(){
   let list = state.photos.filter(p=>{
     const cat = p.category || 'Uncategorized';
     if(activeCategory && cat !== activeCategory) return false;
+    if(activeCategory && activeSub && (p.subcategory||'') !== activeSub) return false;
     if(q){
-      const hay = `${p.category} ${p.title} ${p.caption} ${p.date}`.toLowerCase();
+      const hay = `${p.category} ${p.subcategory||''} ${p.title} ${p.caption} ${p.date}`.toLowerCase();
       if(!hay.includes(q)) return false;
     }
     return true;
@@ -467,8 +525,9 @@ function renderGrid(){
       : `<img src="${r2PublicUrl(p.key)}" loading="lazy" alt="${escapeHtml(p.title||p.category||'')}">`;
     const hidden = p.hideFromGallery ? '<div class="ph-hidden" title="Hidden from slideshow">🚫</div>' : '';
     const label = p.title || p.category || '';
+    const catLabel = [p.category, p.subcategory].filter(Boolean).join(' · ');
     const info = (label || p.date)
-      ? `<div class="ph-info"><span class="ph-cat">${escapeHtml(p.category||'')}</span>${p.title?` · <span class="ph-title">${escapeHtml(p.title)}</span>`:''}${p.date?`<div>${escapeHtml(p.date)}</div>`:''}</div>`
+      ? `<div class="ph-info"><span class="ph-cat">${escapeHtml(catLabel)}</span>${p.title?` · <span class="ph-title">${escapeHtml(p.title)}</span>`:''}${p.date?`<div>${escapeHtml(p.date)}</div>`:''}</div>`
       : '';
     return `<div class="ph" data-idx="${i}">${media}${info}${hidden}</div>`;
   }).join('');
@@ -504,7 +563,7 @@ function buildGalleryPool(){
   const items = [];
   for(const p of state.photos){
     if(!p.key || isVideoKey(p.key) || p.hideFromGallery) continue;
-    items.push({ key: p.key, category: p.category||'', title: p.title||'', date: p.date||'', caption: p.caption||'' });
+    items.push({ key: p.key, category: p.category||'', subcategory: p.subcategory||'', title: p.title||'', date: p.date||'', caption: p.caption||'' });
   }
   for(let i = items.length - 1; i > 0; i--){
     const j = Math.floor(Math.random() * (i + 1));
@@ -530,8 +589,9 @@ function showGalleryPhoto(item){
     if(gallery._errStreak < gallery.pool.length) advanceGallery(1);
   };
   incoming.src = r2PublicUrl(item.key);
-  const name = item.title || item.category;
-  const meta = [item.category && item.title ? item.category : '', item.date, item.caption].filter(Boolean).join(' · ');
+  const catBits = [item.category, item.subcategory].filter(Boolean).join(' · ');
+  const name = item.title || catBits;
+  const meta = [item.title ? catBits : '', item.date, item.caption].filter(Boolean).join(' · ');
   $('#galleryCaption').innerHTML = `<span class="gname">${escapeHtml(name)}</span><span class="gmeta">${escapeHtml(meta)}</span>`;
   $('#galleryDots').textContent = `${gallery.idx + 1} / ${gallery.pool.length}`;
 }
@@ -1030,17 +1090,36 @@ function slug(s){ return (s||'misc').toLowerCase().replace(/[^a-z0-9]+/g,'-').re
 /* ── Sheets: ensure photos tab + append/update/delete ── */
 async function ensurePhotosTab(){
   const base = SHEET_BASE();
+  let created = false;
   try {
     await sheetsApi(`${base}:batchUpdate`, {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ requests:[{ addSheet:{ properties:{ title: PHOTOS_TAB } } }] }),
     });
-    // Freshly created → write the header row.
+    created = true;
+  } catch(e){ /* tab already exists */ }
+  // Ensure the header row exists and includes every expected column. New columns
+  // (e.g. `subcategory`) are appended at the end, so existing rows stay aligned.
+  let headers = [];
+  if(!created){
+    try { const rows = await readPhotoRows(); headers = (rows[0] || []).slice(); } catch(e){ headers = []; }
+  }
+  if(!headers.length){
     await sheetsApi(`${base}/values/${encodeURIComponent(PHOTOS_TAB+'!A1')}?valueInputOption=RAW`, {
       method:'PUT', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ values: [PHOTO_HEADERS] }),
     });
-  } catch(e){ /* already exists → assume headers present */ }
+    return;
+  }
+  let changed = false;
+  for(const h of PHOTO_HEADERS){ if(!headers.includes(h)){ headers.push(h); changed = true; } }
+  if(changed){
+    const range = `${PHOTOS_TAB}!A1:${String.fromCharCode(64+headers.length)}1`;
+    await sheetsApi(`${base}/values/${encodeURIComponent(range)}?valueInputOption=RAW`, {
+      method:'PUT', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ range, majorDimension:'ROWS', values:[headers] }),
+    });
+  }
 }
 async function appendPhotoRow(values){
   const base = SHEET_BASE();
@@ -1064,7 +1143,18 @@ async function readPhotoRows(){
 async function updatePhotoRow(photo){
   const rows = await readPhotoRows();
   if(!rows.length) return;
-  const headers = rows[0];
+  let headers = rows[0].slice();
+  // Self-heal: append any expected columns (e.g. subcategory) that are missing,
+  // so edits to photos uploaded before the column existed still persist.
+  const missing = PHOTO_HEADERS.filter(h=>!headers.includes(h));
+  if(missing.length){
+    headers = headers.concat(missing);
+    const hdrRange = `${PHOTOS_TAB}!A1:${String.fromCharCode(64+headers.length)}1`;
+    await sheetsApi(`${SHEET_BASE()}/values/${encodeURIComponent(hdrRange)}?valueInputOption=RAW`, {
+      method:'PUT', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ range: hdrRange, majorDimension:'ROWS', values:[headers] }),
+    });
+  }
   const idCol = headers.indexOf('id');
   let rowIdx = -1;
   for(let i=1;i<rows.length;i++){
@@ -1105,24 +1195,28 @@ async function loadFeaturedKey(){
 }
 
 /* ── Upload ── */
-async function uploadPhoto(file, category, caption, dateOverride, onStatus){
+async function uploadPhoto(file, category, subcategory, caption, dateOverride, onStatus){
   const creds = getR2Creds();
   if (!creds.accessKey || !creds.secretKey) throw new Error('Save R2 credentials first (Settings → Photo storage)');
   const today = ymd(new Date());
   const rand = Math.random().toString(36).slice(2,8);
   const catSlug = slug(category);
+  const subSlug = subcategory ? slug(subcategory) : '';
+  const prefix = subSlug ? `photography/${catSlug}/${subSlug}` : `photography/${catSlug}`;
   const id = Math.random().toString(36).slice(2,10);
+  // Row values follow PHOTO_HEADERS order: id,key,category,title,date,caption,hideFromGallery,subcategory
+  const row = (key, date) => [id, key, category, '', date, caption, 'FALSE', subcategory];
 
   if(isVideo(file)){
     const ext = (file.name.match(/\.(mp4|mov|webm)$/i)||['.mp4'])[0].toLowerCase();
     const vidDate = dateOverride || captureDateFromFile(file) || today;
-    const key = `photography/${catSlug}/${vidDate}-${rand}${ext}`;
+    const key = `${prefix}/${vidDate}-${rand}${ext}`;
     const ct = ext==='.webm' ? 'video/webm' : ext==='.mov' ? 'video/quicktime' : 'video/mp4';
     if(onStatus) onStatus('Uploading video…');
     const buf = await file.arrayBuffer();
     await sigv4Request({ method:'PUT', key, body: buf, contentType: ct });
-    await appendPhotoRow([id, key, category, '', vidDate, caption, 'FALSE']);
-    state.photos.push({ id, key, category, title:'', date: vidDate, caption });
+    await appendPhotoRow(row(key, vidDate));
+    state.photos.push({ id, key, category, subcategory, title:'', date: vidDate, caption });
     return;
   }
 
@@ -1137,27 +1231,32 @@ async function uploadPhoto(file, category, caption, dateOverride, onStatus){
   if (onStatus) onStatus('Resizing…');
   const resized = await resizeImage(workingFile);
   const photoDate = dateOverride || exifDate || captureDateFromFile(file) || today;
-  const key = `photography/${catSlug}/${photoDate}-${rand}.jpg`;
+  const key = `${prefix}/${photoDate}-${rand}.jpg`;
   if (onStatus) onStatus('Uploading…');
   const buf = await resized.arrayBuffer();
   await sigv4Request({ method:'PUT', key, body: buf, contentType:'image/jpeg' });
-  await appendPhotoRow([id, key, category, '', photoDate, caption, 'FALSE']);
-  state.photos.push({ id, key, category, title:'', date: photoDate, caption });
+  await appendPhotoRow(row(key, photoDate));
+  state.photos.push({ id, key, category, subcategory, title:'', date: photoDate, caption });
 }
 
 /* ── Add photos overlay ── */
 function openAddPhotos(){
   if (!isGsAuthed()){ alert('Sign in with Google first (Settings).'); return; }
-  $('#addCategory').value = activeCategory && activeCategory !== 'Uncategorized' ? activeCategory : '';
+  const cat = activeCategory && activeCategory !== 'Uncategorized' ? activeCategory : '';
+  $('#addCategory').value = cat;
+  $('#addSubcategory').value = cat && activeSub ? activeSub : '';
   $('#addCaption').value = '';
   $('#addDate').value = '';
   $('#addFiles').value = '';
   $('#addStatusMsg').textContent = '';
   buildCatDatalist();
+  buildSubDatalist(cat);
   $('#addOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
   $('#addCategory').focus();
 }
+// Refresh the sub-category suggestions to match the typed category.
+$('#addCategory').addEventListener('input', ()=> buildSubDatalist($('#addCategory').value.trim()));
 function closeAddPhotos(){
   $('#addOverlay').classList.remove('open');
   document.body.style.overflow = '';
@@ -1169,6 +1268,7 @@ $('#addOverlay').addEventListener('click', e=>{ if(e.target === $('#addOverlay')
 
 $('#addSaveBtn').onclick = async ()=>{
   const category = $('#addCategory').value.trim() || 'Misc';
+  const subcategory = $('#addSubcategory').value.trim();
   const caption = $('#addCaption').value.trim();
   const dateOverride = $('#addDate').value || '';
   const files = [...$('#addFiles').files];
@@ -1180,7 +1280,7 @@ $('#addSaveBtn').onclick = async ()=>{
     for(let i=0;i<files.length;i++){
       st.textContent = `File ${i+1}/${files.length}: preparing…`;
       try {
-        await uploadPhoto(files[i], category, caption, dateOverride, msg => st.textContent = `File ${i+1}/${files.length}: ${msg}`);
+        await uploadPhoto(files[i], category, subcategory, caption, dateOverride, msg => st.textContent = `File ${i+1}/${files.length}: ${msg}`);
       } catch(err){
         st.textContent = `File ${i+1} failed: ${err.message}`;
         await new Promise(r=>setTimeout(r, 2200));
@@ -1220,6 +1320,8 @@ function showLightbox(){
   $('#lightboxDate').textContent = p.date || '';
   $('#lightboxTitle').value = p.title || '';
   $('#lightboxCategory').value = p.category || '';
+  $('#lightboxSubcategory').value = p.subcategory || '';
+  buildSubDatalist(p.category || '');
   $('#lightboxCaption').value = p.caption || '';
   const canonical = state.photos.find(x=>x.key===p.key);
   $('#lightboxHideFromGallery').checked = !!(canonical && canonical.hideFromGallery);
@@ -1246,12 +1348,14 @@ async function saveLbField(){
   const sp = state.photos.find(x=>x.key===p.key) || p;
   sp.title = p.title = $('#lightboxTitle').value.trim();
   sp.category = p.category = $('#lightboxCategory').value.trim();
+  sp.subcategory = p.subcategory = $('#lightboxSubcategory').value.trim();
   sp.caption = p.caption = $('#lightboxCaption').value.trim();
   await updatePhotoRow(sp);
-  buildCategoryChips(); buildCatDatalist(); renderGrid(); renderStats();
+  buildCategoryChips(); buildCatDatalist(); buildSubDatalist(sp.category); renderGrid(); renderStats();
 }
 $('#lightboxTitle').addEventListener('change', saveLbField);
 $('#lightboxCategory').addEventListener('change', saveLbField);
+$('#lightboxSubcategory').addEventListener('change', saveLbField);
 $('#lightboxCaption').addEventListener('change', saveLbField);
 
 $('#lightboxHideFromGallery').addEventListener('change', async ()=>{

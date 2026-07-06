@@ -46,6 +46,8 @@ async function verifyGoogleToken(token){
   } catch(e){ return { ok: false }; }
 }
 
+// gid → tab by number; sheet → tab by name (used for the photography `photos`
+// tab, which is auto-created so its gid isn't fixed).
 const SHEETS = {
   plants:       { id: '1Q1kRZG0jjkYF7pCSZXZIgE5B_kCorDovO2I7ATE3vUM', gid: '0' },
   plants_log:   { id: '1Q1kRZG0jjkYF7pCSZXZIgE5B_kCorDovO2I7ATE3vUM', gid: '322094770' },
@@ -53,6 +55,7 @@ const SHEETS = {
   instruments:  { id: '1dWWWIFBpWvNOIBuxA1EIoaffKckDFhsHvPDzhbxdnYg', gid: '0' },
   maintenance:  { id: '1dWWWIFBpWvNOIBuxA1EIoaffKckDFhsHvPDzhbxdnYg', gid: '834291047' },
   wildlife:     { id: '1Uq2Fgzron3yDZqYFWsUx1cYigp4w8GmQP2pmk33DG54', gid: '0' },
+  photography:  { id: '1JXlI9RgLfwrpYgMZxyo8TipEiEn675Bwpnr9ORxUJFA', sheet: 'photos' },
 };
 
 const ALLOW_ORIGINS = [
@@ -73,8 +76,10 @@ function corsHeaders(origin){
   };
 }
 
-async function fetchCsv(id, gid){
-  const url = `https://docs.google.com/spreadsheets/d/${id}/export?format=csv&gid=${gid}`;
+async function fetchCsv(spec){
+  const url = spec.sheet
+    ? `https://docs.google.com/spreadsheets/d/${spec.id}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(spec.sheet)}`
+    : `https://docs.google.com/spreadsheets/d/${spec.id}/export?format=csv&gid=${spec.gid}`;
   try {
     const r = await fetch(url, { cf: { cacheTtl: 300, cacheEverything: true } });
     if(!r.ok) return '';
@@ -84,7 +89,7 @@ async function fetchCsv(id, gid){
 
 async function loadAll(){
   const entries = Object.entries(SHEETS);
-  const texts = await Promise.all(entries.map(([, s]) => fetchCsv(s.id, s.gid)));
+  const texts = await Promise.all(entries.map(([, s]) => fetchCsv(s)));
   const byName = {};
   entries.forEach(([name], i) => { byName[name] = texts[i]; });
   return byName;
@@ -144,6 +149,18 @@ function computeTotals(byName){
 
   const species = new Set(W.map(s => (s.species || '').trim()).filter(Boolean));
 
+  const PH = toObjects(byName.photography);
+  const photoCatCounts = {};
+  PH.forEach(p => { if(!p.key) return; const c = (p.category || 'Uncategorized').trim(); photoCatCounts[c] = (photoCatCounts[c] || 0) + 1; });
+  const photoCatStr = Object.keys(photoCatCounts).sort().map(c => `${c}: ${photoCatCounts[c]}`).join(', ');
+  const photoSubCounts = {};
+  PH.forEach(p => { if(!p.key || !p.subcategory) return; const k = `${(p.category || '').trim()} / ${p.subcategory.trim()}`; photoSubCounts[k] = (photoSubCounts[k] || 0) + 1; });
+  const photoSubStr = Object.keys(photoSubCounts).sort().map(k => `${k}: ${photoSubCounts[k]}`).join(', ');
+  const photoYearCounts = {};
+  PH.forEach(p => { if(!p.key) return; const y = yr(p.date); if(y && +y >= 1900) photoYearCounts[y] = (photoYearCounts[y] || 0) + 1; });
+  const photoYearStr = Object.keys(photoYearCounts).sort().map(y => `${y}: ${photoYearCounts[y]}`).join(', ');
+  const photoTotal = PH.filter(p => p.key).length;
+
   return [
     `# COMPUTED TOTALS`,
     `These are calculated exactly in code from the sheets — treat them as AUTHORITATIVE and do NOT recompute them by hand. Use them for any count/sum/average question they cover.`,
@@ -153,13 +170,14 @@ function computeTotals(byName){
     `Beers: ${B.length} total. Average ABV across all with a value: ${avgAbv.toFixed(1)}%. Average ABV of the most recent 10 by brew date: ${avgLast10.toFixed(1)}% (from ${last10Abv.length} of those 10 that list an ABV).`,
     `Instruments: ${I.length} total. Combined value / total spent (sum of prices): ${money(instValue)}. Maintenance-log entries: ${M.length}.`,
     `Wildlife: ${W.length} sightings across ${species.size} distinct species.`,
+    `Photography: ${photoTotal} photos${photoCatStr ? `. By category: ${photoCatStr}` : ''}${photoSubStr ? `. Sub-categories (category / sub): ${photoSubStr}` : ''}${photoYearStr ? `. By year: ${photoYearStr}` : ''}.`,
   ].join('\n');
 }
 
 function systemPrompt(computed, context, today){
   return [
     `You are the friendly assistant for Scott Townsend's personal dashboards at satownsend.com.`,
-    `He tracks: plants (yard/garden inventory) and a plants care log (which includes frost events and frost dates), homebrewed beers, musical instruments and an instrument maintenance log (string changes, setups, etc.), and wildlife sightings.`,
+    `He tracks: plants (yard/garden inventory) and a plants care log (which includes frost events and frost dates), homebrewed beers, musical instruments and an instrument maintenance log (string changes, setups, etc.), wildlife sightings, and a photography collection (standalone photos organized by category — e.g. Astrophotography, Landscape, Trips — with an optional sub-category such as Trips → Hawaii).`,
     ``,
     `Rules:`,
     `- Answer ONLY from the information below. If it isn't there, say you don't have that information — do not make things up.`,

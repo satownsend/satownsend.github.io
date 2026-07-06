@@ -4151,47 +4151,112 @@ function logToSheetRows(){
   return rows;
 }
 
-async function gsClearAndWrite(tabName, rows){
+// Look up a tab's real sheetId (gid) by name, cached. Used so row deletes always
+// target the correct tab even if gids ever change (a wrong gid would delete rows
+// from the wrong tab — this prevents that).
+let _gidByTab = null;
+async function gsGidFor(tabName){
+  if (!_gidByTab){
+    const data = await gsApiFetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}?fields=sheets.properties(sheetId,title)`);
+    _gidByTab = {};
+    for (const s of (data.sheets || [])) _gidByTab[s.properties.title] = s.properties.sheetId;
+  }
+  return _gidByTab[tabName];
+}
+
+// Reconcile one tab to `targetRows` (incl. header) with row-level ops ONLY —
+// append new rows, update changed ones, delete removed ones. It NEVER clears the
+// whole tab, so a transient empty read/state can't wipe the sheet (issue #59).
+// `keyIdx` = the column indices that uniquely identify a row.
+async function gsReconcileTab(tabName, targetRows, keyIdx){
   const base = `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}`;
-  await gsApiFetch(`${base}/values/${encodeURIComponent(tabName)}:clear`, {
-    method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}',
-  });
-  await gsApiFetch(`${base}/values/${encodeURIComponent(tabName + '!A1')}?valueInputOption=RAW`, {
-    method: 'PUT',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({values: rows}),
-  });
+  const header = targetRows[0];
+  const width = header.length;
+  const endCol = String.fromCharCode(64 + width);
+  const targetBody = targetRows.slice(1);
+
+  // Current rows via the authenticated API (reliable — not the flaky public CSV).
+  const data = await gsApiFetch(`${base}/values/${encodeURIComponent(tabName)}?majorDimension=ROWS`);
+  const current = data.values || [];
+  const currentBody = current.slice(1);
+
+  const keyOf = row => keyIdx.map(i => (row[i] ?? '')).join(' ');
+  const pad = row => { const r = []; for (let i = 0; i < width; i++) r.push(row[i] ?? ''); return r; };
+  const eq  = (a, b) => { for (let i = 0; i < width; i++){ if ((a[i] ?? '') !== (b[i] ?? '')) return false; } return true; };
+
+  const curByKey = new Map();
+  currentBody.forEach((row, i) => { curByKey.set(keyOf(row), { rowNumber: i + 2, cells: row }); }); // +2: header + 1-based
+
+  const updates = [], appends = [], seen = new Set();
+  for (const t of targetBody){
+    const k = keyOf(t); seen.add(k);
+    const cur = curByKey.get(k);
+    if (!cur) appends.push(pad(t));
+    else if (!eq(cur.cells, t)) updates.push({ range: `${tabName}!A${cur.rowNumber}:${endCol}${cur.rowNumber}`, values: [pad(t)] });
+  }
+  const deletes = [];
+  for (const [k, cur] of curByKey){ if (!seen.has(k)) deletes.push(cur.rowNumber); }
+
+  // Safety net: a correct edit never deletes every existing row AND re-appends a
+  // full set — that signature means the keys didn't line up (a bug), so abort
+  // rather than churn or lose data.
+  if (currentBody.length > 3 && deletes.length === currentBody.length && appends.length >= currentBody.length){
+    throw new Error(`sync aborted on "${tabName}": full-replace detected (key mismatch)`);
+  }
+
+  const jsonHdr = { 'Content-Type': 'application/json' };
+  if (current.length === 0){  // brand-new/empty tab → seed the header row
+    await gsApiFetch(`${base}/values/${encodeURIComponent(tabName + '!A1')}?valueInputOption=RAW`, {
+      method: 'PUT', headers: jsonHdr, body: JSON.stringify({ values: [header] }),
+    });
+  }
+  if (updates.length){
+    await gsApiFetch(`${base}/values:batchUpdate`, {
+      method: 'POST', headers: jsonHdr, body: JSON.stringify({ valueInputOption: 'RAW', data: updates }),
+    });
+  }
+  if (appends.length){
+    await gsApiFetch(`${base}/values/${encodeURIComponent(tabName)}!A1:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, {
+      method: 'POST', headers: jsonHdr, body: JSON.stringify({ values: appends }),
+    });
+  }
+  if (deletes.length){
+    const gid = await gsGidFor(tabName);
+    if (gid == null) throw new Error(`sync: tab "${tabName}" not found (skipping deletes)`);
+    deletes.sort((a, b) => b - a);  // descending so earlier deletes don't shift later indices
+    await gsApiFetch(`${base}:batchUpdate`, {
+      method: 'POST', headers: jsonHdr,
+      body: JSON.stringify({ requests: deletes.map(rn => ({ deleteDimension: { range: { sheetId: gid, dimension: 'ROWS', startIndex: rn - 1, endIndex: rn } } })) }),
+    });
+  }
+  return { updated: updates.length, added: appends.length, removed: deletes.length };
 }
 
 async function gsPushNow(force){
   if (!isGsAuthed() || gsSyncing) return;
-  // Safety valve: never let an empty/unloaded local state overwrite the sheet.
-  // Google's CSV endpoint occasionally returns only the header for a tab; if that
-  // empty read were adopted and then pushed back, gsClearAndWrite would wipe the
-  // sheet. Refuse to push when we have no plants loaded.
+  // Never let an empty/unloaded local state drive the sync.
   if (!(state.plants && state.plants.length)){
     setSyncStatus('sync paused: no plants loaded', 'err');
     return;
   }
-  // Don't auto-push before a successful pull — otherwise a transient empty pull
-  // that left us on the local seed could overwrite the real sheet. The manual
-  // "Push now" button passes force=true to override.
+  // Don't auto-sync before a successful pull. The manual "Push now" button passes
+  // force=true to override.
   if (!gsPulledOnce && !force){
     setSyncStatus('sync paused until loaded', 'err');
     return;
   }
   gsSyncing = true;
   try {
-    setSyncStatus('pushing…');
-    await Promise.all([
-      gsClearAndWrite('plants', plantsToSheetRows()),
-      gsClearAndWrite('plant_tags', tagsToSheetRows()),
-      gsClearAndWrite('plant_photos', photosToSheetRows()),
-      gsClearAndWrite('log', logToSheetRows()),
-    ]);
+    setSyncStatus('syncing…');
+    // Row-level reconciliation per tab (append/update/delete only — no whole-sheet
+    // clear), so a transient empty state can never wipe the sheet (issue #59).
+    await gsReconcileTab('plants',       plantsToSheetRows(), [0]);     // key: id
+    await gsReconcileTab('plant_tags',   tagsToSheetRows(),   [0, 1]);  // key: plant_id + tag
+    await gsReconcileTab('plant_photos', photosToSheetRows(), [0, 1]);  // key: plant_id + R2 key
+    await gsReconcileTab('log',          logToSheetRows(),    [0]);     // key: id
     setSyncStatus(`synced ${new Date().toLocaleTimeString()}`, 'ok');
   } catch(e){
-    console.error('[sheets] push failed:', e);
+    console.error('[sheets] sync failed:', e);
     setSyncStatus('error: '+e.message.slice(0,60), 'err');
   } finally { gsSyncing = false; }
 }

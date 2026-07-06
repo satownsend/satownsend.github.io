@@ -74,7 +74,9 @@ body.view-only #lightboxCaption{display:none!important}
 /* Beer label thumbnail (issue #44) */
 .thumb-wrap{position:relative;display:inline-block}
 .brew-thumb{width:38px;height:38px;border-radius:6px;object-fit:cover;vertical-align:middle;cursor:pointer;background:var(--bg2);border:1px solid var(--line2)}
-.thumb-preview{display:none;position:absolute;left:50%;top:100%;transform:translateX(-50%);width:200px;height:200px;object-fit:cover;
+/* Left-anchored (the thumb is in the leftmost column, so open rightward — never
+   off the left edge) and object-fit:contain so the whole label shows. */
+.thumb-preview{display:none;position:absolute;left:0;top:100%;width:220px;height:220px;object-fit:contain;box-sizing:border-box;padding:4px;
   border-radius:10px;border:2px solid var(--line2);box-shadow:var(--shadow);z-index:50;margin-top:6px;background:var(--panel)}
 .thumb-preview.flip-up{top:auto;bottom:100%;margin-top:0;margin-bottom:6px}
 .thumb-wrap:hover .thumb-preview{display:block}
@@ -912,7 +914,7 @@ $('#brewTable').addEventListener('mouseenter', (e)=>{
   if(!img) return;
   if(img.dataset.src){ img.src = img.dataset.src; delete img.dataset.src; }
   const rect = wrap.getBoundingClientRect();
-  img.classList.toggle('flip-up', (window.innerHeight - rect.bottom) < 220);
+  img.classList.toggle('flip-up', (window.innerHeight - rect.bottom) < 235);
 }, true);
 
 /* ── Sort ── */

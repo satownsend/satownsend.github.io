@@ -2,14 +2,13 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-SSCCK0JXVB"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-  gtag('config', 'G-SSCCK0JXVB');
-</script>
+<!-- Google Tag Manager -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-KN74PQSX');</script>
+<!-- End Google Tag Manager -->
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1611">
 <meta name="mobile-web-app-capable" content="yes">
@@ -457,6 +456,10 @@
 </style>
 </head>
 <body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-KN74PQSX"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
 <div class="wrap">
 
 <header>
@@ -4180,7 +4183,7 @@ async function gsReconcileTab(tabName, targetRows, keyIdx){
   const current = data.values || [];
   const currentBody = current.slice(1);
 
-  const keyOf = row => keyIdx.map(i => (row[i] ?? '')).join(' ');
+  const keyOf = row => keyIdx.map(i => (row[i] ?? '')).join('|');
   const pad = row => { const r = []; for (let i = 0; i < width; i++) r.push(row[i] ?? ''); return r; };
   const eq  = (a, b) => { for (let i = 0; i < width; i++){ if ((a[i] ?? '') !== (b[i] ?? '')) return false; } return true; };
 

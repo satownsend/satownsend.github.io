@@ -1,0 +1,5 @@
+# Local tooling / caches — never commit
+.claude/
+.wrangler/
+**/.wrangler/
+.DS_Store

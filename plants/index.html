@@ -174,6 +174,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .thumb-wrap:hover .thumb-preview{display:block}
   body.view-only [data-col="edit"],
   body.view-only #addPlantBtn,
+  body.view-only #bulkUploadBtn,
   body.view-only .edit-row,
   body.view-only #lightboxDelete,
   body.view-only #lightboxThumb,
@@ -250,6 +251,22 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   a.namelink:hover{color:var(--accent);border-bottom-color:var(--accent)}
   .modal-back{position:fixed;inset:0;background:rgba(5,10,7,.7);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;z-index:50;padding:20px}
   .modal-back.show{display:flex}
+  /* General photo upload: pick photos, then assign each to a plant (issue #66) */
+  .bu-all{display:flex;align-items:center;gap:10px;margin:4px 0 12px;padding:10px 12px;background:var(--panel2);border:1px solid var(--line);border-radius:10px}
+  .bu-all label{color:var(--muted);white-space:nowrap}
+  .bu-all select{flex:1;min-width:0}
+  .bu-rows{display:flex;flex-direction:column;gap:8px;max-height:52vh;overflow:auto}
+  .bu-row{display:grid;grid-template-columns:64px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--bg2)}
+  .bu-row img,.bu-row .bu-ph{width:64px;height:64px;border-radius:8px;object-fit:cover;background:var(--panel2);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--muted)}
+  .bu-meta{min-width:0;display:flex;flex-direction:column;gap:5px}
+  .bu-name{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .bu-row select{width:100%}
+  .bu-x{background:none;border:none;color:var(--muted);font-size:20px;line-height:1;cursor:pointer;padding:4px 6px}
+  .bu-x:disabled{opacity:.3;cursor:default}
+  .bu-state{font-size:12px}
+  .bu-state.ok{color:var(--accent)}
+  .bu-state.err{color:#e8a06a}
+  .bu-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap}
   .modal{background:var(--panel);border:1px solid var(--line2);border-radius:14px;max-width:560px;width:100%;max-height:90vh;overflow:auto;
     box-shadow:0 16px 48px rgba(0,0,0,.6);padding:22px 24px;position:relative;color:var(--ink)}
   .modal h3{margin:0 0 4px;font:600 20px/1.2 "SF Pro Display",sans-serif;letter-spacing:-.01em;color:var(--accent)}
@@ -615,6 +632,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
     <div class="row" style="margin-top:10px">
       <button id="addPlantBtn" class="ghost">+ Add plant</button>
+      <button id="bulkUploadBtn" class="ghost">📷 Upload photos</button>
+      <input type="file" id="bulkPhotoInput" accept="image/*,.heic,.heif" multiple style="display:none">
       <span class="right small" id="plantCount"></span>
     </div>
   </div>
@@ -863,6 +882,26 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
     <div class="small" style="margin-top:14px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-size:11px">Reference links</div>
     <div class="links" id="infoLinks"></div>
+  </div>
+</div>
+
+<div class="modal-back" id="bulkUploadModal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="bulkUploadTitle" style="max-width:620px">
+    <button class="close" id="bulkUploadClose" aria-label="Close">×</button>
+    <h3 id="bulkUploadTitle">Upload photos</h3>
+    <p class="lat">Choose which plant each photo belongs to.</p>
+    <div class="bu-all">
+      <label for="bulkAllSelect" class="small">Apply to all</label>
+      <select id="bulkAllSelect"></select>
+    </div>
+    <div id="bulkRows" class="bu-rows"></div>
+    <div class="bu-foot">
+      <span class="small" id="bulkStatus" style="color:var(--muted)"></span>
+      <div style="display:flex;gap:8px;margin-left:auto">
+        <button class="ghost tiny" id="bulkCancel">Cancel</button>
+        <button id="bulkGo" disabled>Upload</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -2866,6 +2905,170 @@ $('#photoUploadInput').addEventListener('change', async (e)=>{
   renderPhotos(p);
 });
 
+/* ── General photo upload: pick photos first, then choose the plant (issue #66) ── */
+let bulkFiles = [];   // [{ file, url, plantId, date, state, noPreview }]
+let bulkBusy = false;
+
+function plantOptionsHtml(selectedId){
+  const byName = (a, b) => (a.name || '').localeCompare(b.name || '');
+  const living = state.plants.filter(p => !p.dead && !p.wishlist).sort(byName);
+  const wish   = state.plants.filter(p => p.wishlist && !p.dead).sort(byName);
+  const gone   = state.plants.filter(p => p.dead).sort(byName);
+  const opt = p => `<option value="${escapeHtml(p.id)}"${p.id === selectedId ? ' selected' : ''}>${escapeHtml(p.name || '(unnamed)')}</option>`;
+  const grp = (label, list) => list.length ? `<optgroup label="${label}">${list.map(opt).join('')}</optgroup>` : '';
+  return `<option value="">Choose plant…</option>` + grp('Living', living) + grp('Wishlist', wish) + grp('Departed', gone);
+}
+
+function renderBulkRows(){
+  $('#bulkRows').innerHTML = bulkFiles.map((b, i) => {
+    const name = escapeHtml(b.file.name || 'photo');
+    const thumb = (b.url && !b.noPreview)
+      ? `<img src="${b.url}" alt="">`
+      : `<div class="bu-ph">${isHeic(b.file) ? 'HEIC' : 'No preview'}</div>`;
+    const st = b.state === 'ok' ? `<div class="bu-state ok">✓ Uploaded</div>`
+             : b.state ? `<div class="bu-state err">${escapeHtml(b.state)}</div>` : '';
+    return `<div class="bu-row" data-i="${i}">
+      ${thumb}
+      <div class="bu-meta">
+        <div class="bu-name">${name} · <span class="bu-date">${escapeHtml(b.date || '…')}</span></div>
+        <select class="bu-plant" data-i="${i}" aria-label="Plant for ${name}"${bulkBusy || b.state === 'ok' ? ' disabled' : ''}>${plantOptionsHtml(b.plantId)}</select>
+        ${st}
+      </div>
+      <button class="bu-x" data-rm="${i}" aria-label="Remove ${name}"${bulkBusy ? ' disabled' : ''}>×</button>
+    </div>`;
+  }).join('');
+  updateBulkGo();
+}
+
+function updateBulkGo(){
+  const pending = bulkFiles.filter(b => b.state !== 'ok');
+  const missing = pending.filter(b => !b.plantId).length;
+  const go = $('#bulkGo');
+  go.disabled = bulkBusy || !pending.length || missing > 0;
+  go.textContent = `Upload ${pending.length} photo${pending.length === 1 ? '' : 's'}`;
+  $('#bulkCancel').disabled = bulkBusy;
+  $('#bulkAllSelect').disabled = bulkBusy;
+  if (!bulkBusy){
+    const st = $('#bulkStatus');
+    st.style.color = 'var(--muted)';
+    st.textContent = missing ? `${missing} photo${missing === 1 ? '' : 's'} still need${missing === 1 ? 's' : ''} a plant` : '';
+  }
+}
+
+function openBulkUpload(files){
+  closeBulkUpload();
+  bulkFiles = files.map(file => ({ file, url: URL.createObjectURL(file), plantId: '', date: '', state: '' }));
+  $('#bulkAllSelect').innerHTML = plantOptionsHtml('');
+  renderBulkRows();
+  $('#bulkUploadModal').classList.add('show');
+  // Fill in capture dates (EXIF → file timestamp) so similar photos are easy to tell apart.
+  for (const b of bulkFiles){
+    (async () => {
+      let d = null;
+      try { d = await exifDateFromFile(b.file); } catch(e){}
+      if (!d && b.file.lastModified){
+        const x = new Date(b.file.lastModified);
+        if (x.getFullYear() >= 2000 && x <= new Date()) d = ymd(x);
+      }
+      b.date = d || 'no date';
+      const i = bulkFiles.indexOf(b);
+      const el = i >= 0 && document.querySelector(`.bu-row[data-i="${i}"] .bu-date`);
+      if (el) el.textContent = b.date;
+    })();
+  }
+}
+
+function closeBulkUpload(){
+  if (bulkBusy) return;  // don't abandon an upload mid-batch
+  bulkFiles.forEach(b => { if (b.url) URL.revokeObjectURL(b.url); });
+  bulkFiles = [];
+  $('#bulkUploadModal').classList.remove('show');
+}
+
+$('#bulkUploadBtn').onclick = ()=>{
+  if (!isGsAuthed()){ alert('Sign in with Google first (Settings).'); return; }
+  const c = getR2Creds();
+  if (!c.accessKey || !c.secretKey){ alert('Save R2 credentials first (Settings → Photo storage).'); return; }
+  $('#bulkPhotoInput').click();
+};
+$('#bulkPhotoInput').addEventListener('change', e=>{
+  const files = Array.from(e.target.files || []);
+  e.target.value = '';
+  if (files.length) openBulkUpload(files);
+});
+$('#bulkRows').addEventListener('change', e=>{
+  const sel = e.target.closest('.bu-plant'); if (!sel) return;
+  bulkFiles[+sel.dataset.i].plantId = sel.value;
+  updateBulkGo();
+});
+$('#bulkRows').addEventListener('click', e=>{
+  const x = e.target.closest('[data-rm]'); if (!x || bulkBusy) return;
+  const [b] = bulkFiles.splice(+x.dataset.rm, 1);
+  if (b && b.url) URL.revokeObjectURL(b.url);
+  if (!bulkFiles.length) closeBulkUpload(); else renderBulkRows();
+});
+// Browsers that can't decode a format (e.g. HEIC outside Safari) → placeholder tile.
+$('#bulkRows').addEventListener('error', e=>{
+  if (e.target.tagName !== 'IMG') return;
+  const row = e.target.closest('.bu-row');
+  if (row && bulkFiles[+row.dataset.i]) bulkFiles[+row.dataset.i].noPreview = true;
+  const ph = document.createElement('div');
+  ph.className = 'bu-ph';
+  ph.textContent = row && isHeic(bulkFiles[+row.dataset.i]?.file || {}) ? 'HEIC' : 'No preview';
+  e.target.replaceWith(ph);
+}, true);
+$('#bulkAllSelect').addEventListener('change', e=>{
+  const v = e.target.value; if (!v) return;
+  bulkFiles.forEach(b => { if (b.state !== 'ok') b.plantId = v; });
+  renderBulkRows();
+});
+$('#bulkCancel').onclick = closeBulkUpload;
+$('#bulkUploadClose').onclick = closeBulkUpload;
+$('#bulkUploadModal').addEventListener('click', e=>{ if (e.target.id === 'bulkUploadModal') closeBulkUpload(); });
+
+$('#bulkGo').onclick = async ()=>{
+  if (bulkBusy) return;
+  bulkBusy = true;
+  renderBulkRows();
+  const st = $('#bulkStatus');
+  const queue = bulkFiles.filter(b => b.state !== 'ok');
+  let ok = 0, fail = 0;
+  for (let n = 0; n < queue.length; n++){
+    const b = queue[n];
+    const plant = state.plants.find(p => p.id === b.plantId);
+    if (!plant){ b.state = 'Plant not found'; fail++; renderBulkRows(); continue; }
+    try {
+      await uploadPhoto(plant, b.file, m => { st.textContent = `Photo ${n + 1}/${queue.length} → ${plant.name}: ${m}`; }, { sync: false });
+      b.state = 'ok'; ok++;
+    } catch(err){
+      console.error(err);
+      b.state = err.message || 'Upload failed'; fail++;
+    }
+    renderBulkRows();
+  }
+  if (ok){
+    // One sheet sync for the whole batch instead of one per photo.
+    st.textContent = 'Syncing…';
+    await gsPushNow();
+    if (gsSyncing) queueGsSync();   // another sync was mid-flight — follow up after it
+    render({ plants:1, gallery:1, stats:1 });
+    if ($('#infoModal').classList.contains('show')){
+      const open = state.plants.find(p => p.id === currentInfoPlantId);
+      if (open) renderPhotos(open);
+    }
+  }
+  bulkBusy = false;
+  if (!fail){
+    st.style.color = 'var(--accent)';
+    st.textContent = `Uploaded ${ok} photo${ok === 1 ? '' : 's'}.`;
+    setTimeout(closeBulkUpload, 900);
+  } else {
+    renderBulkRows();
+    st.style.color = '#e8a06a';
+    st.textContent = `${ok} uploaded, ${fail} failed — fix and try again.`;
+  }
+};
+
 $('#thenNowBtn').onclick = ()=>{
   const p = state.plants.find(x=>x.id===currentInfoPlantId); if (!p) return;
   const photos = (p.photos||[]).slice().sort((a,b)=>(a.date||'').localeCompare(b.date||''));
@@ -2963,6 +3166,7 @@ document.addEventListener('keydown', e=>{
     $('#weatherModal').classList.remove('show');
     $('#lightbox').classList.remove('show');
     $('#logEditModal').classList.remove('show');
+    closeBulkUpload();
   }
 });
 
@@ -3732,7 +3936,8 @@ async function resizeImage(file, maxDim=1600, quality=0.85){
   } finally { URL.revokeObjectURL(url); }
 }
 
-async function uploadPhoto(plant, file, onStatus){
+// opts.sync=false skips the per-photo sheet sync (batch uploads sync once at the end).
+async function uploadPhoto(plant, file, onStatus, opts = {}){
   const creds = getR2Creds();
   if (!creds.accessKey || !creds.secretKey) throw new Error('Save R2 credentials first (Settings → Photo storage)');
   // Try EXIF date BEFORE conversion (HEIC EXIF may not survive heic2any)
@@ -3763,6 +3968,7 @@ async function uploadPhoto(plant, file, onStatus){
   if (!plant.photos) plant.photos = [];
   plant.photos.push({ key, date: photoDate, caption: '' });
   saveLocal();
+  if (opts.sync === false) return key;
   if (isGsAuthed()){
     if (onStatus) onStatus('Syncing…');
     try { await gsPushNow(); } catch(e){ queueGsSync(); }

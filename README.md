@@ -22,7 +22,7 @@ theming, navigation, auth, and photo pipeline.
 
 | Page | What it tracks | Highlights |
 |------|----------------|------------|
-| **[Plants](https://satownsend.com/plants)** | Yard/garden inventory | Care log, watering/feeding, weather forecast + frost alerts, yard map with pins, spend & acquisition stats, per-plant thumbnails |
+| **[Plants](https://satownsend.com/plants)** | Yard/garden inventory | Care log, watering/feeding, weather forecast + frost alerts, yard map with pins, spend & acquisition stats, per-plant thumbnails, an AI-generated **care calendar** (Dashboard / Care calendar tabs) |
 | **[Beer](https://satownsend.com/beer)** | Homebrew log | Recipes (grain/hop/yeast bills), fermentation temps, OG/FG/ABV/SRM, tasting notes, **label thumbnail** per brew |
 | **[Instruments](https://satownsend.com/instruments)** | Instrument collection | Maintenance log (string changes, setups), string/pickup specs, value stats (hidden unless signed in) |
 | **[Wildlife](https://satownsend.com/wildlife)** | Sighting log | One row per species (grouped sightings), calendar view, seasonal patterns, life list, first-of-year tracking, **photo _and_ video** support |
@@ -108,6 +108,26 @@ on my Warmoth bass?", "Frost?").
 
 Deploy/redeploy instructions for the Worker are in
 [`chatbot-worker/README.md`](chatbot-worker/README.md).
+
+### Plant care calendar (`plants/index.html` + Worker `mode: "care"`)
+
+The Plants page has two views — **Dashboard** and **Care calendar**. The
+calendar holds a yearly care schedule per plant (prune, fertilize, mulch,
+winter protect, repot…), each task a `MM-DD` window that repeats every year.
+
+- **Generating:** "Generate schedules" sends plants (a few per request) to the
+  same Worker with `mode: "care"`; Workers AI writes a species-specific schedule
+  for zone 6a and the configured frost dates and returns strict JSON, which the
+  Worker validates before the browser stores it. Plants without a schedule
+  trigger a nudge in Today's brief. "Regenerate" replaces a plant's AI tasks
+  but keeps any you added or edited yourself.
+- **Storage:** a `care_schedule` tab in the plants sheet
+  (`id, plant_id, task, start, end, notes, source, updatedAt`), created on
+  first use and synced row-by-row like the other tabs.
+- **Done tracking:** a task shows ✓ once the matching action is logged inside
+  its window (prune → "pruned", fertilize → "fertilized", cover → "covered", …).
+- Tasks in progress or starting within a week also appear in Today's brief and
+  as a count badge on the tab.
 
 ### Shared front-end (`shared/`)
 

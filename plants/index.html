@@ -91,6 +91,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .tasks .tag.feed{background:#3a3018;color:#d4b568}
   .tasks .tag.prune{background:#2e2440;color:#b89edc}
   .tasks .tag.move{background:#3a2424;color:#d48a8a}
+  .tasks .tag.care{background:#1f2f24;color:#8fc06a}
   .forecast{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
   .forecast .day{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px;text-align:center;font-size:12px}
   .forecast .day .d{color:var(--muted);font-size:11px}
@@ -175,6 +176,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   body.view-only [data-col="edit"],
   body.view-only #addPlantBtn,
   body.view-only #bulkUploadBtn,
+  body.view-only #careGenBtn,
+  body.view-only #careRegenAll,
+  body.view-only #careNudge,
+  body.view-only .care-edit,
   body.view-only .edit-row,
   body.view-only #lightboxDelete,
   body.view-only #lightboxThumb,
@@ -267,6 +272,61 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .bu-state.ok{color:var(--accent)}
   .bu-state.err{color:#e8a06a}
   .bu-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap}
+  /* Care calendar (issue #69): Dashboard / Care calendar tabs, month grid, lists */
+  .view-tabs{display:flex;gap:6px;margin-top:14px;border-bottom:1px solid var(--line)}
+  .view-tabs .vt{background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);padding:8px 12px;font:inherit;font-size:14px;cursor:pointer;margin-bottom:-1px;display:inline-flex;align-items:center;gap:6px}
+  .view-tabs .vt:hover{color:var(--ink)}
+  .view-tabs .vt.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+  .vt-badge{background:var(--accent);color:#04211d;border-radius:999px;font-size:11px;font-weight:700;padding:1px 7px;line-height:1.4}
+  .care-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+  .care-tools{display:flex;align-items:center;gap:6px}
+  .care-month{min-width:150px;text-align:center;font-weight:600;font-size:14px}
+  .care-status{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+  .care-actions{display:flex;gap:6px}
+  .cc-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-top:8px}
+  .cc-head{text-align:center;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:4px 0}
+  .cc-day{min-height:78px;background:var(--panel2);border:1px solid var(--line2);border-radius:6px;padding:3px 4px;font-size:11px;position:relative;cursor:pointer;display:flex;flex-direction:column;gap:2px;overflow:hidden}
+  .cc-day.empty{background:transparent;border-color:transparent;cursor:default}
+  .cc-day.today{border-color:var(--accent)}
+  .cc-day.inwin{background:rgba(77,208,193,.05)}
+  .cc-day.sel{box-shadow:inset 0 0 0 2px var(--accent)}
+  .cc-num{color:var(--muted);font-size:10px;font-weight:600}
+  .cc-chip{background:rgba(77,208,193,.15);color:var(--ink);border-radius:4px;padding:1px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:10px;line-height:1.35}
+  .cc-chip.done{opacity:.55;text-decoration:line-through}
+  .cc-more{font-size:10px;color:var(--muted)}
+  .cc-dot{position:absolute;top:3px;right:4px;font-size:9px;color:var(--muted)}
+  .cc-count{display:none}
+  .care-day{margin-top:10px}
+  .care-list{display:flex;flex-direction:column;gap:6px}
+  .care-date{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:8px 0 2px}
+  .care-item{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;font-size:13px;flex-wrap:wrap}
+  .care-item .ci-plant{font-weight:600;color:var(--ink);cursor:pointer}
+  .care-item .ci-plant:hover{color:var(--accent)}
+  .care-item .ci-task{color:var(--ink-soft)}
+  .care-item .ci-win{color:var(--muted);font-size:12px;margin-left:auto;white-space:nowrap}
+  .care-item.done{opacity:.6}
+  .ci-edit{background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:0 4px;line-height:1}
+  .ci-edit:hover{color:var(--accent)}
+  .care-byplant{display:flex;flex-direction:column;gap:10px}
+  .cbp{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--panel2)}
+  .cbp-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .cbp-name{font-weight:600;cursor:pointer}
+  .cbp-name:hover{color:var(--accent)}
+  .cbp-lat{color:var(--muted);font-size:12px;font-style:italic}
+  .cbp-actions{margin-left:auto;display:flex;gap:4px}
+  .cbp-tasks{margin:6px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:3px}
+  .cbp-tasks li{display:flex;gap:8px;align-items:baseline;font-size:13px;flex-wrap:wrap}
+  .cbp-tasks .t-win{color:var(--muted);font-size:12px;min-width:110px}
+  .cbp-tasks .t-notes{color:var(--muted);font-size:12px;flex-basis:100%}
+  .cbp-empty{color:var(--muted);font-size:13px;font-style:italic}
+  #careNudge{margin-top:10px;padding:10px 12px;border:1px dashed var(--line2);border-radius:10px;font-size:13px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  @media (max-width:700px){
+    .cc-day{min-height:44px;padding:2px 3px}
+    .cc-chip,.cc-more,.cc-dot{display:none}
+    .cc-count{display:inline-block;background:var(--accent);color:#04211d;border-radius:999px;font-size:9px;font-weight:700;padding:0 5px;align-self:flex-start}
+    .cbp-tasks .t-win{min-width:0}
+    .care-item .ci-win{margin-left:0;flex-basis:100%}
+  }
   .modal{background:var(--panel);border:1px solid var(--line2);border-radius:14px;max-width:560px;width:100%;max-height:90vh;overflow:auto;
     box-shadow:0 16px 48px rgba(0,0,0,.6);padding:22px 24px;position:relative;color:var(--ink)}
   .modal h3{margin:0 0 4px;font:600 20px/1.2 "SF Pro Display",sans-serif;letter-spacing:-.01em;color:var(--accent)}
@@ -429,6 +489,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   [data-theme="light"] .tasks .tag.protect{background:#f5e0c8;color:#9c4a18}
   [data-theme="light"] .tasks .tag.feed{background:#f0e6c2;color:#7a5a17}
   [data-theme="light"] .tasks .tag.prune{background:#e7dff0;color:#5a3d8a}
+  [data-theme="light"] .tasks .tag.care{background:#dfeccf;color:#3d6b1c}
   [data-theme="light"] .tasks .tag.move{background:#f0d8d8;color:#8a3d3d}
   [data-theme="light"] tr:hover td{background:rgba(61,107,34,.05)}
   [data-theme="light"] .modal-back{background:rgba(80,70,50,.45)}
@@ -498,7 +559,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </div>
 </header>
 
-<div class="grid" style="margin-top:16px">
+<div class="view-tabs" role="tablist" aria-label="Plants views">
+  <button class="vt active" data-view="dashboard" role="tab" aria-selected="true">Dashboard</button>
+  <button class="vt" data-view="calendar" role="tab" aria-selected="false">Care calendar<span class="vt-badge" id="careBadge" style="display:none"></span></button>
+</div>
+
+<div class="grid" id="dashboardView" style="margin-top:16px">
 
 <div class="gallery" id="galleryPanel" style="display:none;grid-column:1/-1">
   <div class="gallery-stage" id="galleryStage">
@@ -536,6 +602,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <h2>Today's brief</h2>
   <p class="topline" id="topline">Loading…</p>
   <div class="tasks"><ul id="taskList"></ul></div>
+  <div id="careNudge" style="display:none"></div>
 </div>
 
   <div class="panel">
@@ -682,6 +749,46 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
   </div>
 
+</div>
+
+<div class="grid" id="calendarView" style="margin-top:16px;display:none">
+  <div class="panel full" id="carePanel">
+    <div class="care-head">
+      <h2 style="margin:0">Care calendar</h2>
+      <div class="care-tools">
+        <button class="ghost tiny" id="carePrev" aria-label="Previous month">‹</button>
+        <span id="careMonthLabel" class="care-month"></span>
+        <button class="ghost tiny" id="careNext" aria-label="Next month">›</button>
+        <button class="ghost tiny" id="careToday">Today</button>
+      </div>
+    </div>
+    <div class="care-status">
+      <span class="small" id="careMissing" style="color:var(--muted)"></span>
+      <div class="care-actions">
+        <button class="tiny" id="careGenBtn">Generate schedules</button>
+        <button class="ghost tiny" id="careRegenAll">Regenerate all</button>
+      </div>
+    </div>
+    <div class="small" id="careGenStatus" style="color:var(--muted);min-height:1.2em"></div>
+    <div class="cc-grid" id="careGrid"></div>
+    <div id="careDay" class="care-day"></div>
+  </div>
+
+  <div class="panel full">
+    <h2>Upcoming <span class="small" style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted)">next 30 days</span></h2>
+    <div id="careUpcoming" class="care-list"></div>
+  </div>
+
+  <div class="panel full">
+    <div class="care-head">
+      <h2 style="margin:0">By plant</h2>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <input type="search" id="careFilter" placeholder="Filter plants…" style="max-width:240px">
+        <button class="ghost tiny care-edit" id="careAddTask">+ Add task</button>
+      </div>
+    </div>
+    <div id="careByPlant" class="care-byplant"></div>
+  </div>
 </div>
 
 <div style="text-align:center;margin:24px 0 8px">
@@ -885,6 +992,30 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </div>
 </div>
 
+<div class="modal-back" id="careTaskModal" style="z-index:55">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="careTaskTitle" style="max-width:480px">
+    <button class="close" id="careTaskClose" aria-label="Close">×</button>
+    <h3 id="careTaskTitle">Care task</h3>
+    <div style="display:grid;grid-template-columns:1fr;gap:10px">
+      <div><label class="small">Plant</label><select id="ctPlant" style="width:100%"></select></div>
+      <div><label class="small">Task</label><input type="text" id="ctTask" placeholder="e.g. prune" maxlength="60" style="width:100%"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div><label class="small">Starts</label><input type="date" id="ctStart" style="width:100%"></div>
+        <div><label class="small">Ends</label><input type="date" id="ctEnd" style="width:100%"></div>
+      </div>
+      <div><label class="small">Notes</label><textarea id="ctNotes" rows="2" maxlength="240" style="width:100%"></textarea></div>
+      <div class="small" style="color:var(--muted)">Repeats every year on these dates — the year you pick doesn't matter.</div>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;gap:8px">
+      <button class="ghost tiny" id="ctDelete" style="color:#e8a06a">Delete</button>
+      <div style="display:flex;gap:8px">
+        <button class="ghost tiny" id="ctCancel">Cancel</button>
+        <button id="ctSave">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="modal-back" id="bulkUploadModal">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="bulkUploadTitle" style="max-width:620px">
     <button class="close" id="bulkUploadClose" aria-label="Close">×</button>
@@ -984,6 +1115,7 @@ const defaultState = {
   },
   plants: ourTreesSeed(),
   log: [],
+  care: [],               // yearly care tasks per plant (issue #69)
   forecast: null,         // cached forecast
   forecastFetched: 0,     // ms epoch
 };
@@ -1054,6 +1186,7 @@ function saveLocal(){ localStorage.setItem(KEY, JSON.stringify(state)); }
 function save(){ saveLocal(); queueGsSync(); }
 let state = load();
 if (!state.plants || !state.plants.length) state.plants = structuredClone(defaultState.plants);
+if (!Array.isArray(state.care)) state.care = [];
 // Migration: extract leading "$NN" or "$NN.NN" from notes into p.price.
 // Older versions stored price inline in notes via csvToPlants; this moves it
 // to a dedicated field. Idempotent: skips plants that already have p.price.
@@ -2264,8 +2397,24 @@ function buildBrief(){
     }
   }
 
+  // Care calendar: tasks in progress or starting this week, not yet logged (issue #69)
+  if (typeof activeCare === 'function'){
+    const by = plantsById(), tmd = mdOf(today), items = [];
+    for (const t of activeCare()){
+      if (inWindow(t, tmd)){ if (!isTaskDone(t, today)) items.push({ t, when: t.start === tmd ? 'today' : '' }); continue; }
+      for (let i = 1; i < 7; i++){
+        const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i, 12);
+        if (t.start === mdOf(d)){ items.push({ t, when: d.toLocaleDateString(undefined, {weekday:'short'}) }); break; }
+      }
+    }
+    if (items.length){
+      const line = items.slice(0, 6).map(({t, when}) => `${(by.get(t.plantId) || {}).name || '?'} — ${t.task}${when ? ` (${when})` : ''}`).join(' · ');
+      tasks.push({ tag:'care', title:`Care this week: ${items.length} task${items.length === 1 ? '' : 's'}`, why: line + (items.length > 6 ? ` · +${items.length - 6} more` : '') });
+    }
+  }
+
   // Topline summary — pick the 2 most important
-  const order = ['protect','water','move','feed','prune'];
+  const order = ['protect','water','move','feed','prune','care'];
   tasks.sort((a,b)=>order.indexOf(a.tag)-order.indexOf(b.tag));
   const top = tasks.slice(0,2);
   $('#topline').textContent = top.length
@@ -2275,6 +2424,7 @@ function buildBrief(){
   $('#taskList').innerHTML = tasks.length
     ? tasks.map(t=>`<li><span class="tag ${t.tag}">${t.tag}</span><strong>${escapeHtml(t.title)}</strong><div class="why">${escapeHtml(t.why)}</div></li>`).join('')
     : '<li class="empty">Nothing flagged today.</li>';
+  if (typeof renderCareNudge === 'function') renderCareNudge();
 }
 
 function prettyDate(s){
@@ -3167,6 +3317,7 @@ document.addEventListener('keydown', e=>{
     $('#lightbox').classList.remove('show');
     $('#logEditModal').classList.remove('show');
     closeBulkUpload();
+    closeCareTask();
   }
 });
 
@@ -4158,6 +4309,16 @@ async function fetchSheetTab(gid){
   return parseCSV(text);
 }
 
+// Read a tab by NAME (for tabs created at runtime whose gid we don't know, like
+// care_schedule). A missing tab comes back as an empty body → [].
+async function fetchSheetTabByName(name){
+  const url = `https://docs.google.com/spreadsheets/d/${SHEETS_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(name)}`;
+  const r = await fetch(url, {cache:'no-store'});
+  if (!r.ok) throw new Error(`Sheet fetch failed: HTTP ${r.status}`);
+  const text = (await r.text()).replace(/^﻿/, '');
+  return parseCSV(text);
+}
+
 function rowsToObjects(rows){
   if (!rows.length) return [];
   const headers = rows[0].map(h => (h||'').trim());
@@ -4175,13 +4336,15 @@ async function pullFromSheets(){
   };
   try {
     setStatus('Loading from Google Sheets…');
-    const [plantsRows, tagsRows, photosRows, logRows] = await Promise.all([
+    const [plantsRows, tagsRows, photosRows, logRows, careRows] = await Promise.all([
       fetchSheetTab(SHEETS_GID.plants),
       fetchSheetTab(SHEETS_GID.plant_tags),
       fetchSheetTab(SHEETS_GID.plant_photos),
       fetchSheetTab(SHEETS_GID.log),
+      fetchSheetTabByName('care_schedule').catch(()=>[]),
     ]);
     const rawPlants = rowsToObjects(plantsRows);
+    const rawCare = rowsToObjects(careRows);
     const rawTags = rowsToObjects(tagsRows);
     const rawPhotos = rowsToObjects(photosRows);
     const rawLog = rowsToObjects(logRows);
@@ -4275,6 +4438,14 @@ async function pullFromSheets(){
 
     state.plants = plants;
     state.log = [...remoteLog, ...localOnlyLog];
+    // Care schedule: remote rows + any local-only tasks not yet pushed.
+    const remoteCare = rawCare.filter(r => r.id && r.plant_id).map(r => ({
+      id: r.id, plantId: r.plant_id, task: r.task || '', start: r.start || '', end: r.end || r.start || '',
+      notes: r.notes || '', source: r.source || 'ai', updatedAt: parseInt(r.updatedAt, 10) || 0,
+    }));
+    const remoteCareIds = new Set(remoteCare.map(t => t.id));
+    const localOnlyCare = (state.care || []).filter(t => t.id && !remoteCareIds.has(t.id));
+    state.care = [...remoteCare, ...localOnlyCare];
     gsPulledOnce = true;
     gsSuspendSync = true; saveLocal(); gsSuspendSync = false;
     render();
@@ -4354,6 +4525,33 @@ function logToSheetRows(){
     ]);
   }
   return rows;
+}
+
+const CARE_HEADERS = ['id','plant_id','task','start','end','notes','source','updatedAt'];
+function careToSheetRows(){
+  const rows = [CARE_HEADERS];
+  for (const t of (state.care || [])){
+    rows.push([t.id||'', t.plantId||'', t.task||'', t.start||'', t.end||'', t.notes||'', t.source||'ai', t.updatedAt ? String(t.updatedAt) : '']);
+  }
+  return rows;
+}
+
+// The care_schedule tab is created on first use (older sheets don't have it).
+let _careTabEnsured = false;
+async function ensureCareTab(){
+  if (_careTabEnsured) return;
+  const base = `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}`;
+  const gid = await gsGidFor('care_schedule');
+  if (gid == null){
+    try {
+      await gsApiFetch(`${base}:batchUpdate`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ requests:[{ addSheet:{ properties:{ title:'care_schedule' } } }] }),
+      });
+    } catch(e){ if (!/already exists/i.test(e.message)) throw e; }
+    _gidByTab = null;   // refresh the gid cache so deletes can find the new tab
+  }
+  _careTabEnsured = true;
 }
 
 // Look up a tab's real sheetId (gid) by name, cached. Used so row deletes always
@@ -4459,6 +4657,13 @@ async function gsPushNow(force){
     await gsReconcileTab('plant_tags',   tagsToSheetRows(),   [0, 1]);  // key: plant_id + tag
     await gsReconcileTab('plant_photos', photosToSheetRows(), [0, 1]);  // key: plant_id + R2 key
     await gsReconcileTab('log',          logToSheetRows(),    [0]);     // key: id
+    // Care schedule lives in a tab that may not exist yet; create it on first use.
+    // Skipped entirely until there's something to write (or the tab is known),
+    // so sheets without schedules aren't touched.
+    if ((state.care && state.care.length) || _careTabEnsured){
+      await ensureCareTab();
+      await gsReconcileTab('care_schedule', careToSheetRows(), [0]);   // key: id
+    }
     setSyncStatus(`synced ${new Date().toLocaleTimeString()}`, 'ok');
   } catch(e){
     console.error('[sheets] sync failed:', e);
@@ -4961,8 +5166,328 @@ function renderWishlist(){
 
 // Pass a slices object to skip sub-renders that the change couldn't affect.
 // Default (no arg) = re-render everything, matching the old behavior.
+/* ---------- Care calendar (issue #69) ----------
+   Yearly care tasks per plant, generated by the chatbot Worker (Workers AI) and
+   editable here. Each task is a MM-DD window that repeats every year. A task
+   shows ✓ once the matching action is logged inside its window. */
+const CARE_WORKER_URL = 'https://satownsend-chatbot.satownsend.workers.dev';
+const VIEW_KEY = 'plants.view';
+const MD_RE = /^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+let careBusy = false;
+let calY = today.getFullYear(), calM = today.getMonth();
+let careSelDay = null;   // 'MM-DD' selected in the month grid
+
+// Task wording → log action. Order matters ("uncover" must win over "cover").
+const TASK_LOG_ACTION = [
+  [/uncover|unwrap|remove (the )?(cover|wrap|protection|burlap)/i, 'uncovered'],
+  [/cover|wrap|protect|burlap|shelter|insulat/i, 'covered'],
+  [/prun|trim|cut back|shear|thin|deadhead|pinch|shape/i, 'pruned'],
+  [/fertili|feed|compost|top.?dress|amend/i, 'fertilized'],
+  [/repot|pot up|root.?prun/i, 'repotted'],
+  [/spray|dormant oil|fungicid|insecticid|neem|treat/i, 'sprayed'],
+  [/bring.*(in|indoors)|move.*(in|indoors)|overwinter.*in/i, 'brought inside'],
+  [/take.*out|move.*out|outdoors|harden/i, 'taken outside'],
+  [/water|soak|irrigat/i, 'watered'],
+  [/move|relocat|transplant/i, 'moved'],
+];
+function taskLogAction(task){ for (const [re, a] of TASK_LOG_ACTION){ if (re.test(task || '')) return a; } return null; }
+
+function plantsById(){ return new Map(state.plants.map(p => [p.id, p])); }
+function isLive(p){ return !!p && !p.dead && !p.wishlist; }
+function activeCare(){ const by = plantsById(); return (state.care || []).filter(t => MD_RE.test(t.start || '') && isLive(by.get(t.plantId))); }
+function plantsMissingCare(){ const has = new Set((state.care || []).map(t => t.plantId)); return state.plants.filter(p => isLive(p) && !has.has(p.id)); }
+function mdOf(d){ return `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+function mdToDate(md, y){ const [m, d] = md.split('-').map(Number); return new Date(y, m - 1, d, 12); }
+function fmtMD(md){ return MD_RE.test(md || '') ? mdToDate(md, 2001).toLocaleDateString(undefined, {month:'short', day:'numeric'}) : (md || ''); }
+function winLabel(t){ return t.end && t.end !== t.start ? `${fmtMD(t.start)} – ${fmtMD(t.end)}` : fmtMD(t.start); }
+// Is MM-DD inside the task's yearly window? Windows may wrap New Year (start > end).
+function inWindow(t, md){ const e = t.end || t.start; return t.start <= e ? (md >= t.start && md <= e) : (md >= t.start || md <= e); }
+// The occurrence of a task's window relevant to a date (handles Dec→Jan wrap).
+function occurrence(t, ref){
+  const y = ref.getFullYear(), md = mdOf(ref), e = t.end || t.start, wraps = t.start > e;
+  const sy = (wraps && md < t.start) ? y - 1 : y;
+  return { start: mdToDate(t.start, sy), end: mdToDate(e, wraps ? sy + 1 : sy) };
+}
+function isTaskDone(t, ref){
+  const action = taskLogAction(t.task);
+  if (!action) return false;
+  const { start, end } = occurrence(t, ref || today);
+  const a = ymd(start), b = ymd(end);
+  return state.log.some(e => e.plantId === t.plantId && e.action === action && e.date >= a && e.date <= b);
+}
+function shortName(p){ const n = (p && p.name) || '?'; return n.length > 18 ? n.slice(0, 17) + '…' : n; }
+
+function careItemHtml(t, ref, opts = {}){
+  const p = plantsById().get(t.plantId);
+  const done = isTaskDone(t, ref);
+  const status = opts.status ? `<span class="small" style="color:var(--muted)">${escapeHtml(opts.status)}</span>` : '';
+  return `<div class="care-item${done ? ' done' : ''}" data-tid="${escapeHtml(t.id)}">
+    ${done ? '<span title="Logged">✓</span>' : ''}
+    <span class="ci-plant" data-open="${escapeHtml(t.plantId)}">${escapeHtml(p ? p.name : '(unknown plant)')}</span>
+    <span class="ci-task">${escapeHtml(t.task)}</span>${status}
+    <span class="ci-win">${escapeHtml(winLabel(t))}</span>
+    <button class="ci-edit care-edit" data-edit="${escapeHtml(t.id)}" aria-label="Edit task" title="Edit">✎</button>
+  </div>`;
+}
+
+function renderCareCalendar(){
+  const grid = $('#careGrid'); if (!grid) return;
+  $('#careMonthLabel').textContent = new Date(calY, calM, 1).toLocaleString('default', {month:'long', year:'numeric'});
+  const first = new Date(calY, calM, 1).getDay();
+  const dim = new Date(calY, calM + 1, 0).getDate();
+  const mm = String(calM + 1).padStart(2, '0');
+  const by = plantsById(), care = activeCare();
+  let html = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => `<div class="cc-head">${d}</div>`).join('');
+  for (let i = 0; i < first; i++) html += '<div class="cc-day empty"></div>';
+  for (let d = 1; d <= dim; d++){
+    const md = `${mm}-${String(d).padStart(2, '0')}`;
+    const ref = new Date(calY, calM, d, 12);
+    const starts = care.filter(t => t.start === md);
+    const active = care.filter(t => t.start !== md && inWindow(t, md)).length;
+    const isToday = mdOf(today) === md && today.getFullYear() === calY;
+    const chips = starts.slice(0, 3).map(t => {
+      const p = by.get(t.plantId), done = isTaskDone(t, ref);
+      return `<div class="cc-chip${done ? ' done' : ''}" title="${escapeHtml(p ? p.name : '')}: ${escapeHtml(t.task)}">${escapeHtml(shortName(p))} · ${escapeHtml(t.task)}</div>`;
+    }).join('');
+    const more = starts.length > 3 ? `<div class="cc-more">+${starts.length - 3} more</div>` : '';
+    const count = starts.length ? `<span class="cc-count">${starts.length}</span>` : '';
+    const cls = ['cc-day', isToday ? 'today' : '', starts.length ? 'has' : '', active ? 'inwin' : '', careSelDay === md ? 'sel' : ''].filter(Boolean).join(' ');
+    html += `<div class="${cls}" data-md="${md}"><span class="cc-num">${d}</span>${count}${chips}${more}${active ? `<span class="cc-dot" title="${active} in progress">${active}</span>` : ''}</div>`;
+  }
+  grid.innerHTML = html;
+  renderCareDay();
+}
+
+function renderCareDay(){
+  const box = $('#careDay'); if (!box) return;
+  if (!careSelDay){ box.innerHTML = ''; return; }
+  const ref = mdToDate(careSelDay, calY), care = activeCare();
+  const starts = care.filter(t => t.start === careSelDay);
+  const active = care.filter(t => t.start !== careSelDay && inWindow(t, careSelDay));
+  const label = ref.toLocaleDateString(undefined, {weekday:'long', month:'long', day:'numeric'});
+  if (!starts.length && !active.length){ box.innerHTML = `<div class="care-date">${escapeHtml(label)}</div><div class="cbp-empty">Nothing scheduled.</div>`; return; }
+  box.innerHTML = `<div class="care-date">${escapeHtml(label)}</div><div class="care-list">`
+    + starts.map(t => careItemHtml(t, ref, {status:'starts'})).join('')
+    + active.map(t => careItemHtml(t, ref, {status:'in progress'})).join('') + '</div>';
+}
+
+function renderCareUpcoming(){
+  const box = $('#careUpcoming'); if (!box) return;
+  const care = activeCare();
+  if (!care.length){
+    box.innerHTML = `<div class="cbp-empty">${state.plants.some(isLive) ? 'No care schedule yet — generate one from the calendar above.' : 'Add some plants first.'}</div>`;
+    return;
+  }
+  const tmd = mdOf(today);
+  const inProgress = care.filter(t => t.start !== tmd && inWindow(t, tmd) && !isTaskDone(t, today));
+  let html = '';
+  if (inProgress.length) html += '<div class="care-date">In progress</div>' + inProgress.map(t => careItemHtml(t, today)).join('');
+  for (let i = 0; i < 30; i++){
+    const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i, 12);
+    const starts = care.filter(t => t.start === mdOf(d));
+    if (!starts.length) continue;
+    const when = i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : d.toLocaleDateString(undefined, {weekday:'short', month:'short', day:'numeric'});
+    html += `<div class="care-date">${escapeHtml(when)}</div>` + starts.map(t => careItemHtml(t, d)).join('');
+  }
+  box.innerHTML = html || '<div class="cbp-empty">Nothing starts in the next 30 days.</div>';
+}
+
+function renderCareByPlant(){
+  const box = $('#careByPlant'); if (!box) return;
+  const q = ($('#careFilter').value || '').toLowerCase().trim();
+  const by = new Map();
+  for (const t of (state.care || [])){ if (!by.has(t.plantId)) by.set(t.plantId, []); by.get(t.plantId).push(t); }
+  const plants = state.plants.filter(isLive)
+    .filter(p => !q || `${p.name} ${p.type || ''} ${p.category || ''} ${p.spot || ''} ${p.tags || ''}`.toLowerCase().includes(q))
+    .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  if (!plants.length){ box.innerHTML = '<div class="cbp-empty">No plants match.</div>'; return; }
+  box.innerHTML = plants.map(p => {
+    const tasks = (by.get(p.id) || []).slice().sort((a, b) => (a.start || '').localeCompare(b.start || ''));
+    const list = tasks.length
+      ? `<ul class="cbp-tasks">${tasks.map(t => `<li><span class="t-win">${escapeHtml(winLabel(t))}</span><span>${escapeHtml(t.task)}</span>${t.source === 'manual' ? '<span class="small" style="color:var(--muted)">manual</span>' : ''}<button class="ci-edit care-edit" data-edit="${escapeHtml(t.id)}" aria-label="Edit" title="Edit">✎</button>${t.notes ? `<span class="t-notes">${escapeHtml(t.notes)}</span>` : ''}</li>`).join('')}</ul>`
+      : '<div class="cbp-empty">No schedule yet.</div>';
+    return `<div class="cbp" data-pid="${escapeHtml(p.id)}">
+      <div class="cbp-head"><span class="cbp-name" data-open="${escapeHtml(p.id)}">${escapeHtml(p.name)}</span>${p.type ? `<span class="cbp-lat">${escapeHtml(p.type)}</span>` : ''}
+        <div class="cbp-actions care-edit">
+          <button class="ghost tiny" data-gen="${escapeHtml(p.id)}">${tasks.length ? 'Regenerate' : 'Generate'}</button>
+          <button class="ghost tiny" data-add="${escapeHtml(p.id)}">+ Task</button>
+        </div></div>${list}</div>`;
+  }).join('');
+}
+
+function renderCareStatus(){
+  const missing = plantsMissingCare();
+  const live = state.plants.filter(isLive).length;
+  const el = $('#careMissing');
+  if (el) el.textContent = !live ? '' : missing.length ? `${missing.length} of ${live} plants have no schedule` : `All ${live} plants scheduled`;
+  updateCareButtons();
+  // Tab badge: tasks starting in the next 7 days that aren't logged yet.
+  let soon = 0; const care = activeCare();
+  for (let i = 0; i < 7; i++){
+    const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i, 12), md = mdOf(d);
+    soon += care.filter(t => t.start === md && !isTaskDone(t, d)).length;
+  }
+  const badge = $('#careBadge'); if (badge){ badge.style.display = soon ? '' : 'none'; badge.textContent = soon; }
+  renderCareNudge(missing);
+}
+function updateCareButtons(){
+  const missing = plantsMissingCare().length;
+  const gen = $('#careGenBtn'); if (gen){ gen.disabled = careBusy || !missing; gen.textContent = missing ? `Generate schedules (${missing})` : 'Generate schedules'; }
+  const all = $('#careRegenAll'); if (all) all.disabled = careBusy || !state.plants.some(isLive);
+  $$('#careByPlant [data-gen], #careByPlant [data-add], #careAddTask').forEach(b => { b.disabled = careBusy; });
+}
+function renderCareNudge(missing){
+  const el = $('#careNudge'); if (!el) return;
+  missing = missing || plantsMissingCare();
+  if (!isGsAuthed() || !missing.length){ el.style.display = 'none'; el.innerHTML = ''; return; }
+  el.style.display = '';
+  el.innerHTML = `<span>🗓 ${missing.length} plant${missing.length === 1 ? ' has' : 's have'} no care schedule yet.</span>
+    <button class="tiny" id="careNudgeBtn">Generate</button><button class="ghost tiny" id="careNudgeView">Open calendar</button>`;
+  $('#careNudgeBtn').onclick = ()=>{ setView('calendar'); generateCare(plantsMissingCare().map(p => p.id)); };
+  $('#careNudgeView').onclick = ()=> setView('calendar');
+}
+function renderCareViews(){ renderCareCalendar(); renderCareUpcoming(); renderCareByPlant(); renderCareStatus(); }
+
+// Ask the Worker for schedules, a few plants per request. replace=true swaps out
+// a plant's AI tasks (tasks you added or edited yourself are kept).
+async function generateCare(plantIds, opts = {}){
+  if (careBusy) return;
+  if (!isGsAuthed()){ alert('Sign in with Google first (Settings).'); return; }
+  const targets = state.plants.filter(p => plantIds.includes(p.id));
+  if (!targets.length) return;
+  const st = $('#careGenStatus');
+  careBusy = true; updateCareButtons();
+  let plantsDone = 0, added = 0;
+  try {
+    for (let i = 0; i < targets.length; i += 6){
+      const batch = targets.slice(i, i + 6);
+      st.style.color = 'var(--muted)';
+      st.textContent = `Generating ${i + 1}–${Math.min(i + 6, targets.length)} of ${targets.length}… (${batch.map(p => p.name).join(', ')})`;
+      const r = await fetch(CARE_WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + GAuth.token() },
+        body: JSON.stringify({
+          mode: 'care', zone: state.settings.zone, lastFrost: state.settings.lastFrost, firstFrost: state.settings.firstFrost, city: state.settings.city,
+          plants: batch.map(p => ({ id: p.id, name: p.name, type: p.type, category: p.category, container: p.container === true || p.container === 'true',
+            spot: p.spot, tags: p.tags, purchased: p.purchased, notes: (p.notes || '').slice(0, 200) })),
+        }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok || data.error) throw new Error(data.error || ('HTTP ' + r.status));
+      const now = Date.now();
+      for (const s of (data.schedules || [])){
+        if (!batch.some(p => p.id === s.plant_id)) continue;
+        if (opts.replace) state.care = state.care.filter(t => !(t.plantId === s.plant_id && t.source !== 'manual'));
+        for (const t of (s.tasks || [])){
+          if (!MD_RE.test(t.start || '')) continue;
+          state.care.push({ id: uid(), plantId: s.plant_id, task: String(t.task || '').trim().slice(0, 60), start: t.start,
+            end: MD_RE.test(t.end || '') ? t.end : t.start, notes: String(t.notes || '').trim().slice(0, 240), source: 'ai', updatedAt: now });
+          added++;
+        }
+        plantsDone++;
+      }
+      save();
+      renderCareViews();
+    }
+    st.style.color = 'var(--accent)';
+    st.textContent = `Added ${added} task${added === 1 ? '' : 's'} for ${plantsDone} plant${plantsDone === 1 ? '' : 's'}. Review them below and edit anything that doesn't fit.`;
+  } catch(e){
+    console.error(e);
+    st.style.color = '#e8a06a';
+    st.textContent = 'Error: ' + e.message;
+  } finally {
+    careBusy = false; updateCareButtons(); buildBrief();
+  }
+}
+
+// Add / edit a task
+let ctEditing = null;
+function openCareTask(taskId, presetPlantId){
+  const t = taskId ? state.care.find(x => x.id === taskId) : null;
+  ctEditing = t ? t.id : null;
+  const sel = $('#ctPlant');
+  sel.innerHTML = state.plants.filter(isLive).sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+    .map(p => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`).join('');
+  sel.value = t ? t.plantId : (presetPlantId || sel.value);
+  $('#careTaskTitle').textContent = t ? 'Edit care task' : 'Add care task';
+  $('#ctTask').value = t ? t.task : '';
+  const y = today.getFullYear();
+  $('#ctStart').value = t && MD_RE.test(t.start) ? `${y}-${t.start}` : '';
+  $('#ctEnd').value = t && MD_RE.test(t.end || '') ? `${y}-${t.end}` : '';
+  $('#ctNotes').value = t ? (t.notes || '') : '';
+  $('#ctDelete').style.display = t ? '' : 'none';
+  $('#careTaskModal').classList.add('show');
+  $('#ctTask').focus();
+}
+function closeCareTask(){ $('#careTaskModal').classList.remove('show'); ctEditing = null; }
+$('#ctSave').onclick = ()=>{
+  const task = $('#ctTask').value.trim(), plantId = $('#ctPlant').value;
+  const start = ($('#ctStart').value || '').slice(5), end = ($('#ctEnd').value || '').slice(5) || start;
+  if (!task){ $('#ctTask').focus(); return; }
+  if (!MD_RE.test(start)){ $('#ctStart').focus(); return; }
+  const now = Date.now(), notes = $('#ctNotes').value.trim();
+  const t = ctEditing ? state.care.find(x => x.id === ctEditing) : null;
+  if (t) Object.assign(t, { plantId, task, start, end, notes, source: 'manual', updatedAt: now });
+  else state.care.push({ id: uid(), plantId, task, start, end, notes, source: 'manual', updatedAt: now });
+  closeCareTask(); save(); renderCareViews(); buildBrief();
+};
+$('#ctDelete').onclick = async ()=>{
+  if (!ctEditing || !confirm('Delete this task?')) return;
+  state.care = state.care.filter(x => x.id !== ctEditing);
+  closeCareTask();
+  // Make sure the sync knows the tab so the row is deleted from the sheet too.
+  if (isGsAuthed()){ try { await ensureCareTab(); } catch(e){ console.warn(e); } }
+  save(); renderCareViews(); buildBrief();
+};
+$('#ctCancel').onclick = closeCareTask;
+$('#careTaskClose').onclick = closeCareTask;
+$('#careTaskModal').addEventListener('click', e => { if (e.target.id === 'careTaskModal') closeCareTask(); });
+
+// Calendar controls
+$('#carePrev').onclick = ()=>{ calM--; if (calM < 0){ calM = 11; calY--; } careSelDay = null; renderCareCalendar(); };
+$('#careNext').onclick = ()=>{ calM++; if (calM > 11){ calM = 0; calY++; } careSelDay = null; renderCareCalendar(); };
+$('#careToday').onclick = ()=>{ calY = today.getFullYear(); calM = today.getMonth(); careSelDay = mdOf(today); renderCareCalendar(); };
+$('#careGrid').addEventListener('click', e => {
+  const day = e.target.closest('.cc-day[data-md]'); if (!day) return;
+  careSelDay = careSelDay === day.dataset.md ? null : day.dataset.md;
+  renderCareCalendar();
+});
+$('#careGenBtn').onclick = ()=> generateCare(plantsMissingCare().map(p => p.id));
+$('#careRegenAll').onclick = ()=>{
+  const live = state.plants.filter(isLive); if (!live.length) return;
+  if (!confirm(`Regenerate AI schedules for all ${live.length} plants? Tasks you added or edited yourself are kept.`)) return;
+  generateCare(live.map(p => p.id), { replace: true });
+};
+$('#careAddTask').onclick = ()=>{ if (!isGsAuthed()){ alert('Sign in with Google first (Settings).'); return; } openCareTask(null); };
+$('#careFilter').addEventListener('input', renderCareByPlant);
+$('#calendarView').addEventListener('click', e => {
+  const open = e.target.closest('[data-open]'); if (open){ openInfo(open.dataset.open); return; }
+  const edit = e.target.closest('[data-edit]'); if (edit){ openCareTask(edit.dataset.edit); return; }
+  const add  = e.target.closest('[data-add]');  if (add){ openCareTask(null, add.dataset.add); return; }
+  const gen  = e.target.closest('[data-gen]');  if (gen){ generateCare([gen.dataset.gen], { replace: true }); }
+});
+
+// Dashboard / Care calendar tabs
+function setView(v){
+  const cal = v === 'calendar';
+  $('#dashboardView').style.display = cal ? 'none' : '';
+  $('#calendarView').style.display = cal ? '' : 'none';
+  $$('.view-tabs .vt').forEach(b => { const on = b.dataset.view === v; b.classList.toggle('active', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
+  try { localStorage.setItem(VIEW_KEY, v); } catch(e){}
+  history.replaceState(null, '', location.pathname + location.search + (cal ? '#calendar' : ''));
+  if (cal) renderCareViews();
+}
+$$('.view-tabs .vt').forEach(b => b.addEventListener('click', ()=> setView(b.dataset.view)));
+// Called after GAuth.handleReturn() so an OAuth token in the hash is consumed first.
+function initCareView(){
+  let v = 'dashboard';
+  try { v = localStorage.getItem(VIEW_KEY) || v; } catch(e){}
+  if (location.hash === '#calendar') v = 'calendar';
+  setView(v);
+}
+
 function render(slices){
-  const s = slices || {plants:1, log:1, brief:1, stats:1, gallery:1, frostLog:1, wishlist:1, yardMap:1};
+  const s = slices || {plants:1, log:1, brief:1, stats:1, gallery:1, frostLog:1, wishlist:1, yardMap:1, calendar:1};
   if (s.plants)    renderPlants();
   if (s.log)       renderLog();
   if (s.brief)     buildBrief();
@@ -4971,11 +5496,13 @@ function render(slices){
   if (s.frostLog)  renderFrostLog();
   if (s.wishlist)  renderWishlist();
   if (s.yardMap)   renderYardMap();
+  if (s.calendar){ if ($('#calendarView').style.display !== 'none') renderCareViews(); else renderCareStatus(); }
 }
 render();
 fetchForecast();
 refreshR2Input();
 GAuth.handleReturn();
+initCareView();
 if(!GAuth.trySilent()){
   refreshGsStatus();
   autoLoadR2CredsFromVault();

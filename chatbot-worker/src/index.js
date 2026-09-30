@@ -198,6 +198,69 @@ function systemPrompt(computed, context, today){
   ].join('\n');
 }
 
+/* ── Plant care schedules (issue #69) ──
+   POST { mode:'care', zone, lastFrost, firstFrost, city, plants:[{id,name,type,category,container,spot,tags,purchased,notes}] }
+   → { schedules:[{ plant_id, tasks:[{ task, start:'MM-DD', end:'MM-DD', notes }] }] }
+   The model is asked for strict JSON; we validate every field and drop anything
+   malformed so the dashboard never stores junk. */
+const MD_RE = /^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+// Accept "3-15", "03/15", "Mar 15" style slips and normalize to MM-DD.
+const MONTHS = { jan:1, feb:2, mar:3, apr:4, may:5, jun:6, jul:7, aug:8, sep:9, sept:9, oct:10, nov:11, dec:12 };
+function toMD(v){
+  const s = String(v || '').trim();
+  let m = s.match(/^(\d{1,2})[-\/](\d{1,2})$/);
+  if(m) return `${String(+m[1]).padStart(2,'0')}-${String(+m[2]).padStart(2,'0')}`;
+  m = s.match(/^(?:\d{4}-)?(\d{2})-(\d{2})$/);
+  if(m) return `${m[1]}-${m[2]}`;
+  m = s.match(/^([a-z]{3,4})\.?\s+(\d{1,2})$/i);
+  if(m && MONTHS[m[1].toLowerCase()]) return `${String(MONTHS[m[1].toLowerCase()]).padStart(2,'0')}-${String(+m[2]).padStart(2,'0')}`;
+  return s;
+}
+
+function parseCareJson(raw){
+  let text = String(raw || '').trim();
+  const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if(fence) text = fence[1];
+  const a = text.indexOf('{'), b = text.lastIndexOf('}');
+  if(a < 0 || b < 0) throw new Error('The model returned no JSON');
+  let obj;
+  try { obj = JSON.parse(text.slice(a, b + 1)); }
+  catch(e){ throw new Error('Could not parse the schedule JSON'); }
+  const out = [];
+  for(const s of (Array.isArray(obj.schedules) ? obj.schedules : [])){
+    if(!s || !s.plant_id) continue;
+    const tasks = [];
+    for(const t of (Array.isArray(s.tasks) ? s.tasks : [])){
+      const start = toMD(t && t.start), end = toMD((t && t.end) || start);
+      const task = String((t && t.task) || '').trim().toLowerCase().replace(/\.$/, '').slice(0, 60);
+      if(!task || !MD_RE.test(start)) continue;
+      tasks.push({ task, start, end: MD_RE.test(end) ? end : start, notes: String((t && t.notes) || '').trim().slice(0, 240) });
+    }
+    if(tasks.length) out.push({ plant_id: String(s.plant_id), tasks });
+  }
+  return out;
+}
+
+async function handleCare(body, env, cors){
+  const plants = (Array.isArray(body.plants) ? body.plants : []).slice(0, 8);
+  if(!plants.length) throw new Error('No plants provided');
+  const sys = [
+    `You are an expert horticulturist writing a yearly care schedule for a home garden in ${body.city || 'Lilly, PA'} (USDA hardiness zone ${body.zone || '6a'}). Average last spring frost: ${body.lastFrost || 'mid-May'}. Average first fall frost: ${body.firstFrost || 'early October'}.`,
+    `For EACH plant, list 3 to 7 recurring yearly care tasks, each with a date window (start and end as MM-DD) tuned to this climate and to the specific species. Cover what actually matters for that plant: pruning in the correct season for the species, fertilizing, mulching, watering guidance for newly planted specimens, winter protection and when to remove it, pest or disease timing, deadheading or dividing for perennials, and repotting or moving in/out for container plants. Do not pad with generic filler.`,
+    `Task names: short imperative phrases, at most 6 words, lowercase (e.g. "prune", "fertilize", "mulch", "deadhead", "winter protect", "uncover", "repot", "dormant oil spray", "bring inside", "take outside", "divide"). Notes: one concise, practical sentence.`,
+    `Respond with ONLY valid JSON, no prose and no markdown fences, exactly in this shape: {"schedules":[{"plant_id":"...","tasks":[{"task":"...","start":"MM-DD","end":"MM-DD","notes":"..."}]}]}`,
+  ].join('\n');
+  const user = 'Plants:\n' + plants.map(p =>
+    `- id=${p.id} | name="${p.name || ''}" | latin="${p.type || ''}" | category=${p.category || ''} | container=${p.container ? 'yes' : 'no'} | spot=${p.spot || ''} | tags=${p.tags || ''} | planted=${p.purchased || ''}${p.notes ? ` | notes="${String(p.notes).slice(0, 200)}"` : ''}`
+  ).join('\n');
+  const ai = await env.AI.run(MODEL, { messages: [{ role:'system', content: sys }, { role:'user', content: user }], max_tokens: 2400, temperature: 0.2 });
+  const raw = String((ai && (ai.response ?? ai.result)) || '');
+  const schedules = parseCareJson(raw);
+  return new Response(JSON.stringify({ schedules, model: MODEL, modelLabel: modelLabel(MODEL), provider: PROVIDER }), {
+    status: 200, headers: { ...cors, 'Content-Type': 'application/json' },
+  });
+}
+
 export default {
   async fetch(request, env){
     const origin = request.headers.get('Origin') || '';
@@ -225,6 +288,7 @@ export default {
 
     try {
       const body = await request.json();
+      if(body.mode === 'care') return await handleCare(body, env, cors);
       const history = (Array.isArray(body.messages) ? body.messages : [])
         .filter(m => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim())
         .slice(-8);

@@ -299,6 +299,50 @@ async function claudeCare(env, sys, user){
   return { raw: text, model, modelLabel: CLAUDE_LABELS[model] || model, provider: 'Anthropic' };
 }
 
+/* Chatbot on Claude (issue #70). Same key as the care calendar; model from the
+   CHAT_MODEL var. The big system prompt (all the sheet data) is marked for prompt
+   caching so follow-up questions within a few minutes re-read it at a fraction
+   of the price. Effort is kept low: these are lookups, not deep reasoning. */
+function chatModelInfo(env){
+  if(env.ANTHROPIC_API_KEY){
+    const model = env.CHAT_MODEL || 'claude-opus-5-5';
+    return { model, modelLabel: CLAUDE_LABELS[model] || model, provider: 'Anthropic' };
+  }
+  return { model: MODEL, modelLabel: modelLabel(MODEL), provider: PROVIDER };
+}
+
+async function claudeChat(env, system, history){
+  const info = chatModelInfo(env);
+  // Claude needs strictly alternating user/assistant turns starting with user.
+  const messages = [];
+  for(const m of history){
+    if(!messages.length && m.role !== 'user') continue;
+    const last = messages[messages.length - 1];
+    if(last && last.role === m.role) last.content += '\n\n' + m.content;
+    else messages.push({ role: m.role, content: m.content });
+  }
+  if(!messages.length) throw new Error('No question provided');
+  const r = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({
+      model: info.model,
+      max_tokens: 2000,
+      system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
+      output_config: { effort: 'low' },
+      messages,
+    }),
+  });
+  const data = await r.json().catch(() => ({}));
+  if(!r.ok){
+    const msg = (data && data.error && data.error.message) || ('HTTP ' + r.status);
+    throw new Error('Claude API: ' + msg);
+  }
+  if(data.stop_reason === 'refusal') throw new Error('Claude declined to answer that');
+  const answer = (Array.isArray(data.content) ? data.content : []).filter(b => b && b.type === 'text').map(b => b.text).join('').trim();
+  return { answer, ...info };
+}
+
 async function handleCare(body, env, cors){
   const plants = (Array.isArray(body.plants) ? body.plants : []).slice(0, 8);
   if(!plants.length) throw new Error('No plants provided');
@@ -334,7 +378,7 @@ export default {
 
     // Public info endpoint: which model is answering (issue #54). Not sensitive.
     if(request.method === 'GET'){
-      return new Response(JSON.stringify({ model: MODEL, modelLabel: modelLabel(MODEL), provider: PROVIDER }), {
+      return new Response(JSON.stringify(chatModelInfo(env)), {
         status: 200, headers: { ...cors, 'Content-Type': 'application/json' },
       });
     }
@@ -362,13 +406,18 @@ export default {
       const context = Object.entries(byName).filter(([, t]) => t).map(([n, t]) => `## ${n} (CSV)\n${t}`).join('\n\n');
       const computed = computeTotals(byName);
       const today = new Date().toISOString().slice(0, 10);
-      const messages = [{ role: 'system', content: systemPrompt(computed, context, today) }, ...history];
+      const system = systemPrompt(computed, context, today);
 
-      const ai = await env.AI.run(MODEL, { messages, max_tokens: 600, temperature: 0.3 });
-      const answer = String((ai && (ai.response ?? ai.result)) || '').trim()
-        || "Sorry, I couldn't come up with an answer for that.";
+      let res;
+      if(env.ANTHROPIC_API_KEY){
+        res = await claudeChat(env, system, history);
+      } else {
+        const ai = await env.AI.run(MODEL, { messages: [{ role: 'system', content: system }, ...history], max_tokens: 600, temperature: 0.3 });
+        res = { answer: String((ai && (ai.response ?? ai.result)) || '').trim(), model: MODEL, modelLabel: modelLabel(MODEL), provider: PROVIDER };
+      }
+      const answer = res.answer || "Sorry, I couldn't come up with an answer for that.";
 
-      return new Response(JSON.stringify({ answer, model: MODEL, modelLabel: modelLabel(MODEL), provider: PROVIDER }), {
+      return new Response(JSON.stringify({ answer, model: res.model, modelLabel: res.modelLabel, provider: res.provider }), {
         status: 200,
         headers: { ...cors, 'Content-Type': 'application/json' },
       });

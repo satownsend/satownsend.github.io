@@ -11,3 +11,6 @@ binding = "AI"
 # falls back to Workers AI. Switch to "claude-sonnet-5-5" to halve the cost.
 [vars]
 CARE_MODEL = "claude-opus-5-5"
+# Chatbot model (issue #70) — same key, same fallback rule. Sonnet: the math is
+# done in code, so the model is mostly reading rows back; half the price of Opus.
+CHAT_MODEL = "claude-sonnet-5-5"

@@ -48,7 +48,7 @@ Browser (static HTML/JS)
 ├── reads data     ──► Google Sheets (public CSV export)         no login needed
 ├── writes data    ──► Google Sheets API v4                      requires Google login
 ├── photos/videos  ──► Cloudflare R2 (S3 API, signed in-browser) requires R2 creds
-└── chatbot        ──► Cloudflare Worker ──► Workers AI (LLM)    requires Google login
+└── chatbot        ──► Cloudflare Worker ──► Claude (Anthropic)  requires Google login
 ```
 
 ### Data — Google Sheets
@@ -99,8 +99,9 @@ on my Warmoth bass?", "Frost?").
 
 - A **Cloudflare Worker** (`chatbot-worker/`) fetches the sheets, computes exact
   aggregates (counts/sums/averages) **in code** so numbers match the dashboards,
-  stuffs the data into the prompt, and calls **Cloudflare Workers AI**
-  (Llama 3.3 70B — no API keys, free tier).
+  stuffs the data into the prompt, and calls **Claude** (Sonnet 5.5 via an
+  `ANTHROPIC_API_KEY` Worker secret, with prompt caching; falls back to
+  Cloudflare Workers AI / Llama without a key).
 - **Owner-only:** the button only shows when signed in, and the Worker verifies
   your Google token before answering (401 otherwise) — this keeps the
   signed-in-only instrument prices private.

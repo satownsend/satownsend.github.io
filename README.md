@@ -116,9 +116,10 @@ calendar holds a yearly care schedule per plant (prune, fertilize, mulch,
 winter protect, repot…), each task a `MM-DD` window that repeats every year.
 
 - **Generating:** "Generate schedules" sends plants (a few per request) to the
-  same Worker with `mode: "care"`; Workers AI writes a species-specific schedule
-  for zone 6a and the configured frost dates and returns strict JSON, which the
-  Worker validates before the browser stores it. Plants without a schedule
+  same Worker with `mode: "care"`; **Claude** (Opus 5.5 by default, via an
+  `ANTHROPIC_API_KEY` Worker secret — falls back to Workers AI without one)
+  writes a species-specific schedule for zone 6a and the configured frost dates
+  and returns strict JSON, which the Worker validates before the browser stores it. Plants without a schedule
   trigger a nudge in Today's brief. "Regenerate" replaces a plant's AI tasks
   but keeps any you added or edited yourself.
 - **Storage:** a `care_schedule` tab in the plants sheet

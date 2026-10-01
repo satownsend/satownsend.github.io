@@ -241,11 +241,70 @@ function parseCareJson(raw){
   return out;
 }
 
+/* Claude (Anthropic API) for the care calendar. Used when the Worker has an
+   ANTHROPIC_API_KEY secret (`wrangler secret put ANTHROPIC_API_KEY`); otherwise
+   the care handler falls back to Workers AI above. The model id comes from the
+   CARE_MODEL var in wrangler.toml (claude-opus-5-5 or claude-sonnet-5-5).
+   Raw HTTP on purpose: the Worker has no bundler/npm deps. */
+const CLAUDE_LABELS = { 'claude-opus-5-5': 'Claude Opus 5.5', 'claude-sonnet-5-5': 'Claude Sonnet 5.5' };
+const CARE_SCHEMA = {
+  type: 'object',
+  properties: {
+    schedules: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          plant_id: { type: 'string' },
+          tasks: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: { task: { type: 'string' }, start: { type: 'string' }, end: { type: 'string' }, notes: { type: 'string' } },
+              required: ['task', 'start', 'end', 'notes'],
+              additionalProperties: false,
+            },
+          },
+        },
+        required: ['plant_id', 'tasks'],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ['schedules'],
+  additionalProperties: false,
+};
+
+async function claudeCare(env, sys, user){
+  const model = env.CARE_MODEL || 'claude-opus-5-5';
+  const r = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({
+      model,
+      max_tokens: 12000, // thinking + a batch of 6 schedules; only what's used is billed
+      system: sys,
+      messages: [{ role: 'user', content: user }],
+      output_config: { format: { type: 'json_schema', schema: CARE_SCHEMA } },
+    }),
+  });
+  const data = await r.json().catch(() => ({}));
+  if(!r.ok){
+    const msg = (data && data.error && data.error.message) || ('HTTP ' + r.status);
+    throw new Error('Claude API: ' + msg);
+  }
+  if(data.stop_reason === 'refusal') throw new Error('Claude declined to answer this request');
+  if(data.stop_reason === 'max_tokens') throw new Error('Claude ran out of room — try fewer plants per batch');
+  const text = (Array.isArray(data.content) ? data.content : []).filter(b => b && b.type === 'text').map(b => b.text).join('');
+  return { raw: text, model, modelLabel: CLAUDE_LABELS[model] || model, provider: 'Anthropic' };
+}
+
 async function handleCare(body, env, cors){
   const plants = (Array.isArray(body.plants) ? body.plants : []).slice(0, 8);
   if(!plants.length) throw new Error('No plants provided');
   const sys = [
     `You are an expert horticulturist writing a yearly care schedule for a home garden in ${body.city || 'Lilly, PA'} (USDA hardiness zone ${body.zone || '6a'}). Average last spring frost: ${body.lastFrost || 'mid-May'}. Average first fall frost: ${body.firstFrost || 'early October'}.`,
+    `Identify each plant from its common name AND its Latin name together. When the Latin name is missing, infer the most likely species and cultivar from the common name, category, tags, and notes, and base the schedule on that (never give generic advice because a field is blank). When the two names disagree, trust the Latin name.`,
     `For EACH plant, list 3 to 7 recurring yearly care tasks, each with a date window (start and end as MM-DD) tuned to this climate and to the specific species. Cover what actually matters for that plant: pruning in the correct season for the species, fertilizing, mulching, watering guidance for newly planted specimens, winter protection and when to remove it, pest or disease timing, deadheading or dividing for perennials, and repotting or moving in/out for container plants. Do not pad with generic filler.`,
     `Task names: short imperative phrases, at most 6 words, lowercase (e.g. "prune", "fertilize", "mulch", "deadhead", "winter protect", "uncover", "repot", "dormant oil spray", "bring inside", "take outside", "divide"). Notes: one concise, practical sentence.`,
     `Respond with ONLY valid JSON, no prose and no markdown fences, exactly in this shape: {"schedules":[{"plant_id":"...","tasks":[{"task":"...","start":"MM-DD","end":"MM-DD","notes":"..."}]}]}`,
@@ -253,10 +312,15 @@ async function handleCare(body, env, cors){
   const user = 'Plants:\n' + plants.map(p =>
     `- id=${p.id} | name="${p.name || ''}" | latin="${p.type || ''}" | category=${p.category || ''} | container=${p.container ? 'yes' : 'no'} | spot=${p.spot || ''} | tags=${p.tags || ''} | planted=${p.purchased || ''}${p.notes ? ` | notes="${String(p.notes).slice(0, 200)}"` : ''}`
   ).join('\n');
-  const ai = await env.AI.run(MODEL, { messages: [{ role:'system', content: sys }, { role:'user', content: user }], max_tokens: 2400, temperature: 0.2 });
-  const raw = String((ai && (ai.response ?? ai.result)) || '');
-  const schedules = parseCareJson(raw);
-  return new Response(JSON.stringify({ schedules, model: MODEL, modelLabel: modelLabel(MODEL), provider: PROVIDER }), {
+  let res;
+  if(env.ANTHROPIC_API_KEY){
+    res = await claudeCare(env, sys, user);
+  } else {
+    const ai = await env.AI.run(MODEL, { messages: [{ role:'system', content: sys }, { role:'user', content: user }], max_tokens: 2400, temperature: 0.2 });
+    res = { raw: String((ai && (ai.response ?? ai.result)) || ''), model: MODEL, modelLabel: modelLabel(MODEL), provider: PROVIDER };
+  }
+  const schedules = parseCareJson(res.raw);
+  return new Response(JSON.stringify({ schedules, model: res.model, modelLabel: res.modelLabel, provider: res.provider }), {
     status: 200, headers: { ...cors, 'Content-Type': 'application/json' },
   });
 }

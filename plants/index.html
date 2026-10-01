@@ -320,6 +320,21 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .cbp-tasks .t-notes{color:var(--muted);font-size:12px;flex-basis:100%}
   .cbp-empty{color:var(--muted);font-size:13px;font-style:italic}
   #careNudge{margin-top:10px;padding:10px 12px;border:1px dashed var(--line2);border-radius:10px;font-size:13px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  /* Generation progress: spinner on the buttons being worked, a progress bar
+     under the top status line, and a fixed toast so it's visible from anywhere
+     on the page (the By plant list is a long way below the Generate button). */
+  @keyframes careSpin{to{transform:rotate(360deg)}}
+  .care-spin{display:inline-block;width:11px;height:11px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:careSpin .8s linear infinite;vertical-align:-1px;margin-right:6px}
+  .care-bar{height:3px;background:var(--line);border-radius:2px;overflow:hidden;margin:4px 0 8px;display:none}
+  .care-bar.on{display:block}
+  .care-bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .4s ease}
+  .cbp.working{border-color:var(--accent)}
+  .cbp.queued .cbp-actions [data-gen]{opacity:.7}
+  #careToast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:45;background:var(--panel);color:var(--ink);border:1px solid var(--line2);border-radius:12px;padding:10px 14px;font-size:13px;box-shadow:0 10px 30px rgba(0,0,0,.4);display:none;align-items:center;gap:10px;max-width:min(92vw,520px)}
+  #careToast.on{display:flex}
+  #careToast .ct-text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #careToast .ct-bar{flex:0 0 90px;height:4px;background:var(--line);border-radius:2px;overflow:hidden}
+  #careToast .ct-bar i{display:block;height:100%;background:var(--accent);transition:width .4s ease}
   @media (max-width:700px){
     .cc-day{min-height:44px;padding:2px 3px}
     .cc-chip,.cc-more,.cc-dot{display:none}
@@ -770,6 +785,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </div>
     </div>
     <div class="small" id="careGenStatus" style="color:var(--muted);min-height:1.2em"></div>
+    <div class="care-bar" id="careBar"><i></i></div>
     <div class="cc-grid" id="careGrid"></div>
     <div id="careDay" class="care-day"></div>
   </div>
@@ -992,6 +1008,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </div>
 </div>
 
+<div id="careToast" role="status" aria-live="polite"><span class="care-spin"></span><span class="ct-text"></span><span class="ct-bar"><i></i></span></div>
 <div class="modal-back" id="careTaskModal" style="z-index:55">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="careTaskTitle" style="max-width:480px">
     <button class="close" id="careTaskClose" aria-label="Close">×</button>
@@ -5174,6 +5191,21 @@ const CARE_WORKER_URL = 'https://satownsend-chatbot.satownsend.workers.dev';
 const VIEW_KEY = 'plants.view';
 const MD_RE = /^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 let careBusy = false;
+let careQueued = new Set(), careWorking = new Set(); // plant ids waiting / in the current batch
+// done = plants finished so far, total = plants requested; done < 0 hides everything.
+function careProgress(done, total, names){
+  const bar = $('#careBar'), toast = $('#careToast');
+  if (done < 0){ if (bar) bar.classList.remove('on'); if (toast) toast.classList.remove('on'); return; }
+  const pct = total ? Math.max(4, Math.round(done / total * 100)) : 0;
+  if (bar){ bar.classList.add('on'); bar.querySelector('i').style.width = pct + '%'; }
+  if (toast){
+    toast.classList.add('on');
+    toast.querySelector('.ct-text').textContent = total > 1
+      ? `Generating care schedules… ${done} of ${total} done · now: ${names || '…'}`
+      : `Generating care schedule for ${names || '…'}`;
+    toast.querySelector('.ct-bar i').style.width = pct + '%';
+  }
+}
 let calY = today.getFullYear(), calM = today.getMonth();
 let careSelDay = null;   // 'MM-DD' selected in the month grid
 
@@ -5306,10 +5338,10 @@ function renderCareByPlant(){
     const list = tasks.length
       ? `<ul class="cbp-tasks">${tasks.map(t => `<li><span class="t-win">${escapeHtml(winLabel(t))}</span><span>${escapeHtml(t.task)}</span>${t.source === 'manual' ? '<span class="small" style="color:var(--muted)">manual</span>' : ''}<button class="ci-edit care-edit" data-edit="${escapeHtml(t.id)}" aria-label="Edit" title="Edit">✎</button>${t.notes ? `<span class="t-notes">${escapeHtml(t.notes)}</span>` : ''}</li>`).join('')}</ul>`
       : '<div class="cbp-empty">No schedule yet.</div>';
-    return `<div class="cbp" data-pid="${escapeHtml(p.id)}">
+    return `<div class="cbp${careWorking.has(p.id) ? ' working' : careQueued.has(p.id) ? ' queued' : ''}" data-pid="${escapeHtml(p.id)}">
       <div class="cbp-head"><span class="cbp-name" data-open="${escapeHtml(p.id)}">${escapeHtml(p.name)}</span>${p.type ? `<span class="cbp-lat">${escapeHtml(p.type)}</span>` : ''}
         <div class="cbp-actions care-edit">
-          <button class="ghost tiny" data-gen="${escapeHtml(p.id)}">${tasks.length ? 'Regenerate' : 'Generate'}</button>
+          <button class="ghost tiny" data-gen="${escapeHtml(p.id)}">${careWorking.has(p.id) ? '<span class="care-spin"></span>Generating…' : careQueued.has(p.id) ? 'Queued…' : tasks.length ? 'Regenerate' : 'Generate'}</button>
           <button class="ghost tiny" data-add="${escapeHtml(p.id)}">+ Task</button>
         </div></div>${list}</div>`;
   }).join('');
@@ -5332,7 +5364,7 @@ function renderCareStatus(){
 }
 function updateCareButtons(){
   const missing = plantsMissingCare().length;
-  const gen = $('#careGenBtn'); if (gen){ gen.disabled = careBusy || !missing; gen.textContent = missing ? `Generate schedules (${missing})` : 'Generate schedules'; }
+  const gen = $('#careGenBtn'); if (gen){ gen.disabled = careBusy || !missing; gen.innerHTML = careBusy ? '<span class="care-spin"></span>Generating…' : missing ? `Generate schedules (${missing})` : 'Generate schedules'; }
   const all = $('#careRegenAll'); if (all) all.disabled = careBusy || !state.plants.some(isLive);
   $$('#careByPlant [data-gen], #careByPlant [data-add], #careAddTask').forEach(b => { b.disabled = careBusy; });
 }
@@ -5356,13 +5388,19 @@ async function generateCare(plantIds, opts = {}){
   const targets = state.plants.filter(p => plantIds.includes(p.id));
   if (!targets.length) return;
   const st = $('#careGenStatus');
-  careBusy = true; updateCareButtons();
+  careBusy = true;
+  careQueued = new Set(targets.map(p => p.id)); careWorking = new Set();
+  updateCareButtons(); careProgress(0, targets.length, '');
   let plantsDone = 0, added = 0;
   try {
     for (let i = 0; i < targets.length; i += 6){
       const batch = targets.slice(i, i + 6);
+      careWorking = new Set(batch.map(p => p.id)); batch.forEach(p => careQueued.delete(p.id));
+      renderCareByPlant();
       st.style.color = 'var(--muted)';
-      st.textContent = `Generating ${i + 1}–${Math.min(i + 6, targets.length)} of ${targets.length}… (${batch.map(p => p.name).join(', ')})`;
+      const names = batch.map(p => p.name).join(', ');
+      st.innerHTML = `<span class="care-spin"></span>Generating ${i + 1}–${Math.min(i + 6, targets.length)} of ${targets.length}… (${escapeHtml(names)})`;
+      careProgress(i, targets.length, names);
       const r = await fetch(CARE_WORKER_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + GAuth.token() },
@@ -5396,7 +5434,8 @@ async function generateCare(plantIds, opts = {}){
     st.style.color = '#e8a06a';
     st.textContent = 'Error: ' + e.message;
   } finally {
-    careBusy = false; updateCareButtons(); buildBrief();
+    careBusy = false; careQueued = new Set(); careWorking = new Set();
+    careProgress(-1); renderCareByPlant(); updateCareButtons(); buildBrief();
   }
 }
 

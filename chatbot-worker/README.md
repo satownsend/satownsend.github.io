@@ -29,6 +29,21 @@ https://satownsend-chatbot.<your-subdomain>.workers.dev
 Put that URL into `CHAT_WORKER_URL` at the top of `/shared/chat.js` and push.
 Until it's set, the chat panel shows a "not configured yet" note.
 
+## Care calendar on Claude (issue #69)
+
+The plant care calendar (`mode: "care"`) uses **Claude** when the Worker has an
+Anthropic API key, and Workers AI otherwise. The key is a Worker **secret** —
+never in the repo:
+
+```sh
+npx wrangler secret put ANTHROPIC_API_KEY   # paste the key at the prompt
+npx wrangler deploy
+```
+
+The model is `CARE_MODEL` in `wrangler.toml` (`claude-opus-5-5` by default;
+`claude-sonnet-5-5` is about half the price). Structured outputs guarantee the
+JSON shape; the Worker still validates every field.
+
 ## Notes
 
 - **Model:** `@cf/meta/llama-3.3-70b-instruct-fp8-fast` (24k context — the whole

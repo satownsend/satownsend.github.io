@@ -5,3 +5,9 @@ compatibility_date = "2025-01-01"
 # Cloudflare Workers AI binding — gives the Worker `env.AI.run(...)`.
 [ai]
 binding = "AI"
+
+# Care calendar model (issue #69). Used only when the ANTHROPIC_API_KEY secret is
+# set (`npx wrangler secret put ANTHROPIC_API_KEY`); without it the care handler
+# falls back to Workers AI. Switch to "claude-sonnet-5-5" to halve the cost.
+[vars]
+CARE_MODEL = "claude-opus-5-5"

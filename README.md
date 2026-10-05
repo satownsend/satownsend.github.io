@@ -36,7 +36,10 @@ Shared per-dashboard features:
 - **Capture-date detection** — uploaded photos/videos use their EXIF /
   file-modified date, not the upload date.
 - **Column show/hide**, search, sort, and category filters on every table.
-- **Themes** — six color themes (`data-theme`), remembered per browser.
+- **Themes** — twelve color themes (eight dark, four light; `data-theme`),
+  remembered per browser and shared across pages. Colors live in
+  `shared/styles.css`, the picker list in `shared/themes.js` — adding one is a
+  CSS block plus one line.
 - **Mobile-friendly** — tables collapse to cards; the nav becomes a dropdown.
 
 ---
@@ -170,6 +173,7 @@ run on boot, and disable screen blanking (`xset s off -dpms`, or in
 | File | Role |
 |------|------|
 | `styles.css` | Theme system (CSS variables + `data-theme`) and shared component styles |
+| `themes.js` | The theme list for the picker (loaded synchronously in `<head>`; colors are in `styles.css`) |
 | `nav.js` | The cross-page dropdown menu (mounts into `<div id="siteNav">`) |
 | `gauth.js` | Shared Google login + silent renewal (`window.GAuth`) |
 | `chat.js` | The floating chatbot widget |
@@ -196,6 +200,7 @@ Google Analytics 4 (`G-SSCCK0JXVB`) is loaded in the `<head>` of every page.
 ├── all-slideshow/, plants-slideshow/, … , slideshow/   # photo-frame stubs (load shared/frame.js)
 ├── shared/
 │   ├── styles.css        # themes + shared component styles
+│   ├── themes.js         # theme picker list
 │   ├── nav.js            # cross-page dropdown menu
 │   ├── gauth.js          # shared Google auth
 │   └── chat.js           # chatbot widget

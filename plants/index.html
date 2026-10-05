@@ -19,6 +19,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <link rel="preconnect" href="https://use.typekit.net" crossorigin>
 <link rel="stylesheet" href="https://use.typekit.net/twp1irx.css">
 <link rel="stylesheet" href="/shared/styles.css">
+<script src="/shared/themes.js"></script>
 <script defer src="/shared/nav.js"></script>
 <script defer src="/shared/chat.js"></script>
 <style>
@@ -1372,23 +1373,22 @@ function plantedDuration(dateStr){
 }
 
 /* ---------- theme ---------- */
-const THEME_KEY = 'yardDashboard.theme';
+// Same key as the other pages, so one pick follows you across the site.
+// (Older plants-only key is read once as a fallback; its 'dark' id = default.)
+const THEME_KEY = 'satownsend.theme';
+const OLD_THEME_KEY = 'yardDashboard.theme';
 // label / data-theme value / accent / bg pair shown in the swatch
-const THEMES = [
-  { id:'dark',    label:'Teal Dark',     bg:'#08191c', accent:'#4dd0c1', meta:'#0d2629' },
-  { id:'light',   label:'Cream Light',   bg:'#e6f1f2', accent:'#118a7d', meta:'#f3f9fa' },
-  { id:'redwood', label:'Dawn Redwood',  bg:'#dde9d4', accent:'#5a8a32', meta:'#e8f0e0' },
-  { id:'maple',   label:'Bloodgood Maple', bg:'#16080a', accent:'#d2554a', meta:'#1f0e10' },
-  { id:'forest',  label:'Forest',        bg:'#0d1611', accent:'#8fc06a', meta:'#11201a' },
-  { id:'slate',   label:'Slate Grey',    bg:'#13171b', accent:'#9aafc4', meta:'#1a1f24' },
-];
+const THEMES = window.THEMES; // shared list: /shared/themes.js (colors in styles.css)
 function getThemeId(){
-  const stored = localStorage.getItem(THEME_KEY) || 'dark';
-  return THEMES.some(t => t.id === stored) ? stored : 'dark';
+  let stored = localStorage.getItem(THEME_KEY) || localStorage.getItem(OLD_THEME_KEY) || 'default';
+  if (stored === 'dark') stored = 'default';
+  return THEMES.some(t => t.id === stored) ? stored : 'default';
 }
 function applyTheme(id){
-  if (!THEMES.some(t => t.id === id)) id = 'dark';
-  document.documentElement.setAttribute('data-theme', id);
+  if (id === 'dark') id = 'default';
+  if (!THEMES.some(t => t.id === id)) id = 'default';
+  if (id === 'default') document.documentElement.removeAttribute('data-theme');
+  else document.documentElement.setAttribute('data-theme', id);
   const t = THEMES.find(x => x.id === id);
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta && t) meta.setAttribute('content', t.meta);

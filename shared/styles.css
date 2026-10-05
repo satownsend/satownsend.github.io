@@ -135,6 +135,138 @@
   --gradient-2:#0f231b;
   --shadow:0 1px 2px rgba(0,0,0,.4), 0 12px 36px rgba(0,0,0,.45);
 }
+/* ── Midnight — deep navy, star-white accent, faint violet (astro) ── */
+[data-theme="midnight"]{
+  --bg:#0a0f1f;
+  --bg2:#101830;
+  --panel:#141d38;
+  --panel2:#1b2746;
+  --ink:#e8ecf8;
+  --ink-soft:#c3cbe6;
+  --muted:#8089ab;
+  --line:#232e52;
+  --line2:#2f3c66;
+  --accent:#e3e8ff;
+  --accent-deep:#aab4e8;
+  --accent2:#9d8cff;
+  --warn:#e0a060;
+  --cool:#8fb8ff;
+  --chip:#1b2746;
+  --chip-line:#2f3c66;
+  --gradient-1:#1a2650;
+  --gradient-2:#0b1226;
+  --shadow:0 1px 2px rgba(0,0,0,.5), 0 12px 36px rgba(0,0,0,.55);
+}
+/* ── Amber — roasted brown, hop-gold accent, copper (beer) ── */
+[data-theme="amber"]{
+  --bg:#170f08;
+  --bg2:#21160c;
+  --panel:#2a1c10;
+  --panel2:#362516;
+  --ink:#f3e8d6;
+  --ink-soft:#d9c8ae;
+  --muted:#a08c70;
+  --line:#3f2c1a;
+  --line2:#523a24;
+  --accent:#e8b03c;
+  --accent-deep:#b8841e;
+  --accent2:#c8743c;
+  --warn:#e07a3a;
+  --cool:#b4a06a;
+  --chip:#362516;
+  --chip-line:#523a24;
+  --gradient-1:#4a3018;
+  --gradient-2:#1c120a;
+  --shadow:0 1px 2px rgba(0,0,0,.45), 0 12px 36px rgba(0,0,0,.5);
+}
+/* ── Sunburst — near-black walnut, tobacco-orange accent fading to cream (instruments) ── */
+[data-theme="sunburst"]{
+  --bg:#0c0907;
+  --bg2:#150f0b;
+  --panel:#1c1410;
+  --panel2:#261b15;
+  --ink:#f2e6d4;
+  --ink-soft:#d6c4ac;
+  --muted:#9a8672;
+  --line:#33261d;
+  --line2:#453226;
+  --accent:#e08a3c;
+  --accent-deep:#b0601f;
+  --accent2:#f2d6a2;
+  --warn:#e0603a;
+  --cool:#c8a878;
+  --chip:#261b15;
+  --chip-line:#453226;
+  --gradient-1:#5a2e12;
+  --gradient-2:#0c0907;
+  --shadow:0 1px 2px rgba(0,0,0,.5), 0 12px 36px rgba(0,0,0,.55);
+}
+/* ── Pure Black — true black for OLED, white accent ── */
+[data-theme="black"]{
+  --bg:#000000;
+  --bg2:#0a0a0a;
+  --panel:#101010;
+  --panel2:#181818;
+  --ink:#f5f5f5;
+  --ink-soft:#cfcfcf;
+  --muted:#8a8a8a;
+  --line:#232323;
+  --line2:#333333;
+  --accent:#ffffff;
+  --accent-deep:#c8c8c8;
+  --accent2:#ffb347;
+  --warn:#ff8c42;
+  --cool:#9ad0ff;
+  --chip:#181818;
+  --chip-line:#333333;
+  --gradient-1:#1c1c1c;
+  --gradient-2:#000000;
+  --shadow:0 1px 2px rgba(0,0,0,.6), 0 12px 36px rgba(0,0,0,.7);
+}
+/* ── Frost — cool neutral light, steel-blue accent ── */
+[data-theme="frost"]{
+  --bg:#e9eef3;
+  --bg2:#f4f7fa;
+  --panel:#ffffff;
+  --panel2:#edf1f5;
+  --ink:#1a2430;
+  --ink-soft:#3a4857;
+  --muted:#71808f;
+  --line:#cfd8e2;
+  --line2:#b4c1cf;
+  --accent:#3f6f9e;
+  --accent-deep:#2d5680;
+  --accent2:#8a6f4a;
+  --warn:#a6552a;
+  --cool:#4a8ea8;
+  --chip:#e1e8ef;
+  --chip-line:#c4d0dc;
+  --gradient-1:#d6e0ea;
+  --gradient-2:#e9eef3;
+  --shadow:0 1px 2px rgba(0,0,0,.04), 0 8px 22px rgba(0,0,0,.08);
+}
+/* ── Hydrangea — lavender-white, plum accent, sage (plants) ── */
+[data-theme="hydrangea"]{
+  --bg:#efeaf5;
+  --bg2:#f7f4fb;
+  --panel:#ffffff;
+  --panel2:#f1ecf7;
+  --ink:#251c2e;
+  --ink-soft:#463a52;
+  --muted:#7c7089;
+  --line:#d9cfe6;
+  --line2:#c2b4d4;
+  --accent:#7a4a8f;
+  --accent-deep:#5e3570;
+  --accent2:#6f8f6a;
+  --warn:#a65a3a;
+  --cool:#6d8fa6;
+  --chip:#e8e0f0;
+  --chip-line:#cdbfdc;
+  --gradient-1:#dccfe8;
+  --gradient-2:#efeaf5;
+  --shadow:0 1px 2px rgba(0,0,0,.04), 0 8px 22px rgba(0,0,0,.08);
+}
 
 /* ── Base reset & layout ── */
 *{box-sizing:border-box}

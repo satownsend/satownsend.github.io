@@ -15,6 +15,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <link rel="preconnect" href="https://use.typekit.net" crossorigin>
 <link rel="stylesheet" href="https://use.typekit.net/twp1irx.css">
 <link rel="stylesheet" href="/shared/styles.css">
+<script src="/shared/themes.js"></script>
 <script defer src="/shared/nav.js"></script>
 <script defer src="/shared/gauth.js"></script>
 <script defer src="/shared/chat.js"></script>
@@ -446,14 +447,7 @@ async function loadPhotography(){
 }
 
 /* ── Themes ── */
-const THEMES = [
-  { id:'default', label:'Teal Dark',   bg:'#08191c', accent:'#4dd0c1' },
-  { id:'light',   label:'Cream Light', bg:'#e6f1f2', accent:'#118a7d' },
-  { id:'redwood', label:'Dawn Redwood', bg:'#dde9d4', accent:'#5a8a32' },
-  { id:'slate',   label:'Slate',       bg:'#13171b', accent:'#9aafc4' },
-  { id:'maple',   label:'Maple',       bg:'#16080a', accent:'#d2554a' },
-  { id:'forest',  label:'Forest',      bg:'#0d1611', accent:'#8fc06a' },
-];
+const THEMES = window.THEMES; // shared list: /shared/themes.js (colors in styles.css)
 const THEME_KEY = 'satownsend.theme';
 
 function applyTheme(id){

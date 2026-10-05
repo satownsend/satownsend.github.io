@@ -408,6 +408,13 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .small{font-size:12px;color:var(--muted)}
   @media (max-width:700px){.forecast{grid-template-columns:repeat(3,1fr)}}
 
+  #locchip .lc-short{display:none}
+  /* The sync chip only shows while something is happening (syncing, error);
+     a successful state flashes for a few seconds then hides. The full status
+     always lives in Settings → Google Sheets sync (issue #75). */
+  #syncchip{transition:opacity .4s}
+  #syncchip.hide{display:none}
+
   /* ---------- mobile (≤700px) ---------- */
   @media (max-width:700px){
     .wrap{padding:14px 12px 80px}
@@ -417,8 +424,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .panel{padding:14px 14px;border-radius:10px}
     h2{font-size:13px}
     .topline{font-size:16px}
-    /* Header chips smaller, allow wrap */
+    /* Header chips smaller; location shows the city only (issue #75) */
     .chip{font-size:11px;padding:3px 8px}
+    #locchip .lc-full{display:none}
+    #locchip .lc-short{display:inline}
+    header .row{gap:6px}
+    header #settingsBtn{padding:4px 10px;min-height:28px}
     /* Bigger tap targets */
     button{padding:9px 14px;min-height:38px}
     button.tiny{padding:6px 10px;min-height:32px}
@@ -566,7 +577,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </div>
   <div class="row">
     <span class="chip" id="locchip">📍 set location</span>
-    <span class="chip" id="syncchip" title="Click to configure">⟳ sync: off</span>
+    <span class="chip hide" id="syncchip" title="Sync status — click for settings">⟳ sync: off</span>
     <span style="position:relative">
       <span class="chip" id="themechip" title="Pick theme" style="cursor:pointer">◐ theme</span>
       <div id="themePop" class="theme-pop" role="dialog" aria-label="Pick theme" style="display:none"></div>
@@ -856,7 +867,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <hr>
   <div>
     <h2 style="margin:0 0 8px">Google Sheets sync</h2>
-    <div class="small" style="margin-bottom:6px">Data stored in Google Sheets. Sign in to enable editing.</div>
+    <div class="small" style="margin-bottom:6px">Data stored in Google Sheets. Sign in to enable editing. The header only shows a sync chip while syncing or on an error; the current status is always here.</div>
     <div class="row" style="margin-top:8px;gap:6px">
       <button id="gsSaveTokenBtn" class="tiny">Sign in with Google</button>
       <button id="gsPullBtn" class="tiny ghost">Pull now</button>
@@ -1675,7 +1686,10 @@ $('#dateline').textContent = fmtDate(today);
 
 function updateChips(){
   const s = state.settings;
-  $('#locchip').textContent = '📍 ' + (s.city || 'set location');
+  // Full "Lilly, PA 15938" on desktop; just "Lilly" on a phone so the header
+  // chips fit on one line (issue #75).
+  const city = s.city || 'set location';
+  $('#locchip').innerHTML = `📍 <span class="lc-full">${escapeHtml(city)}</span><span class="lc-short">${escapeHtml(city.split(',')[0].trim() || city)}</span>`;
   let frostText = '❄ frost: ';
   if (s.lastFrost || s.firstFrost){
     const lf = parseYMD(s.lastFrost), ff = parseYMD(s.firstFrost);
@@ -4653,6 +4667,7 @@ function queueGsSync(){
   gsSyncTimer = setTimeout(()=>gsPushNow(), 2000);
 }
 
+let _syncChipTimer = null;
 function setSyncStatus(label, kind){
   const chip = $('#syncchip');
   const status = $('#gsStatus');
@@ -4660,6 +4675,11 @@ function setSyncStatus(label, kind){
   chip.style.background = kind==='ok' ? '#1f3a25' : kind==='err' ? '#3a2418' : 'var(--chip)';
   chip.style.color = kind==='ok' ? 'var(--accent)' : kind==='err' ? '#e8a06a' : 'var(--ink-soft)';
   if (status) status.textContent = label;
+  // Header chip: visible while working or on error; an OK state shows for a
+  // few seconds as feedback, then hides to keep the header to one line.
+  clearTimeout(_syncChipTimer);
+  chip.classList.remove('hide');
+  if (kind === 'ok') _syncChipTimer = setTimeout(()=> chip.classList.add('hide'), 4000);
 }
 
 // --- Google OAuth (implicit grant for browser apps) ---

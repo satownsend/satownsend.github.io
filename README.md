@@ -131,6 +131,40 @@ winter protect, repot…), each task a `MM-DD` window that repeats every year.
 - Tasks in progress or starting within a week also appear in Today's brief and
   as a count badge on the tab.
 
+### Digital photo frame (`/<section>-slideshow/` + `shared/frame.js`)
+
+Full-screen slideshow pages meant for a Raspberry Pi (or any browser in kiosk
+mode) showing the site's photos as a photo frame. No login needed — everything
+they read is public.
+
+| URL | Shows |
+|-----|-------|
+| `/all-slideshow/` | every section |
+| `/plants-slideshow/`, `/beer-slideshow/`, `/instruments-slideshow/`, `/wildlife-slideshow/`, `/photography-slideshow/` | one section |
+| `/slideshow/?src=plants,wildlife` | any combination |
+
+Options go on the query string: `interval=20` (seconds per photo), `fit=cover`
+(fill the screen instead of letterboxing), `clock=1`, `caption=0`, `kb=1`
+(slow drift), `shuffle=0` (newest first). Keys: space pauses, arrows step,
+`c`/`k` toggle caption/clock, `f` toggles fullscreen; click or tap steps forward.
+The page keeps the screen awake, hides the cursor, re-reads the sheets hourly
+so new uploads show up, and reloads itself once a day. Same photo rules as the
+homepage slideshow: videos and hidden-from-gallery photos are skipped, wishlist
+plants are skipped.
+
+**Raspberry Pi:** on Raspberry Pi OS with the desktop, run Chromium in kiosk
+mode (the exact binary name varies by OS version):
+
+```sh
+chromium-browser --kiosk --noerrdialogs --disable-infobars --incognito \
+  --autoplay-policy=no-user-gesture-required \
+  "https://satownsend.com/all-slideshow/?clock=1"
+```
+
+Add it to `~/.config/lxsession/LXDE-pi/autostart` (or a systemd user service) to
+run on boot, and disable screen blanking (`xset s off -dpms`, or in
+`raspi-config` → Display → Screen Blanking).
+
 ### Shared front-end (`shared/`)
 
 | File | Role |
@@ -139,6 +173,7 @@ winter protect, repot…), each task a `MM-DD` window that repeats every year.
 | `nav.js` | The cross-page dropdown menu (mounts into `<div id="siteNav">`) |
 | `gauth.js` | Shared Google login + silent renewal (`window.GAuth`) |
 | `chat.js` | The floating chatbot widget |
+| `frame.js` / `frame.css` | The digital photo frame slideshow (loaded by the `*-slideshow/` pages) |
 
 Each is a self-contained script included with `<script defer src="/shared/…">`.
 
@@ -158,6 +193,7 @@ Google Analytics 4 (`G-SSCCK0JXVB`) is loaded in the `<head>` of every page.
 ├── instruments/index.html
 ├── wildlife/index.html
 ├── photography/index.html # photo wall (standalone photos, read by tab name)
+├── all-slideshow/, plants-slideshow/, … , slideshow/   # photo-frame stubs (load shared/frame.js)
 ├── shared/
 │   ├── styles.css        # themes + shared component styles
 │   ├── nav.js            # cross-page dropdown menu
@@ -203,6 +239,9 @@ These IDs live in the page source (the site is public, so none are secrets):
   in the private vault sheet.
 - **Chatbot Worker:** `satownsend-chatbot.satownsend.workers.dev` (set as
   `CHAT_WORKER_URL` in `shared/chat.js`).
+- **Sheet ids are duplicated** in `index.html` (homepage cards + slideshow) and
+  `shared/frame.js` (photo frame). If a sheet or photos-tab gid ever changes,
+  update both.
 - **Photography sheet:** each dashboard hardcodes its own Google Sheet id. The
   photography dashboard's id goes in two places — `PHOTO_SHEET_ID` in
   `photography/index.html` and `PHOTOGRAPHY_SHEET` in `index.html` (for the

@@ -1,0 +1,32 @@
+/* Digital photo frame (issue #72) — full-screen slideshow for a Pi/kiosk.
+   Loaded by /<section>-slideshow/ and /slideshow/. */
+html,body{height:100%;margin:0;background:#000;color:#fff;overflow:hidden;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+body{cursor:none}
+body.show-cursor{cursor:default}
+#stage{position:fixed;inset:0;background:#000}
+#stage img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:0;z-index:1;
+  transition:opacity 1.6s ease;will-change:opacity}
+/* The incoming photo fades in ON TOP of the outgoing one, so mid-fade the
+   picture matches the (already updated) caption. */
+#stage img.is-current{opacity:1;z-index:2}
+body.fit-cover #stage img{object-fit:cover}
+/* Optional slow drift (?kb=1) */
+@keyframes kb{from{transform:scale(1)}to{transform:scale(1.08)}}
+body.kb #stage img.is-current{animation:kb var(--kb-dur,30s) linear forwards}
+#caption{position:fixed;left:28px;bottom:24px;max-width:70vw;font-size:clamp(14px,1.6vw,24px);
+  line-height:1.4;text-shadow:0 1px 3px rgba(0,0,0,.9),0 0 18px rgba(0,0,0,.7);
+  opacity:.92;transition:opacity .6s}
+#caption .sec{display:block;font-size:.72em;letter-spacing:.08em;text-transform:uppercase;opacity:.8}
+#caption .name{font-weight:600}
+#caption .date{opacity:.75;margin-left:.6em;font-size:.85em}
+#clock{position:fixed;right:28px;top:22px;font-size:clamp(18px,2.4vw,40px);font-weight:300;
+  letter-spacing:.02em;text-shadow:0 1px 3px rgba(0,0,0,.9),0 0 18px rgba(0,0,0,.7);opacity:.9}
+#clock .d{display:block;font-size:.42em;opacity:.8;text-align:right;letter-spacing:.06em}
+body.no-caption #caption,body.no-clock #clock{display:none}
+#msg{position:fixed;inset:0;display:none;align-items:center;justify-content:center;text-align:center;
+  padding:40px;font-size:clamp(16px,2vw,28px);color:#bbb;line-height:1.5}
+#msg.on{display:flex}
+#paused{position:fixed;left:50%;top:22px;transform:translateX(-50%);font-size:14px;letter-spacing:.2em;
+  text-transform:uppercase;opacity:0;transition:opacity .3s;background:rgba(0,0,0,.45);padding:6px 14px;border-radius:999px}
+body.paused #paused{opacity:.9}

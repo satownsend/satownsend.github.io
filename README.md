@@ -27,7 +27,7 @@ theming, navigation, auth, and photo pipeline.
 | **[Instruments](https://satownsend.com/instruments)** | Instrument collection | Maintenance log (string changes, setups), string/pickup specs, value stats (hidden unless signed in) |
 | **[Wildlife](https://satownsend.com/wildlife)** | Sighting log | One row per species (grouped sightings), calendar view, seasonal patterns, life list, first-of-year tracking, **photo _and_ video** support |
 | **[Photography](https://satownsend.com/photography)** | Photo wall | Standalone photos (a photo _is_ the record) in a masonry wall that loads a page at a time as you scroll, category chips (astro/landscape/trips/misc/Puck + auto-discovered), full-screen slideshow, larger/less-compressed uploads |
-| **[Home](https://satownsend.com)** | Hub | Live stat cards per section, a **combined slideshow** of photos from every dashboard, and the [chatbot](#the-chatbot) |
+| **[Home](https://satownsend.com)** | Hub | A full-bleed **combined slideshow** of photos from every dashboard with the site name over it, one photo card per section with live counts, and the [chatbot](#the-chatbot) |
 
 Shared per-dashboard features:
 

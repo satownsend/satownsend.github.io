@@ -2358,36 +2358,61 @@ function buildBrief(){
   const dryStretch = recentRainfall !== null
     ? (recentRainfall < dryThreshold && forecastDry)
     : forecastDry;
+  // Issue #77 — keep the watering line from being permanent noise:
+  //  1. Rain counts. A soaking day (≥ 0.25 in / 6 mm in the rainfall history)
+  //     resets "last watered" like a logged watering would, so in-ground
+  //     plants aren't reported as "never logged" forever.
+  //  2. Only plants that depend on you: containers and first-year plantings,
+  //     plus 1–3-year plantings during a real dry stretch. Established
+  //     in-ground plants are never nagged.
+  //  3. Dormant season (3+ weeks past the first fall frost until 3 weeks
+  //     before the last spring frost): only containers tagged indoor/inside.
+  const soakThreshold = state.settings.units === 'C' ? 6 : 0.25;
+  const lastSoak = (state.rainfall || []).filter(r => (r.amount || 0) >= soakThreshold).map(r => r.date).sort().pop() || null;
+  const sinceRain = lastSoak ? daysSince(lastSoak) : null;
+  const dormant = (() => {
+    const thisYear = s => { const d = parseYMD(s); return d ? new Date(today.getFullYear(), d.getMonth(), d.getDate()) : null; };
+    const lf = thisYear(state.settings.lastFrost), ff = thisYear(state.settings.firstFrost);
+    if (!lf || !ff) return false;
+    return daysBetween(ff, today) > 21 || daysBetween(today, lf) > 21;
+  })();
   const waterTargets = [];
   for (const p of livePlants){
-    const last = lastLogFor(p.id, 'watered');
-    const since = last ? daysSince(last.date) : 999;
     const isContainer = p.container===true || p.container==='true';
+    const indoor = /\b(indoor|inside|house|windowsill)\b/i.test((p.tags||'') + ' ' + (p.spot||''));
     const stage = establishmentStage(p);
-    // First-year trees need consistent moisture even in-ground; tighter than established
-    let threshold;
-    if (stage === 'establishment') threshold = isContainer ? 2 : 3;
-    else if (stage === 'establishing') threshold = isContainer ? 2 : 4;
-    else threshold = isContainer ? 2 : 5;
-    // Establishment-year plants: water reminder regardless of dryStretch
-    const force = stage === 'establishment';
-    if (since >= threshold && (force || isContainer || dryStretch)){
-      waterTargets.push({name:p.name, since, container:isContainer, stage});
+    if (dormant && !(isContainer && indoor)) continue;
+    if (!isContainer && stage !== 'establishment' && !(stage === 'establishing' && dryStretch)) continue;
+    const last = lastLogFor(p.id, 'watered');
+    const sinceLog = last ? daysSince(last.date) : null;
+    const rainCounts = !indoor && sinceRain !== null;
+    let since = sinceLog, src = 'log';
+    if (rainCounts && (since === null || sinceRain < since)){ since = sinceRain; src = 'rain'; }
+    const threshold = stage === 'establishment' ? (isContainer ? 2 : 3) : (isContainer ? 2 : 4);
+    if (since === null){
+      // Nothing on record at all (no log, no rainfall history): only worth a
+      // nudge during a dry stretch, and say that it's unknown rather than "never".
+      if (dryStretch) waterTargets.push({name:p.name, since:null, src, container:isContainer, stage});
+      continue;
     }
+    if (since >= threshold) waterTargets.push({name:p.name, since, src, container:isContainer, stage});
   }
   if (waterTargets.length){
-    waterTargets.sort((a,b)=>b.since-a.since);
+    waterTargets.sort((a,b)=>(b.since ?? 999)-(a.since ?? 999));
     const top = waterTargets.slice(0,6).map(t=>{
       const tag = t.stage === 'establishment' ? ' (1st yr)' : (t.container ? ' (pot)' : '');
-      return `${t.name}${tag} — ${t.since>=999?'never logged':t.since+'d'}`;
+      const ago = t.since === null ? 'no record' : `${t.since}d${t.src === 'rain' ? ' since rain' : ''}`;
+      return `${t.name}${tag} — ${ago}`;
     });
+    const allRain = sinceRain !== null && waterTargets.every(t => t.src === 'rain');
+    const rainNote = sinceRain !== null && !allRain ? ` Last soaking rain ${sinceRain === 0 ? 'today' : sinceRain + 'd ago'}.` : '';
     tasks.push({
       tag:'water',
-      title:`Water: ${waterTargets.length} plant${waterTargets.length>1?'s':''} due`,
-      why: top.join(' · ')
+      title:`Water: ${waterTargets.length} plant${waterTargets.length>1?'s':''} due${allRain ? ` — ${sinceRain}d since a soaking rain` : ''}`,
+      why: top.join(' · ') + (waterTargets.length > 6 ? ` · +${waterTargets.length - 6} more` : '') + rainNote
     });
-  } else if (days.length && dryStretch){
-    tasks.push({tag:'water',title:'Dry stretch — spot-check beds and deep-soak any wilters', why:'No specific plant overdue based on logs.'});
+  } else if (days.length && dryStretch && !dormant){
+    tasks.push({tag:'water',title:'Dry stretch — spot-check beds and deep-soak any wilters', why:'Nothing specific is overdue (rain and logged waterings both count).'});
   }
 
   // Rain coming → skip watering note
@@ -2435,8 +2460,9 @@ function buildBrief(){
     }
   }
 
-  // Topline summary — pick the 2 most important
-  const order = ['protect','water','move','feed','prune','care'];
+  // Topline summary — pick the 2 most important. Frost/cold first, then the
+  // care calendar (the line that's actually actionable), then watering.
+  const order = ['protect','care','water','move','feed','prune'];
   tasks.sort((a,b)=>order.indexOf(a.tag)-order.indexOf(b.tag));
   const top = tasks.slice(0,2);
   $('#topline').textContent = top.length

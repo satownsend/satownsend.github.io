@@ -74,6 +74,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 .pg .ph .play-icon::after{content:'▶';font-size:26px;color:#fff;background:rgba(0,0,0,.5);width:46px;height:46px;border-radius:50%;
   display:flex;align-items:center;justify-content:center}
 .pg .empty{color:var(--muted);font-size:13px;font-style:italic;text-align:center;padding:26px}
+/* Pagination footer (issue #62): the wall renders a page at a time and loads
+   the next page as you scroll near the bottom (or on click). */
+.grid-more{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;
+  padding:14px 0 4px;color:var(--muted);font-size:13px}
+.grid-more:empty{display:none}
 
 body.view-only #addPhotosBtn,
 body.view-only .edit-row,
@@ -152,6 +157,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="cat-chips" id="catChips"></div>
     <div class="sub-chips" id="subChips" style="display:none"></div>
     <div class="pg" id="photoGrid"></div>
+    <div class="grid-more" id="gridMore"></div>
   </div>
 
   <!-- Stats -->
@@ -475,7 +481,7 @@ $('#catChips').addEventListener('click', e=>{
   activeCategory = chip.dataset.cat;
   activeSub = '';               // reset the sub-filter when the category changes
   buildCategoryChips();
-  renderGrid();
+  renderGrid({ reset: true });
 });
 
 $('#subChips').addEventListener('click', e=>{
@@ -483,7 +489,7 @@ $('#subChips').addEventListener('click', e=>{
   if(!chip) return;
   activeSub = chip.dataset.sub;
   buildSubChips();
-  renderGrid();
+  renderGrid({ reset: true });
 });
 
 /* ── Photo wall ── */
@@ -512,27 +518,72 @@ function filteredSortedPhotos(){
   return list;
 }
 
-function renderGrid(){
+/* Pagination (issue #62): the wall shows GRID_PAGE tiles and appends the next
+   page when you scroll near the bottom (IntersectionObserver) or click. A
+   filter/sort/search change resets to the first page; re-renders after an
+   edit keep however many were showing. The lightbox still gets the FULL
+   filtered list (data-idx indexes into it), so ← → walk every photo. */
+const GRID_PAGE = 48;
+let gridShown = GRID_PAGE;
+
+function tileHtml(p, i){
+  const vid = isVideoKey(p.key);
+  const media = vid
+    ? `<video src="${r2PublicUrl(p.key)}" preload="metadata" muted playsinline></video><div class="play-icon"></div>`
+    : `<img src="${r2PublicUrl(p.key)}" loading="lazy" decoding="async" alt="${escapeHtml(p.title||p.category||'')}">`;
+  const hidden = p.hideFromGallery ? '<div class="ph-hidden" title="Hidden from slideshow">🚫</div>' : '';
+  const label = p.title || p.category || '';
+  const catLabel = [p.category, p.subcategory].filter(Boolean).join(' · ');
+  const info = (label || p.date)
+    ? `<div class="ph-info"><span class="ph-cat">${escapeHtml(catLabel)}</span>${p.title?` · <span class="ph-title">${escapeHtml(p.title)}</span>`:''}${p.date?`<div>${escapeHtml(p.date)}</div>`:''}</div>`
+    : '';
+  return `<div class="ph" data-idx="${i}">${media}${info}${hidden}</div>`;
+}
+
+function renderGrid(opts){
+  if(opts && opts.reset) gridShown = GRID_PAGE;
   const grid = $('#photoGrid');
   const list = filteredSortedPhotos();
   state._gridList = list;
   if(!list.length){
     grid.innerHTML = '<div class="empty">No photos yet.</div>';
+    renderGridMore();
     return;
   }
-  grid.innerHTML = list.map((p,i)=>{
-    const vid = isVideoKey(p.key);
-    const media = vid
-      ? `<video src="${r2PublicUrl(p.key)}" preload="metadata" muted playsinline></video><div class="play-icon"></div>`
-      : `<img src="${r2PublicUrl(p.key)}" loading="lazy" alt="${escapeHtml(p.title||p.category||'')}">`;
-    const hidden = p.hideFromGallery ? '<div class="ph-hidden" title="Hidden from slideshow">🚫</div>' : '';
-    const label = p.title || p.category || '';
-    const catLabel = [p.category, p.subcategory].filter(Boolean).join(' · ');
-    const info = (label || p.date)
-      ? `<div class="ph-info"><span class="ph-cat">${escapeHtml(catLabel)}</span>${p.title?` · <span class="ph-title">${escapeHtml(p.title)}</span>`:''}${p.date?`<div>${escapeHtml(p.date)}</div>`:''}</div>`
-      : '';
-    return `<div class="ph" data-idx="${i}">${media}${info}${hidden}</div>`;
-  }).join('');
+  gridShown = Math.min(list.length, Math.max(GRID_PAGE, gridShown));
+  grid.innerHTML = list.slice(0, gridShown).map(tileHtml).join('');
+  renderGridMore();
+}
+
+function showMoreGrid(all){
+  const list = state._gridList || [];
+  if(gridShown >= list.length) return;
+  const from = gridShown;
+  gridShown = all ? list.length : Math.min(list.length, gridShown + GRID_PAGE);
+  $('#photoGrid').insertAdjacentHTML('beforeend', list.slice(from, gridShown).map((p,i)=>tileHtml(p, from + i)).join(''));
+  renderGridMore();
+}
+
+function renderGridMore(){
+  const el = $('#gridMore');
+  const total = (state._gridList || []).length;
+  if(!total || gridShown >= total){
+    el.innerHTML = total > GRID_PAGE ? `<span>Showing all ${total} photos</span>` : '';
+    return;
+  }
+  const left = total - gridShown;
+  el.innerHTML = `<span>Showing ${gridShown} of ${total}</span>
+    <button class="ghost tiny" id="gridMoreBtn">Show ${Math.min(GRID_PAGE, left)} more</button>
+    <button class="ghost tiny" id="gridAllBtn">Show all ${total}</button>`;
+  $('#gridMoreBtn').onclick = ()=> showMoreGrid(false);
+  $('#gridAllBtn').onclick = ()=> showMoreGrid(true);
+}
+
+// Auto-load the next page as the footer scrolls into view.
+if('IntersectionObserver' in window){
+  new IntersectionObserver(entries=>{
+    if(entries.some(e=>e.isIntersecting) && $('#gridMoreBtn')) showMoreGrid(false);
+  }, { rootMargin: '600px 0px' }).observe($('#gridMore'));
 }
 
 $('#photoGrid').addEventListener('click', e=>{
@@ -543,8 +594,8 @@ $('#photoGrid').addEventListener('click', e=>{
   showLightbox();
 });
 
-$('#searchBox').addEventListener('input', renderGrid);
-$('#sortSel').addEventListener('change', renderGrid);
+$('#searchBox').addEventListener('input', ()=> renderGrid({ reset: true }));
+$('#sortSel').addEventListener('change', ()=> renderGrid({ reset: true }));
 
 /* ── Photo gallery slideshow ── */
 const GALLERY_FIT_KEY = 'photographyDashboard.galleryFit';

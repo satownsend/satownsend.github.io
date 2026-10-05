@@ -189,7 +189,6 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   body.view-only #photoUploadInput + span,
   body.view-only label:has(#photoUploadInput),
   body.view-only #ympEditBtn,
-  body.view-only #wishlistAddBtn,
   body.view-only #yardMapPanel,
   body.view-only #statsSpendWrap,
   body.view-only #lightboxHideRow{display:none!important}
@@ -225,12 +224,6 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   #frostLog .pill-frost{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;background:rgba(126,196,204,.15);color:var(--cool);border:1px solid rgba(126,196,204,.3)}
   #frostLog .pill-damage{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;background:rgba(224,138,74,.15);color:var(--warn);border:1px solid rgba(224,138,74,.3)}
   #frostLog .empty{padding:18px;color:var(--muted);text-align:center}
-  #wishlistTable{max-height:340px;overflow:auto;border:1px solid var(--line);border-radius:8px}
-  #wishlistTable table{width:100%;border-collapse:collapse;font-size:13px}
-  #wishlistTable th{position:sticky;top:0;background:var(--panel);text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.06em}
-  #wishlistTable td{padding:7px 10px;border-bottom:1px solid var(--line2);vertical-align:top}
-  #wishlistTable td .meta{color:var(--muted);font-size:12px}
-  #wishlistTable .empty{padding:18px;color:var(--muted);text-align:center}
   /* Yard map */
   #yardMapPanel .ymp-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
   #yardMapPanel .ymp-toolbar select{background:var(--bg2);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:4px 8px;font-size:13px;max-width:240px}
@@ -513,7 +506,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   @media print{
     @page { margin: 0.5in; size: letter; }
     body { background: #fff !important; color: #000; }
-    .wrap, header, .modal-back, .gallery, #briefPanel, #wishlistPanel,
+    .wrap, header, .modal-back, .gallery, #briefPanel,
     #frostPanel, #statsPanel, #plantTable + .row, .filter-row,
     #settingsPanel, .photo-grid, #infoTimeline, .panel:not(.print-keep) { display: none !important; }
     #printSheet{display:block;color:#000;font:12pt/1.4 "Helvetica Neue", Arial, sans-serif}
@@ -718,11 +711,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="row" style="margin-top:10px">
       <span class="right small" id="plantCount"></span>
     </div>
-  </div>
-
-  <div class="panel full" id="wishlistPanel" style="display:none">
-    <h2>Wishlist <span class="small" id="wishlistCount" style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted)"></span></h2>
-    <div id="wishlistTable" class="small"></div>
   </div>
 
   <div class="panel full" id="yardMapPanel">
@@ -1737,7 +1725,7 @@ $('#saveSettings').onclick = ()=>{
   state.settings.zone = $('#zoneInput').value.trim();
   save(); updateChips(); fetchForecast(true);
   // Settings change can shift establishment stage (frost dates) and brief/stats
-  // (units, frost dates). Log entries and wishlist rows don't depend on settings.
+  // (units, frost dates). Log entries don't depend on settings.
   render({plants:1, brief:1, stats:1, frostLog:1, gallery:1});
   $('#settingsPanel').style.display='none';
 };
@@ -1775,7 +1763,6 @@ $('#exportBtn').onclick = ()=>{
 function buildPrintInventory(){
   const all = (state.plants||[]);
   const inventory = all.filter(p => !p.wishlist);
-  const wishlist = all.filter(p => p.wishlist);
   const living = inventory.filter(p => !p.dead);
   const departed = inventory.filter(p => p.dead);
   // Species count uses the same extractor as the species pie
@@ -1836,9 +1823,6 @@ function buildPrintInventory(){
   `;
   if (departed.length){
     html += `<div class="ps-section">Departed (RIP)</div><table>${tableHeader}<tbody>${renderRows(departed)}</tbody></table>`;
-  }
-  if (wishlist.length){
-    html += `<div class="ps-section">Wishlist</div><table>${tableHeader}<tbody>${renderRows(wishlist)}</tbody></table>`;
   }
 
   // Photo cards for plants that have at least one photo (uses linked photos
@@ -2517,7 +2501,6 @@ function renderPlants(){
   tb.innerHTML = '';
   const showDead = $('#showDead').checked;
   const q = ($('#plantFilter').value || '').trim().toLowerCase();
-  // Wishlist plants are in their own panel — exclude from main inventory.
   let visible = state.plants.filter(p=> !p.wishlist && (showDead || !p.dead));
   if (q){
     visible = visible.filter(p => {
@@ -2578,8 +2561,7 @@ function renderPlants(){
   const inventory = state.plants.filter(p => !p.wishlist);
   const live = inventory.filter(p => !p.dead).length;
   const dead = inventory.length - live;
-  const wishCount = state.plants.length - inventory.length;
-  $('#plantCount').textContent = `${inventory.length} total${wishCount ? ` · ${wishCount} on wishlist` : ''}`;
+  $('#plantCount').textContent = `${inventory.length} total`;
   $('#plantStats').textContent = `${live} living · ${dead} departed`;
 
   // refresh log plant picker label (multi-select selection summary)
@@ -3079,11 +3061,10 @@ let bulkBusy = false;
 function plantOptionsHtml(selectedId){
   const byName = (a, b) => (a.name || '').localeCompare(b.name || '');
   const living = state.plants.filter(p => !p.dead && !p.wishlist).sort(byName);
-  const wish   = state.plants.filter(p => p.wishlist && !p.dead).sort(byName);
-  const gone   = state.plants.filter(p => p.dead).sort(byName);
+  const gone   = state.plants.filter(p => p.dead && !p.wishlist).sort(byName);
   const opt = p => `<option value="${escapeHtml(p.id)}"${p.id === selectedId ? ' selected' : ''}>${escapeHtml(p.name || '(unnamed)')}</option>`;
   const grp = (label, list) => list.length ? `<optgroup label="${label}">${list.map(opt).join('')}</optgroup>` : '';
-  return `<option value="">Choose plant…</option>` + grp('Living', living) + grp('Wishlist', wish) + grp('Departed', gone);
+  return `<option value="">Choose plant…</option>` + grp('Living', living) + grp('Departed', gone);
 }
 
 function renderBulkRows(){
@@ -3374,42 +3355,6 @@ $('#upcomingAlerts').addEventListener('click', e=>{
   if (row.dataset.day === undefined || row.dataset.day === '') return;
   openWeather(parseInt(row.dataset.day, 10));
 });
-$('#wishlistTable').addEventListener('click', e=>{
-  const link = e.target.closest('a[data-info]');
-  if (link){ e.preventDefault(); openInfo(link.dataset.info); return; }
-  const cell = e.target.closest('[data-edit-spot]');
-  if (cell && !cell.querySelector('input')) startEditSpot(cell, cell.dataset.editSpot);
-});
-
-function startEditSpot(td, id){
-  const p0 = state.plants.find(x => x.id === id); if (!p0) return;
-  const original = p0.spot || '';
-  td.innerHTML = `<input type="text" placeholder="e.g. front bed, west pot" style="width:100%;background:var(--bg2);color:var(--ink);border:1px solid var(--line);border-radius:4px;padding:4px 6px;font-size:13px">`;
-  const input = td.querySelector('input');
-  input.value = original;
-  input.focus();
-  input.select();
-  let done = false;
-  const finish = (commit) => {
-    if (done) return; done = true;
-    if (commit){
-      // Re-find by id at commit time. A background pull may have
-      // rebuilt state.plants between click and commit, leaving p0 detached
-      // from the array — assigning to p0.spot would never reach sync.
-      const cur = state.plants.find(x => x.id === id);
-      if (cur && input.value.trim() !== (cur.spot || '')){
-        cur.spot = input.value.trim();
-        save();
-      }
-    }
-    renderWishlist();
-  };
-  input.addEventListener('blur', () => finish(true));
-  input.addEventListener('keydown', e => {
-    if (e.key === 'Enter'){ e.preventDefault(); finish(true); }
-    else if (e.key === 'Escape'){ e.preventDefault(); finish(false); }
-  });
-}
 $('#addPlantBtn').onclick = ()=>{
   const p = {id:uid(),name:'New plant',type:'',spot:'',container:false,tags:'',notes:''};
   state.plants.push(p); save(); renderPlants(); openEdit(p.id);
@@ -3833,7 +3778,6 @@ $('#logEditSave').onclick = () => {
   // matching ids.
   e.modifiedAt = Date.now();
   $('#logEditModal').classList.remove('show');
-  // Log changes can't affect the wishlist (wishlist plants don't have log entries shown there).
   save(); render({plants:1, log:1, brief:1, stats:1, gallery:1, frostLog:1});
 };
 $('#logEditDelete').onclick = () => {
@@ -4270,7 +4214,7 @@ async function recoverPhotosFromR2(onStatus){
   if (restored){
     saveLocal();
     if (isGsAuthed()) { try { await gsPushNow(); } catch(e){ queueGsSync(); } }
-    // Photo restore only adds entries to plant.photos — log/brief/frostLog/wishlist unaffected.
+    // Photo restore only adds entries to plant.photos — log/brief/frostLog unaffected.
     render({plants:1, gallery:1, stats:1});
   }
   return { restored, plantsTouched, totalKeys: allKeys.length, orphanSlugs };
@@ -4453,7 +4397,11 @@ async function pullFromSheets(){
     const remoteLogIds = new Set(remoteLog.map(e => e.id));
     const localOnlyLog = (state.log||[]).filter(e => e.id && !remoteLogIds.has(e.id));
 
-    state.plants = plants;
+    // Wishlist feature removed (2026-10): any row still flagged wishlist=TRUE is
+    // dropped here, and the next sync's row-level reconcile deletes it (and its
+    // tag/photo rows) from the sheet. One-time cleanup; a no-op once they're gone.
+    const purged = plants.filter(p => p.wishlist).map(p => p.name);
+    state.plants = plants.filter(p => !p.wishlist);
     state.log = [...remoteLog, ...localOnlyLog];
     // Care schedule: remote rows + any local-only tasks not yet pushed.
     const remoteCare = rawCare.filter(r => r.id && r.plant_id).map(r => ({
@@ -4466,8 +4414,12 @@ async function pullFromSheets(){
     gsPulledOnce = true;
     gsSuspendSync = true; saveLocal(); gsSuspendSync = false;
     render();
-    setStatus(`${plants.length} plants loaded at ${new Date().toLocaleTimeString()}`, 'ok');
+    setStatus(`${state.plants.length} plants loaded at ${new Date().toLocaleTimeString()}`, 'ok');
     setSyncStatus(`loaded ${new Date().toLocaleTimeString()}`, 'ok');
+    if (purged.length){
+      console.info('[sheets] removing legacy wishlist rows:', purged.join(', '));
+      if (isGsAuthed()){ setSyncStatus(`removing ${purged.length} old wishlist row${purged.length === 1 ? '' : 's'}…`); queueGsSync(); }
+    }
   } catch(e){
     console.error('[sheets] pull failed:', e);
     setStatus('Error: '+e.message, 'err');
@@ -5157,29 +5109,6 @@ function renderYardMap(){
   });
 })();
 
-function renderWishlist(){
-  const panel = $('#wishlistPanel'); if (!panel) return;
-  const items = (state.plants||[]).filter(p => p.wishlist)
-    .slice()
-    .sort((a,b) => (a.name||'').localeCompare(b.name||''));
-  if (!items.length){
-    panel.style.display = 'none';
-    return;
-  }
-  panel.style.display = '';
-  $('#wishlistCount').textContent = ` · ${items.length} item${items.length===1?'':'s'}`;
-  $('#wishlistTable').innerHTML = '<table><thead><tr><th>Name</th><th>Latin name</th><th>Type</th><th>Planned Location</th><th>Notes</th></tr></thead><tbody>'
-    + items.map(p => {
-      return `<tr class="wishlist-row" data-info="${p.id}" style="cursor:pointer">
-        <td><a href="#" class="namelink" data-info="${p.id}">${escapeHtml(p.name)}</a></td>
-        <td><span class="meta">${escapeHtml(p.type || '—')}</span></td>
-        <td>${escapeHtml(p.category || '—')}</td>
-        <td data-edit-spot="${p.id}" title="Click to edit" style="cursor:text"><span class="meta">${escapeHtml(p.spot || '—')}</span></td>
-        <td><span class="meta">${escapeHtml(p.notes || '')}</span></td>
-      </tr>`;
-    }).join('')
-    + '</tbody></table>';
-}
 
 // Pass a slices object to skip sub-renders that the change couldn't affect.
 // Default (no arg) = re-render everything, matching the old behavior.
@@ -5526,14 +5455,13 @@ function initCareView(){
 }
 
 function render(slices){
-  const s = slices || {plants:1, log:1, brief:1, stats:1, gallery:1, frostLog:1, wishlist:1, yardMap:1, calendar:1};
+  const s = slices || {plants:1, log:1, brief:1, stats:1, gallery:1, frostLog:1, yardMap:1, calendar:1};
   if (s.plants)    renderPlants();
   if (s.log)       renderLog();
   if (s.brief)     buildBrief();
   if (s.stats)     renderStats();
   if (s.gallery)   refreshGallery();
   if (s.frostLog)  renderFrostLog();
-  if (s.wishlist)  renderWishlist();
   if (s.yardMap)   renderYardMap();
   if (s.calendar){ if ($('#calendarView').style.display !== 'none') renderCareViews(); else renderCareStatus(); }
 }

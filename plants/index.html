@@ -293,7 +293,14 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .care-day{margin-top:10px}
   .care-list{display:flex;flex-direction:column;gap:6px}
   .care-date{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:8px 0 2px}
-  .care-item{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;font-size:13px;flex-wrap:wrap}
+  .care-item{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;font-size:13px;flex-wrap:wrap;cursor:pointer}
+  .care-item:hover{border-color:var(--line2)}
+  /* Click a row to expand the task's full notes (plant name still opens the plant, ✎ still edits). */
+  .care-item .ci-chev{color:var(--muted);font-size:11px;transition:transform .15s}
+  .care-item.open .ci-chev{transform:rotate(90deg)}
+  .care-item .ci-notes{display:none;flex-basis:100%;color:var(--ink-soft);font-size:13px;line-height:1.45;padding:7px 0 2px;margin-top:2px;border-top:1px dashed var(--line2);cursor:default}
+  .care-item .ci-notes .ci-meta{display:block;color:var(--muted);font-size:12px;margin-top:4px}
+  .care-item.open .ci-notes{display:block}
   .care-item .ci-plant{font-weight:600;color:var(--ink);cursor:pointer}
   .care-item .ci-plant:hover{color:var(--accent)}
   .care-item .ci-task{color:var(--ink-soft)}
@@ -5178,16 +5185,24 @@ function isTaskDone(t, ref){
 }
 function shortName(p){ const n = (p && p.name) || '?'; return n.length > 18 ? n.slice(0, 17) + '…' : n; }
 
+// Task rows that are expanded to show their notes (kept across re-renders).
+const careOpen = new Set();
+
 function careItemHtml(t, ref, opts = {}){
   const p = plantsById().get(t.plantId);
   const done = isTaskDone(t, ref);
   const status = opts.status ? `<span class="small" style="color:var(--muted)">${escapeHtml(opts.status)}</span>` : '';
-  return `<div class="care-item${done ? ' done' : ''}" data-tid="${escapeHtml(t.id)}">
+  const open = careOpen.has(t.id);
+  const meta = [winLabel(t) + ' every year', t.source === 'manual' ? 'added by you' : 'AI suggested', done ? 'logged ✓' : ''].filter(Boolean).join(' · ');
+  const notes = t.notes ? escapeHtml(t.notes) : '<em style="color:var(--muted)">No details for this task.</em>';
+  return `<div class="care-item${done ? ' done' : ''}${open ? ' open' : ''}" data-tid="${escapeHtml(t.id)}" role="button" aria-expanded="${open}" title="Click for details">
+    <span class="ci-chev">▶</span>
     ${done ? '<span title="Logged">✓</span>' : ''}
     <span class="ci-plant" data-open="${escapeHtml(t.plantId)}">${escapeHtml(p ? p.name : '(unknown plant)')}</span>
     <span class="ci-task">${escapeHtml(t.task)}</span>${status}
     <span class="ci-win">${escapeHtml(winLabel(t))}</span>
     <button class="ci-edit care-edit" data-edit="${escapeHtml(t.id)}" aria-label="Edit task" title="Edit">✎</button>
+    <div class="ci-notes">${notes}<span class="ci-meta">${escapeHtml(meta)}</span></div>
   </div>`;
 }
 
@@ -5432,6 +5447,14 @@ $('#calendarView').addEventListener('click', e => {
   const open = e.target.closest('[data-open]'); if (open){ openInfo(open.dataset.open); return; }
   const edit = e.target.closest('[data-edit]'); if (edit){ openCareTask(edit.dataset.edit); return; }
   const add  = e.target.closest('[data-add]');  if (add){ openCareTask(null, add.dataset.add); return; }
+  // Click a task row (Upcoming / selected day) to expand its full notes.
+  const item = e.target.closest('.care-item');
+  if (item && !e.target.closest('.ci-notes')){
+    const id = item.dataset.tid;
+    if (careOpen.has(id)) careOpen.delete(id); else careOpen.add(id);
+    $$(`.care-item[data-tid="${CSS.escape(id)}"]`).forEach(el => { el.classList.toggle('open', careOpen.has(id)); el.setAttribute('aria-expanded', careOpen.has(id)); });
+    return;
+  }
   const gen  = e.target.closest('[data-gen]');  if (gen){ generateCare([gen.dataset.gen], { replace: true }); }
 });
 

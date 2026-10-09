@@ -22,7 +22,7 @@ theming, navigation, auth, and photo pipeline.
 
 | Page | What it tracks | Highlights |
 |------|----------------|------------|
-| **[Plants](https://satownsend.com/plants)** | Yard/garden inventory | Care log, watering/feeding, weather forecast + frost alerts, yard map with pins, spend & acquisition stats, per-plant thumbnails, an AI-generated **care calendar** (Dashboard / Care calendar tabs) |
+| **[Plants](https://satownsend.com/plants)** | Yard/garden inventory | Care log, watering/feeding, weather forecast + frost alerts, yard map with pins, spend & acquisition stats, per-plant thumbnails, an AI-generated **care calendar** (Dashboard / Care calendar tabs) and an **AI overview** per plant (size, sun, soil, issues) |
 | **[Beer](https://satownsend.com/beer)** | Homebrew log | Recipes (grain/hop/yeast bills), fermentation temps, OG/FG/ABV/SRM, tasting notes, **label thumbnail** per brew |
 | **[Instruments](https://satownsend.com/instruments)** | Instrument collection | Maintenance log (string changes, setups), string/pickup specs, value stats (hidden unless signed in) |
 | **[Wildlife](https://satownsend.com/wildlife)** | Sighting log | One row per species (grouped sightings), calendar view, seasonal patterns, life list, first-of-year tracking, **photo _and_ video** support |
@@ -133,6 +133,22 @@ winter protect, repot…), each task a `MM-DD` window that repeats every year.
   its window (prune → "pruned", fertilize → "fertilized", cover → "covered", …).
 - Tasks in progress or starting within a week also appear in Today's brief and
   as a count badge on the tab.
+
+### AI plant overviews (`plants/index.html` + Worker `mode: "overview"`)
+
+Each plant card has a collapsible **AI overview**: a short summary plus mature
+size, growth rate, sun, water, soil, hardiness zones, bloom/seasonal interest,
+notable features and the pests/diseases to watch for, written for zone 6a.
+
+- **Generating:** "Generate" on a plant card does one plant; the
+  "✨ AI overviews" button above the plants table does the plants that have
+  none, or regenerates all. Same Worker and model as the care calendar
+  (`CARE_MODEL`), a few plants per request, structured JSON validated in the
+  Worker.
+- **Storage:** a `plant_overview` tab in the plants sheet, one row per plant
+  (`plant_id, summary, height, width, growth, sun, water, soil, hardiness,
+  bloom, features, issues, model, updatedAt`), created on first use and synced
+  row-by-row. The chatbot reads it too, so "how big will the Hinoki get?" works.
 
 ### Digital photo frame (`/<section>-slideshow/` + `shared/frame.js`)
 

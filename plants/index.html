@@ -179,6 +179,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   body.view-only #bulkUploadBtn,
   body.view-only #careGenBtn,
   body.view-only #careRegenAll,
+  body.view-only #overviewBtn,
+  body.view-only #ovGenBtn,
   body.view-only #careNudge,
   body.view-only .care-edit,
   body.view-only .edit-row,
@@ -193,6 +195,23 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   body.view-only #yardMapPanel,
   body.view-only #statsSpendWrap,
   body.view-only #lightboxHideRow{display:none!important}
+  /* AI overview section in the plant card (issue #82): click the header to expand. */
+  .ov-head{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;min-height:28px}
+  .ov-head .ov-chev{color:var(--muted);font-size:11px;transition:transform .15s}
+  .ov-section.open .ov-head .ov-chev{transform:rotate(90deg)}
+  .ov-head .ov-label{color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-size:11px;white-space:nowrap}
+  .ov-head .ov-teaser{flex:1;min-width:0;color:var(--ink-soft);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ov-section.open .ov-head .ov-teaser{visibility:hidden}
+  .ov-head #ovGenBtn{margin-left:auto;flex:none}
+  .ov-body{display:none;margin-top:8px;padding:12px 14px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;font-size:13px;line-height:1.5}
+  .ov-section.open .ov-body{display:block}
+  .ov-body p{margin:0 0 10px;font-size:14px;line-height:1.55;color:var(--ink)}
+  .ov-body .kv{margin:0 0 8px}
+  .ov-body .ov-meta{color:var(--muted);font-size:12px;margin-top:6px}
+  .ov-body .ov-empty{color:var(--muted);font-style:italic}
+  .ov-pop{position:absolute;right:0;top:110%;background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:10px;z-index:30;box-shadow:var(--shadow);min-width:240px;display:none;flex-direction:column;gap:6px}
+  .ov-pop.on{display:flex}
+  .ov-pop .small{color:var(--muted)}
   #infoHistory{max-height:220px;overflow:auto;border:1px solid var(--line);border-radius:8px}
   #infoHistory table{width:100%;border-collapse:collapse;font-size:12px}
   #infoHistory th{position:sticky;top:0;background:var(--panel);text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.06em}
@@ -703,6 +722,15 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </span>
       <button id="addPlantBtn" class="ghost tiny">+ Add plant</button>
       <button id="bulkUploadBtn" class="ghost tiny">📷 Upload photos</button>
+      <span style="position:relative">
+        <button class="ghost tiny" id="overviewBtn" aria-haspopup="true" aria-expanded="false">✨ AI overviews</button>
+        <div class="ov-pop" id="overviewPop" role="dialog" aria-label="AI overviews">
+          <div class="small" id="ovPopInfo"></div>
+          <button class="tiny" id="ovGenMissing">Generate missing</button>
+          <button class="ghost tiny" id="ovRegenAll">Regenerate all</button>
+          <div class="small" id="ovPopStatus" style="min-height:1.2em"></div>
+        </div>
+      </span>
       <input type="file" id="bulkPhotoInput" accept="image/*,.heic,.heif" multiple style="display:none">
       <span class="right small" id="plantStats"></span>
     </div>
@@ -976,6 +1004,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div id="infoTrunk" class="small"></div>
     </div>
 
+    <div class="ov-section" id="infoOverviewSection" style="margin-top:18px">
+      <div class="ov-head" id="ovHead" role="button" aria-expanded="false" title="Click to expand">
+        <span class="ov-chev">▶</span>
+        <span class="ov-label">AI overview</span>
+        <span class="ov-teaser" id="ovTeaser"></span>
+        <button class="ghost tiny" id="ovGenBtn">Generate</button>
+      </div>
+      <div class="ov-body" id="ovBody"></div>
+    </div>
+
     <div class="history-section" id="infoHistorySection" style="margin-top:18px">
       <div class="small" style="color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-size:11px;margin-bottom:6px">Log history</div>
       <div id="infoHistory" class="small"></div>
@@ -1140,6 +1178,7 @@ const defaultState = {
   plants: ourTreesSeed(),
   log: [],
   care: [],               // yearly care tasks per plant (issue #69)
+  overview: [],           // AI plant overviews, one per plant (issue #82)
   forecast: null,         // cached forecast
   forecastFetched: 0,     // ms epoch
 };
@@ -2707,6 +2746,7 @@ function openInfo(id){
   ];
   $('#infoKV').innerHTML = rows.map(([k,v])=>`<dt>${k}</dt><dd>${escapeHtml(String(v))}</dd>`).join('');
   $('#infoNotes').innerHTML = p.notes ? `<em style="color:var(--muted)">Notes:</em> ${escapeHtml(p.notes)}` : '';
+  if (typeof renderInfoOverview === 'function') renderInfoOverview(p);
 
   // Trunk growth — show all measurements oldest→newest with deltas
   const measurements = (state.log||[])
@@ -4344,15 +4384,17 @@ async function pullFromSheets(){
   };
   try {
     setStatus('Loading from Google Sheets…');
-    const [plantsRows, tagsRows, photosRows, logRows, careRows] = await Promise.all([
+    const [plantsRows, tagsRows, photosRows, logRows, careRows, overviewRows] = await Promise.all([
       fetchSheetTab(SHEETS_GID.plants),
       fetchSheetTab(SHEETS_GID.plant_tags),
       fetchSheetTab(SHEETS_GID.plant_photos),
       fetchSheetTab(SHEETS_GID.log),
       fetchSheetTabByName('care_schedule').catch(()=>[]),
+      fetchSheetTabByName('plant_overview').catch(()=>[]),
     ]);
     const rawPlants = rowsToObjects(plantsRows);
     const rawCare = rowsToObjects(careRows);
+    const rawOverview = rowsToObjects(overviewRows);
     const rawTags = rowsToObjects(tagsRows);
     const rawPhotos = rowsToObjects(photosRows);
     const rawLog = rowsToObjects(logRows);
@@ -4458,6 +4500,17 @@ async function pullFromSheets(){
     const remoteCareIds = new Set(remoteCare.map(t => t.id));
     const localOnlyCare = (state.care || []).filter(t => t.id && !remoteCareIds.has(t.id));
     state.care = [...remoteCare, ...localOnlyCare];
+    // Plant overviews: remote rows, but a local row that's newer (just
+    // regenerated, not pushed yet) wins; local-only rows are kept.
+    const localOv = new Map((state.overview || []).filter(o => o.plantId).map(o => [o.plantId, o]));
+    const remoteOv = rawOverview.filter(r => r.plant_id && r.summary).map(r => {
+      const o = { plantId: r.plant_id, updatedAt: parseInt(r.updatedAt, 10) || 0 };
+      for (const h of OVERVIEW_HEADERS) if (h !== 'plant_id' && h !== 'updatedAt') o[h] = r[h] || '';
+      const l = localOv.get(r.plant_id);
+      return (l && (l.updatedAt || 0) > o.updatedAt) ? l : o;
+    });
+    const remoteOvIds = new Set(remoteOv.map(o => o.plantId));
+    state.overview = [...remoteOv, ...[...localOv.values()].filter(o => !remoteOvIds.has(o.plantId))];
     gsPulledOnce = true;
     gsSuspendSync = true; saveLocal(); gsSuspendSync = false;
     render();
@@ -4552,22 +4605,34 @@ function careToSheetRows(){
   return rows;
 }
 
-// The care_schedule tab is created on first use (older sheets don't have it).
-let _careTabEnsured = false;
-async function ensureCareTab(){
-  if (_careTabEnsured) return;
+// Tabs that are created on first use (older sheets don't have them):
+// care_schedule (issue #69) and plant_overview (issue #82).
+const _ensuredTabs = new Set();
+async function ensureTab(name){
+  if (_ensuredTabs.has(name)) return;
   const base = `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}`;
-  const gid = await gsGidFor('care_schedule');
+  const gid = await gsGidFor(name);
   if (gid == null){
     try {
       await gsApiFetch(`${base}:batchUpdate`, {
         method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ requests:[{ addSheet:{ properties:{ title:'care_schedule' } } }] }),
+        body: JSON.stringify({ requests:[{ addSheet:{ properties:{ title:name } } }] }),
       });
     } catch(e){ if (!/already exists/i.test(e.message)) throw e; }
     _gidByTab = null;   // refresh the gid cache so deletes can find the new tab
   }
-  _careTabEnsured = true;
+  _ensuredTabs.add(name);
+}
+const ensureCareTab = () => ensureTab('care_schedule');
+
+// AI plant overviews (issue #82): one row per plant in a plant_overview tab.
+const OVERVIEW_HEADERS = ['plant_id','summary','height','width','growth','sun','water','soil','hardiness','bloom','features','issues','model','updatedAt'];
+function overviewToSheetRows(){
+  const rows = [OVERVIEW_HEADERS];
+  for (const o of (state.overview || [])){
+    rows.push(OVERVIEW_HEADERS.map(h => h === 'plant_id' ? (o.plantId || '') : h === 'updatedAt' ? (o.updatedAt ? String(o.updatedAt) : '') : (o[h] || '')));
+  }
+  return rows;
 }
 
 // Look up a tab's real sheetId (gid) by name, cached. Used so row deletes always
@@ -4676,9 +4741,13 @@ async function gsPushNow(force){
     // Care schedule lives in a tab that may not exist yet; create it on first use.
     // Skipped entirely until there's something to write (or the tab is known),
     // so sheets without schedules aren't touched.
-    if ((state.care && state.care.length) || _careTabEnsured){
+    if ((state.care && state.care.length) || _ensuredTabs.has('care_schedule')){
       await ensureCareTab();
       await gsReconcileTab('care_schedule', careToSheetRows(), [0]);   // key: id
+    }
+    if ((state.overview && state.overview.length) || _ensuredTabs.has('plant_overview')){
+      await ensureTab('plant_overview');
+      await gsReconcileTab('plant_overview', overviewToSheetRows(), [0]);   // key: plant_id
     }
     setSyncStatus(`synced ${new Date().toLocaleTimeString()}`, 'ok');
   } catch(e){
@@ -5175,16 +5244,17 @@ const MD_RE = /^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 let careBusy = false;
 let careQueued = new Set(), careWorking = new Set(); // plant ids waiting / in the current batch
 // done = plants finished so far, total = plants requested; done < 0 hides everything.
-function careProgress(done, total, names){
+function careProgress(done, total, names, what){
   const bar = $('#careBar'), toast = $('#careToast');
   if (done < 0){ if (bar) bar.classList.remove('on'); if (toast) toast.classList.remove('on'); return; }
   const pct = total ? Math.max(4, Math.round(done / total * 100)) : 0;
-  if (bar){ bar.classList.add('on'); bar.querySelector('i').style.width = pct + '%'; }
+  if (bar && !what){ bar.classList.add('on'); bar.querySelector('i').style.width = pct + '%'; }
   if (toast){
+    const label = what || 'care schedule';
     toast.classList.add('on');
     toast.querySelector('.ct-text').textContent = total > 1
-      ? `Generating care schedules… ${done} of ${total} done · now: ${names || '…'}`
-      : `Generating care schedule for ${names || '…'}`;
+      ? `Generating ${label}s… ${done} of ${total} done · now: ${names || '…'}`
+      : `Generating ${label} for ${names || '…'}`;
     toast.querySelector('.ct-bar i').style.width = pct + '%';
   }
 }
@@ -5426,6 +5496,133 @@ async function generateCare(plantIds, opts = {}){
   } finally {
     careBusy = false; careQueued = new Set(); careWorking = new Set();
     careProgress(-1); renderCareByPlant(); updateCareButtons(); buildBrief();
+  }
+}
+
+/* ── AI plant overviews (issue #82) ──
+   One overview per plant (mature size, growth, sun, water, soil, hardiness,
+   bloom, features, common issues, summary), generated by the Worker's
+   mode:'overview' and stored in the plant_overview sheet tab. Shown in the
+   plant card as a collapsible "AI overview" section; bulk buttons live in the
+   "✨ AI overviews" popover above the plants table. */
+const OV_OPEN_KEY = 'plants.overviewOpen';
+let ovBusy = false, ovInfoPlantId = null;
+function overviewFor(plantId){ return (state.overview || []).find(o => o.plantId === plantId) || null; }
+function plantsMissingOverview(){ const has = new Set((state.overview || []).map(o => o.plantId)); return state.plants.filter(p => isLive(p) && !has.has(p.id)); }
+function fmtWhen(ts){ return ts ? new Date(ts).toLocaleDateString(undefined, {month:'short', day:'numeric', year:'numeric'}) : ''; }
+
+function renderInfoOverview(p){
+  ovInfoPlantId = p.id;
+  const sec = $('#infoOverviewSection'), body = $('#ovBody'), teaser = $('#ovTeaser'), btn = $('#ovGenBtn');
+  const o = overviewFor(p.id);
+  const open = localStorage.getItem(OV_OPEN_KEY) === '1';
+  sec.classList.toggle('open', open);
+  $('#ovHead').setAttribute('aria-expanded', open);
+  btn.textContent = ovBusy && ovInfoPlantId && (ovWorking.has(p.id) || ovQueued.has(p.id)) ? 'Generating…' : (o ? 'Regenerate' : 'Generate');
+  btn.disabled = ovBusy;
+  if (!o){
+    teaser.textContent = '';
+    body.innerHTML = `<div class="ov-empty">No overview yet${isGsAuthed() ? ' — click Generate for mature size, light, soil, bloom and the issues to watch for.' : '.'}</div>`;
+    return;
+  }
+  teaser.textContent = o.summary || '';
+  const size = [o.height && `H ${o.height}`, o.width && `W ${o.width}`].filter(Boolean).join(' · ');
+  const rows = [
+    ['Mature size', size], ['Growth', o.growth], ['Sun', o.sun], ['Water', o.water], ['Soil', o.soil],
+    ['Hardiness', o.hardiness ? `Zones ${o.hardiness}` : ''], ['Bloom / interest', o.bloom], ['Features', o.features], ['Watch for', o.issues],
+  ].filter(([, v]) => v);
+  body.innerHTML = `<p>${escapeHtml(o.summary)}</p>`
+    + `<dl class="kv">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${escapeHtml(v)}</dd>`).join('')}</dl>`
+    + `<div class="ov-meta">Generated by ${escapeHtml(o.model || 'AI')}${o.updatedAt ? ' · ' + fmtWhen(o.updatedAt) : ''}. Double-check anything you're about to act on.</div>`;
+}
+$('#ovHead').addEventListener('click', e => {
+  if (e.target.closest('#ovGenBtn')) return;
+  const sec = $('#infoOverviewSection'), open = !sec.classList.contains('open');
+  sec.classList.toggle('open', open);
+  $('#ovHead').setAttribute('aria-expanded', open);
+  localStorage.setItem(OV_OPEN_KEY, open ? '1' : '0');
+});
+$('#ovGenBtn').onclick = () => { if (ovInfoPlantId) generateOverviews([ovInfoPlantId], { replace: true, openCard: true }); };
+
+// Bulk popover above the plants table
+function renderOverviewPop(){
+  const live = state.plants.filter(isLive).length, missing = plantsMissingOverview().length;
+  $('#ovPopInfo').textContent = live ? (missing ? `${missing} of ${live} plants have no overview.` : `All ${live} plants have an overview.`) : 'Add some plants first.';
+  const gm = $('#ovGenMissing'); gm.textContent = missing ? `Generate missing (${missing})` : 'Generate missing'; gm.disabled = ovBusy || careBusy || !missing;
+  const ra = $('#ovRegenAll'); ra.textContent = `Regenerate all (${live})`; ra.disabled = ovBusy || careBusy || !live;
+}
+$('#overviewBtn').onclick = e => {
+  e.stopPropagation();
+  const pop = $('#overviewPop'), open = !pop.classList.contains('on');
+  if (open) renderOverviewPop();
+  pop.classList.toggle('on', open);
+  $('#overviewBtn').setAttribute('aria-expanded', open);
+};
+document.addEventListener('click', e => {
+  const pop = $('#overviewPop');
+  if (pop.classList.contains('on') && !e.target.closest('#overviewPop') && !e.target.closest('#overviewBtn')){ pop.classList.remove('on'); $('#overviewBtn').setAttribute('aria-expanded', 'false'); }
+});
+$('#ovGenMissing').onclick = () => generateOverviews(plantsMissingOverview().map(p => p.id));
+$('#ovRegenAll').onclick = () => {
+  const live = state.plants.filter(isLive);
+  if (!confirm(`Regenerate overviews for all ${live.length} plants? Existing ones will be replaced.`)) return;
+  generateOverviews(live.map(p => p.id), { replace: true });
+};
+
+let ovQueued = new Set(), ovWorking = new Set();
+async function generateOverviews(plantIds, opts = {}){
+  if (ovBusy || careBusy) return;
+  if (!isGsAuthed()){ alert('Sign in with Google first (Settings).'); return; }
+  const targets = state.plants.filter(p => plantIds.includes(p.id));
+  if (!targets.length) return;
+  const st = $('#ovPopStatus');
+  ovBusy = true; ovQueued = new Set(targets.map(p => p.id)); ovWorking = new Set();
+  renderOverviewPop(); if (ovInfoPlantId) renderInfoOverview(plantsById().get(ovInfoPlantId));
+  careProgress(0, targets.length, '', 'plant overview');
+  let done = 0;
+  try {
+    for (let i = 0; i < targets.length; i += 6){
+      const batch = targets.slice(i, i + 6);
+      ovWorking = new Set(batch.map(p => p.id)); batch.forEach(p => ovQueued.delete(p.id));
+      const names = batch.map(p => p.name).join(', ');
+      st.style.color = 'var(--muted)';
+      st.innerHTML = `<span class="care-spin"></span>Generating ${i + 1}–${Math.min(i + 6, targets.length)} of ${targets.length}…`;
+      careProgress(i, targets.length, names, 'plant overview');
+      const r = await fetch(CARE_WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + GAuth.token() },
+        body: JSON.stringify({
+          mode: 'overview', zone: state.settings.zone, city: state.settings.city,
+          plants: batch.map(p => ({ id: p.id, name: p.name, type: p.type, category: p.category, container: p.container === true || p.container === 'true',
+            spot: p.spot, tags: p.tags, purchased: p.purchased, notes: (p.notes || '').slice(0, 200) })),
+        }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok || data.error) throw new Error(data.error || ('HTTP ' + r.status));
+      const now = Date.now();
+      for (const o of (data.overviews || [])){
+        if (!batch.some(p => p.id === o.plant_id) || !o.summary) continue;
+        const row = { plantId: o.plant_id, updatedAt: now, model: data.modelLabel || data.model || 'AI' };
+        for (const h of OVERVIEW_HEADERS) if (!(h in row) && h !== 'plant_id') row[h] = String(o[h] || '').trim();
+        state.overview = (state.overview || []).filter(x => x.plantId !== o.plant_id);
+        state.overview.push(row);
+        done++;
+      }
+      save();
+      if (ovInfoPlantId && batch.some(p => p.id === ovInfoPlantId)) renderInfoOverview(plantsById().get(ovInfoPlantId));
+    }
+    st.style.color = 'var(--accent)';
+    st.textContent = `Done — ${done} overview${done === 1 ? '' : 's'} written.`;
+    if (opts.openCard && targets.length === 1){ localStorage.setItem(OV_OPEN_KEY, '1'); }
+  } catch(e){
+    console.error(e);
+    st.style.color = '#e8a06a';
+    st.textContent = 'Error: ' + e.message;
+    if (opts.openCard) alert('Could not generate the overview: ' + e.message);
+  } finally {
+    ovBusy = false; ovQueued = new Set(); ovWorking = new Set();
+    careProgress(-1); renderOverviewPop();
+    if (ovInfoPlantId) renderInfoOverview(plantsById().get(ovInfoPlantId));
   }
 }
 

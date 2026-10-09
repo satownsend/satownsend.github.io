@@ -56,6 +56,8 @@ const SHEETS = {
   maintenance:  { id: '1dWWWIFBpWvNOIBuxA1EIoaffKckDFhsHvPDzhbxdnYg', gid: '834291047' },
   wildlife:     { id: '1Uq2Fgzron3yDZqYFWsUx1cYigp4w8GmQP2pmk33DG54', gid: '0' },
   photography:  { id: '1JXlI9RgLfwrpYgMZxyo8TipEiEn675Bwpnr9ORxUJFA', sheet: 'photos' },
+  // AI plant overviews (issue #82) — mature size, sun, soil, issues per plant.
+  plant_overview: { id: '1Q1kRZG0jjkYF7pCSZXZIgE5B_kCorDovO2I7ATE3vUM', sheet: 'plant_overview' },
 };
 
 const ALLOW_ORIGINS = [
@@ -183,7 +185,7 @@ function systemPrompt(computed, context, today){
     `- Answer ONLY from the information below. If it isn't there, say you don't have that information — do not make things up.`,
     `- For any count, sum, or average, use the COMPUTED TOTALS section — those are calculated exactly in code and are authoritative. Do NOT re-add rows by hand. Only compute yourself if the question isn't covered there, and if you do, say the figure is approximate.`,
     `- Be concise and conversational: a direct answer first, then a short supporting detail.`,
-    `- The raw DATA is CSV with header rows. Join across sheets by id when needed (a maintenance row's instrument_id matches an instrument's id; a plants_log row's plantId matches a plant's id).`,
+    `- The raw DATA is CSV with header rows. Join across sheets by id when needed (a maintenance row's instrument_id matches an instrument's id; a plants_log row's plantId matches a plant's id; a plant_overview row's plant_id matches a plant's id and holds that plant's AI-written reference facts: mature size, growth, sun, water, soil, hardiness, bloom, features, issues).`,
     `- Dates are YYYY-MM-DD. Today is ${today}.`,
     ``,
     `# REFERENCE (site facts not in the sheets)`,
@@ -275,17 +277,19 @@ const CARE_SCHEMA = {
   additionalProperties: false,
 };
 
-async function claudeCare(env, sys, user){
+// One structured-output call to Claude; shared by the care calendar and the
+// plant overviews. Both use CARE_MODEL (the "knows rare plants" model).
+async function claudeJson(env, sys, user, schema){
   const model = env.CARE_MODEL || 'claude-opus-5-5';
   const r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
     body: JSON.stringify({
       model,
-      max_tokens: 12000, // thinking + a batch of 6 schedules; only what's used is billed
+      max_tokens: 12000, // thinking + a batch of 6 plants; only what's used is billed
       system: sys,
       messages: [{ role: 'user', content: user }],
-      output_config: { format: { type: 'json_schema', schema: CARE_SCHEMA } },
+      output_config: { format: { type: 'json_schema', schema } },
     }),
   });
   const data = await r.json().catch(() => ({}));
@@ -297,6 +301,83 @@ async function claudeCare(env, sys, user){
   if(data.stop_reason === 'max_tokens') throw new Error('Claude ran out of room — try fewer plants per batch');
   const text = (Array.isArray(data.content) ? data.content : []).filter(b => b && b.type === 'text').map(b => b.text).join('');
   return { raw: text, model, modelLabel: CLAUDE_LABELS[model] || model, provider: 'Anthropic' };
+}
+const claudeCare = (env, sys, user) => claudeJson(env, sys, user, CARE_SCHEMA);
+
+/* ── AI plant overviews (issue #82) ──
+   POST { mode:'overview', zone, city, plants:[{id,name,type,category,container,spot,tags,purchased,notes}] }
+   → { overviews:[{ plant_id, summary, height, width, growth, sun, water, soil, hardiness, bloom, features, issues }] }
+   Every field is a short string; the dashboard stores one row per plant. */
+const OVERVIEW_FIELDS = ['summary','height','width','growth','sun','water','soil','hardiness','bloom','features','issues'];
+const OVERVIEW_SCHEMA = {
+  type: 'object',
+  properties: {
+    overviews: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: Object.fromEntries([['plant_id', { type: 'string' }], ...OVERVIEW_FIELDS.map(f => [f, { type: 'string' }])]),
+        required: ['plant_id', ...OVERVIEW_FIELDS],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ['overviews'],
+  additionalProperties: false,
+};
+const OVERVIEW_MAX = { summary: 600, features: 300, issues: 400 }; // others 120
+function parseOverviewJson(raw){
+  let text = String(raw || '').trim();
+  const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if(fence) text = fence[1];
+  const a = text.indexOf('{'), b = text.lastIndexOf('}');
+  if(a < 0 || b < 0) throw new Error('The model returned no JSON');
+  let obj;
+  try { obj = JSON.parse(text.slice(a, b + 1)); }
+  catch(e){ throw new Error('Could not parse the overview JSON'); }
+  const out = [];
+  for(const o of (Array.isArray(obj.overviews) ? obj.overviews : [])){
+    if(!o || !o.plant_id) continue;
+    const row = { plant_id: String(o.plant_id) };
+    for(const f of OVERVIEW_FIELDS) row[f] = String(o[f] || '').trim().slice(0, OVERVIEW_MAX[f] || 120);
+    if(row.summary) out.push(row);
+  }
+  return out;
+}
+
+async function handleOverview(body, env, cors){
+  const plants = (Array.isArray(body.plants) ? body.plants : []).slice(0, 8);
+  if(!plants.length) throw new Error('No plants provided');
+  const sys = [
+    `You are an expert horticulturist and nursery professional writing a concise reference overview of each plant for a home gardener in ${body.city || 'Lilly, PA'} (USDA hardiness zone ${body.zone || '6a'}).`,
+    `Identify each plant from its common name AND its Latin name together. When the Latin name is missing, infer the most likely species and cultivar from the common name, category, tags, and notes, and write about that specific plant (never generic advice because a field is blank). When the two names disagree, trust the Latin name. Cultivar matters: a dwarf or weeping cultivar's size and habit, not the species'.`,
+    `For EACH plant fill every field, as short plain-text strings (no markdown, no bullet characters):`,
+    `- summary: 2–3 sentences on what the plant is, its habit and character, and what makes it worth growing. Mention how it will do in this climate.`,
+    `- height / width: mature size in this climate, as a range in feet or inches (e.g. "6–8 ft", "18–24 in"), with the 10-year size in parentheses if the plant is a slow conifer or tree (e.g. "15–20 ft (6 ft at 10 yrs)").`,
+    `- growth: growth rate in a few words (e.g. "slow, 2–4 in/yr").`,
+    `- sun: light needs (e.g. "full sun to part shade; afternoon shade in summer").`,
+    `- water: moisture needs once established (e.g. "moderate; evenly moist, well-drained").`,
+    `- soil: soil preference including pH (e.g. "acidic, well-drained, organic").`,
+    `- hardiness: USDA zone range (e.g. "4–8").`,
+    `- bloom: bloom time and color, or seasonal foliage/cone/bark interest for non-flowering plants.`,
+    `- features: notable features and uses, one sentence (wildlife value, fall color, fragrance, deer resistance, container suitability…).`,
+    `- issues: the common pests, diseases, and cultural problems to watch for with THIS plant, one or two sentences, most likely first.`,
+    `Respond with ONLY valid JSON, no prose and no markdown fences, exactly in this shape: {"overviews":[{"plant_id":"...","summary":"...","height":"...","width":"...","growth":"...","sun":"...","water":"...","soil":"...","hardiness":"...","bloom":"...","features":"...","issues":"..."}]}`,
+  ].join('\n');
+  const user = 'Plants:\n' + plants.map(p =>
+    `- id=${p.id} | name="${p.name || ''}" | latin="${p.type || ''}" | category=${p.category || ''} | container=${p.container ? 'yes' : 'no'} | spot=${p.spot || ''} | tags=${p.tags || ''} | planted=${p.purchased || ''}${p.notes ? ` | notes="${String(p.notes).slice(0, 200)}"` : ''}`
+  ).join('\n');
+  let res;
+  if(env.ANTHROPIC_API_KEY){
+    res = await claudeJson(env, sys, user, OVERVIEW_SCHEMA);
+  } else {
+    const ai = await env.AI.run(MODEL, { messages: [{ role:'system', content: sys }, { role:'user', content: user }], max_tokens: 3000, temperature: 0.2 });
+    res = { raw: String((ai && (ai.response ?? ai.result)) || ''), model: MODEL, modelLabel: modelLabel(MODEL), provider: PROVIDER };
+  }
+  const overviews = parseOverviewJson(res.raw);
+  return new Response(JSON.stringify({ overviews, model: res.model, modelLabel: res.modelLabel, provider: res.provider }), {
+    status: 200, headers: { ...cors, 'Content-Type': 'application/json' },
+  });
 }
 
 /* Chatbot on Claude (issue #70). Same key as the care calendar; model from the
@@ -397,6 +478,7 @@ export default {
     try {
       const body = await request.json();
       if(body.mode === 'care') return await handleCare(body, env, cors);
+      if(body.mode === 'overview') return await handleOverview(body, env, cors);
       const history = (Array.isArray(body.messages) ? body.messages : [])
         .filter(m => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim())
         .slice(-8);

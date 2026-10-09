@@ -320,6 +320,14 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .care-item .ci-notes{display:none;flex-basis:100%;color:var(--ink-soft);font-size:13px;line-height:1.45;padding:7px 0 2px;margin-top:2px;border-top:1px dashed var(--line2);cursor:default}
   .care-item .ci-notes .ci-meta{display:block;color:var(--muted);font-size:12px;margin-top:4px}
   .care-item.open .ci-notes{display:block}
+  /* Grouped rows (issue #78): "task · N plants", expansion lists the plants */
+  .care-item .ci-count{background:var(--chip);border:1px solid var(--chip-line);color:var(--ink-soft);border-radius:999px;padding:1px 8px;font-size:11px;margin-left:auto;white-space:nowrap}
+  .care-item.group .ci-notes{padding-top:4px}
+  .ci-plants{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+  .ci-plants li{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;padding:4px 0;border-bottom:1px dashed var(--line)}
+  .ci-plants li:last-child{border-bottom:0}
+  .ci-plants .ci-win{margin-left:auto}
+  .ci-plants .ci-gnote{flex-basis:100%;color:var(--muted);font-size:12px}
   .care-item .ci-plant{font-weight:600;color:var(--ink);cursor:pointer}
   .care-item .ci-plant:hover{color:var(--accent)}
   .care-item .ci-task{color:var(--ink-soft)}
@@ -2494,8 +2502,13 @@ function buildBrief(){
       }
     }
     if (items.length){
-      const line = items.slice(0, 6).map(({t, when}) => `${(by.get(t.plantId) || {}).name || '?'} — ${t.task}${when ? ` (${when})` : ''}`).join(' · ');
-      tasks.push({ tag:'care', title:`Care this week: ${items.length} task${items.length === 1 ? '' : 's'}`, why: line + (items.length > 6 ? ` · +${items.length - 6} more` : '') });
+      // Real events first (one plant, one task), then shared windows grouped
+      // as "task · N plants" (issue #78).
+      const { singles, groups } = groupCareTasks(items.map(i => Object.assign({ _when: i.when }, i.t)));
+      const parts = singles.map(t => `${(by.get(t.plantId) || {}).name || '?'} — ${t.task}${t._when ? ` (${t._when})` : ''}`)
+        .concat(groups.map(g => `${g.task} · ${g.items.length} plants`));
+      const line = parts.slice(0, 8).join(' · ') + (parts.length > 8 ? ` · +${parts.length - 8} more` : '');
+      tasks.push({ tag:'care', title:`Care this week: ${items.length} task${items.length === 1 ? '' : 's'}`, why: line });
     }
   }
 
@@ -5359,8 +5372,62 @@ function renderCareDay(){
   const label = ref.toLocaleDateString(undefined, {weekday:'long', month:'long', day:'numeric'});
   if (!starts.length && !active.length){ box.innerHTML = `<div class="care-date">${escapeHtml(label)}</div><div class="cbp-empty">Nothing scheduled.</div>`; return; }
   box.innerHTML = `<div class="care-date">${escapeHtml(label)}</div><div class="care-list">`
-    + starts.map(t => careItemHtml(t, ref, {status:'starts'})).join('')
-    + active.map(t => careItemHtml(t, ref, {status:'in progress'})).join('') + '</div>';
+    + inProgressHtml(starts, ref, 'starts')
+    + inProgressHtml(active, ref, 'in progress') + '</div>';
+}
+
+/* Issue #78: long-running generic windows ("water while establishing",
+   "deep water"…) are shared by many plants at once, which buried the real
+   events. In-progress lists group identical task names held by 2+ plants
+   into one row ("water while establishing · 14 plants") whose expansion
+   lists the plants; one-off tasks stay as individual rows. */
+// The AI words the same window a dozen ways ("water new planting", "water
+// while establishing", "deep water"…), so routine watering is folded into one
+// family. Tasks that are really events keep their own identity ("stop
+// watering, harden off", "water before freeze-up").
+function careGroupKey(task){
+  const t = (task || '').trim().toLowerCase();
+  if (/\b(water|soak|irrigat)/.test(t) && !/\b(stop|reduce|taper|cut back|before freeze|freeze-up|winter watering)\b/.test(t)) return { key:'~water', label:'keep watering' };
+  return { key: t, label: (task || '').trim() };
+}
+function groupCareTasks(tasks){
+  const by = new Map();
+  for (const t of tasks){
+    const { key, label } = careGroupKey(t.task);
+    if (!by.has(key)) by.set(key, { key, task: label, items: [] });
+    by.get(key).items.push(t);
+  }
+  const singles = [], groups = [];
+  for (const g of by.values()){
+    if (g.items.length >= 2) groups.push(g);
+    else singles.push(g.items[0]);
+  }
+  groups.sort((a, b) => b.items.length - a.items.length);
+  return { singles, groups };
+}
+function careGroupHtml(g, ref){
+  const by = plantsById();
+  const gid = 'g:' + g.key;
+  const open = careOpen.has(gid);
+  const rows = g.items.slice().sort((a, b) => ((by.get(a.plantId) || {}).name || '').localeCompare((by.get(b.plantId) || {}).name || ''))
+    .map(t => {
+      const p = by.get(t.plantId);
+      const own = (t.task || '').trim().toLowerCase() !== g.task.toLowerCase() ? `<span class="ci-task">${escapeHtml(t.task)}</span>` : '';
+      return `<li><span class="ci-plant" data-open="${escapeHtml(t.plantId)}">${escapeHtml(p ? p.name : '(unknown plant)')}</span>${own}
+        <span class="ci-win">${escapeHtml(winLabel(t))}</span>
+        <button class="ci-edit care-edit" data-edit="${escapeHtml(t.id)}" aria-label="Edit task" title="Edit">✎</button>
+        ${t.notes ? `<span class="ci-gnote">${escapeHtml(t.notes)}</span>` : ''}</li>`;
+    }).join('');
+  return `<div class="care-item group${open ? ' open' : ''}" data-tid="${escapeHtml(gid)}" role="button" aria-expanded="${open}" title="Click to see the plants">
+    <span class="ci-chev">▶</span>
+    <span class="ci-task" style="color:var(--ink);font-weight:600">${escapeHtml(g.task)}</span>
+    <span class="ci-count">${g.items.length} plants</span>
+    <div class="ci-notes"><ul class="ci-plants">${rows}</ul></div>
+  </div>`;
+}
+function inProgressHtml(tasks, ref, status){
+  const { singles, groups } = groupCareTasks(tasks);
+  return singles.map(t => careItemHtml(t, ref, status ? { status } : {})).join('') + groups.map(g => careGroupHtml(g, ref)).join('');
 }
 
 function renderCareUpcoming(){
@@ -5373,13 +5440,14 @@ function renderCareUpcoming(){
   const tmd = mdOf(today);
   const inProgress = care.filter(t => t.start !== tmd && inWindow(t, tmd) && !isTaskDone(t, today));
   let html = '';
-  if (inProgress.length) html += '<div class="care-date">In progress</div>' + inProgress.map(t => careItemHtml(t, today)).join('');
+  if (inProgress.length) html += '<div class="care-date">In progress</div>' + inProgressHtml(inProgress, today);
   for (let i = 0; i < 30; i++){
     const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i, 12);
     const starts = care.filter(t => t.start === mdOf(d));
     if (!starts.length) continue;
     const when = i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : d.toLocaleDateString(undefined, {weekday:'short', month:'short', day:'numeric'});
-    html += `<div class="care-date">${escapeHtml(when)}</div>` + starts.map(t => careItemHtml(t, d)).join('');
+    // Same task starting the same day for several plants ("mulch · 8 plants") is one row too.
+    html += `<div class="care-date">${escapeHtml(when)}</div>` + inProgressHtml(starts, d);
   }
   box.innerHTML = html || '<div class="cbp-empty">Nothing starts in the next 30 days.</div>';
 }

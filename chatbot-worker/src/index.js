@@ -309,6 +309,21 @@ const claudeCare = (env, sys, user) => claudeJson(env, sys, user, CARE_SCHEMA);
    → { overviews:[{ plant_id, summary, height, width, growth, sun, water, soil, hardiness, bloom, features, issues }] }
    Every field is a short string; the dashboard stores one row per plant. */
 const OVERVIEW_FIELDS = ['summary','height','width','growth','sun','water','soil','hardiness','bloom','features','issues','spring','summer','autumn','winter'];
+// Year view (issue #8): each plant also gets a small structured calendar of
+// its seasonal interest — month ranges with a kind and a representative color —
+// so the dashboard can draw the whole yard on one 12-month strip.
+const CAL_KINDS = ['bloom', 'foliage', 'fruit', 'bark', 'cone', 'bare', 'evergreen'];
+const CAL_ITEM = {
+  type: 'object',
+  properties: {
+    start_month: { type: 'integer' }, end_month: { type: 'integer' },
+    kind: { type: 'string', enum: CAL_KINDS },
+    color: { type: 'string' },
+    label: { type: 'string' },
+  },
+  required: ['start_month', 'end_month', 'kind', 'color', 'label'],
+  additionalProperties: false,
+};
 const OVERVIEW_SCHEMA = {
   type: 'object',
   properties: {
@@ -316,8 +331,8 @@ const OVERVIEW_SCHEMA = {
       type: 'array',
       items: {
         type: 'object',
-        properties: Object.fromEntries([['plant_id', { type: 'string' }], ...OVERVIEW_FIELDS.map(f => [f, { type: 'string' }])]),
-        required: ['plant_id', ...OVERVIEW_FIELDS],
+        properties: Object.fromEntries([['plant_id', { type: 'string' }], ...OVERVIEW_FIELDS.map(f => [f, { type: 'string' }]), ['calendar', { type: 'array', items: CAL_ITEM }]]),
+        required: ['plant_id', ...OVERVIEW_FIELDS, 'calendar'],
         additionalProperties: false,
       },
     },
@@ -325,6 +340,21 @@ const OVERVIEW_SCHEMA = {
   required: ['overviews'],
   additionalProperties: false,
 };
+// Validate the calendar and store it as a compact JSON string (one sheet cell):
+// [{s,e,k,c,t}] = start month, end month (1–12, may wrap), kind, hex color, label.
+function cleanCalendar(list){
+  const out = [];
+  for(const it of (Array.isArray(list) ? list : [])){
+    const s = Math.round(Number(it && it.start_month)), e = Math.round(Number(it && it.end_month));
+    const k = String((it && it.kind) || '').toLowerCase();
+    let c = String((it && it.color) || '').trim();
+    if(!/^#[0-9a-f]{6}$/i.test(c)) c = { bloom:'#e58fb0', foliage:'#e0a040', fruit:'#c9503c', bark:'#b8865a', cone:'#9a7b4f', bare:'#6b6b6b', evergreen:'#4f8a5a' }[k] || '#888888';
+    if(!(s >= 1 && s <= 12 && e >= 1 && e <= 12) || !CAL_KINDS.includes(k)) continue;
+    out.push({ s, e, k, c: c.toLowerCase(), t: String((it && it.label) || '').trim().slice(0, 80) });
+    if(out.length >= 8) break;
+  }
+  return out;
+}
 const OVERVIEW_MAX = { summary: 600, features: 300, issues: 400, spring: 200, summer: 200, autumn: 200, winter: 200 }; // others 120
 function parseOverviewJson(raw){
   let text = String(raw || '').trim();
@@ -340,6 +370,7 @@ function parseOverviewJson(raw){
     if(!o || !o.plant_id) continue;
     const row = { plant_id: String(o.plant_id) };
     for(const f of OVERVIEW_FIELDS) row[f] = String(o[f] || '').trim().slice(0, OVERVIEW_MAX[f] || 120);
+    row.calendar = JSON.stringify(cleanCalendar(o.calendar));
     if(row.summary) out.push(row);
   }
   return out;
@@ -363,7 +394,8 @@ async function handleOverview(body, env, cors){
     `- features: notable features and uses, one sentence (wildlife value, fall color, fragrance, deer resistance, container suitability…).`,
     `- issues: the common pests, diseases, and cultural problems to watch for with THIS plant, one or two sentences, most likely first.`,
     `- spring / summer / autumn / winter: what the plant looks like in that season in this climate, one short sentence each — foliage color and texture, flowers, fruit or cones, bark, and whether it is bare, evergreen, or dormant (e.g. "New growth emerges coral-pink, maturing to green by June." / "Bare; coral-red twigs are the show against snow."). Be specific to the cultivar.`,
-    `Respond with ONLY valid JSON, no prose and no markdown fences, exactly in this shape: {"overviews":[{"plant_id":"...","summary":"...","height":"...","width":"...","growth":"...","sun":"...","water":"...","soil":"...","hardiness":"...","bloom":"...","features":"...","issues":"...","spring":"...","summer":"...","autumn":"...","winter":"..."}]}`,
+    `- calendar: 2 to 6 entries describing the plant's visual interest through the year in this climate, for a yard-wide 12-month chart. Each entry: start_month and end_month (1–12; a range may wrap past December, e.g. 11 to 2), kind (one of bloom, foliage, fruit, bark, cone, bare, evergreen), color (a representative hex like "#e58fb0" — the actual flower / foliage / bark color, muted and realistic), label (at most 8 words, e.g. "coral-pink flowers", "gold fall color", "red twigs on bare stems"). Always include the standout moments (bloom, fall color, fruit, winter bark) and ONE baseline entry for the rest of the year: "evergreen" with the foliage color, or "bare" for deciduous plants in winter. Do not invent flowers for plants that don't bloom noticeably.`,
+    `Respond with ONLY valid JSON, no prose and no markdown fences, exactly in this shape: {"overviews":[{"plant_id":"...","summary":"...","height":"...","width":"...","growth":"...","sun":"...","water":"...","soil":"...","hardiness":"...","bloom":"...","features":"...","issues":"...","spring":"...","summer":"...","autumn":"...","winter":"...","calendar":[{"start_month":4,"end_month":5,"kind":"bloom","color":"#e58fb0","label":"coral-pink flowers"}]}]}`,
   ].join('\n');
   const user = 'Plants:\n' + plants.map(p =>
     `- id=${p.id} | name="${p.name || ''}" | latin="${p.type || ''}" | category=${p.category || ''} | container=${p.container ? 'yes' : 'no'} | spot=${p.spot || ''} | tags=${p.tags || ''} | planted=${p.planted || p.purchased || ''}${p.notes ? ` | notes="${String(p.notes).slice(0, 200)}"` : ''}`

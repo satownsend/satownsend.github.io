@@ -306,6 +306,47 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .view-tabs .vt{background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);padding:8px 12px;font:inherit;font-size:14px;cursor:pointer;margin-bottom:-1px;display:inline-flex;align-items:center;gap:6px}
   .view-tabs .vt:hover{color:var(--ink)}
   .view-tabs .vt.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+  /* Year view (issue #8) */
+  .yv-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+  .yv-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .yv-legend{display:flex;gap:4px;flex-wrap:wrap}
+  .yv-lg{background:var(--chip);border:1px solid var(--chip-line);color:var(--ink-soft);border-radius:999px;padding:3px 9px;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;min-height:0}
+  .yv-lg.off{opacity:.4;text-decoration:line-through}
+  .yv-sw{display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--muted)}
+  .yv-sw.bloom{background:#e58fb0;border-radius:50%}
+  .yv-sw.foliage{background:#e0a040}
+  .yv-sw.fruit{background:#c9503c;border-radius:50%}
+  .yv-sw.bark{background:#b8865a}
+  .yv-sw.cone{background:#9a7b4f}
+  .yv-sw.bare{background:repeating-linear-gradient(45deg,#777 0 2px,transparent 2px 4px)}
+  .yv-sw.evergreen{background:#4f8a5a;height:4px}
+  .yv-months,.yv-summary,.yv-row{display:grid;grid-template-columns:170px repeat(12,minmax(0,1fr));align-items:center}
+  .yv-months{margin-top:10px;border-bottom:1px solid var(--line);padding-bottom:4px}
+  .yv-months .yv-m,.yv-summary .yv-m{text-align:center;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:2px 0}
+  .yv-months .yv-m.now,.yv-summary .yv-m.now{color:var(--accent);font-weight:700}
+  .yv-summary{margin:2px 0 4px;border-bottom:1px dashed var(--line)}
+  .yv-summary .yv-c{display:inline-block;min-width:14px;font-size:10px;font-weight:700;border-radius:3px;padding:0 3px;margin:0 1px}
+  .yv-summary .yv-c.bloom{background:rgba(229,143,176,.22);color:#e58fb0}
+  .yv-summary .yv-c.foliage{background:rgba(224,160,64,.22);color:#e0a040}
+  .yv-summary .yv-c:empty{display:none}
+  .yv-row{min-height:30px;border-bottom:1px solid var(--line)}
+  .yv-row:hover{background:var(--panel2)}
+  .yv-name{font-size:13px;padding:4px 8px 4px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .yv-name .ci-plant{font-weight:600;cursor:pointer}
+  .yv-name .ci-plant:hover{color:var(--accent)}
+  .yv-track{grid-column:2 / span 12;position:relative;height:22px;background:repeating-linear-gradient(90deg,transparent 0 calc(100%/12 - 1px),var(--line) calc(100%/12 - 1px) calc(100%/12))}
+  .yv-bar{position:absolute;top:4px;height:14px;border-radius:4px;background:var(--c);opacity:.9;box-shadow:inset 0 0 0 1px rgba(0,0,0,.15)}
+  .yv-bar.bloom{border-radius:999px}
+  .yv-bar.fruit{border-radius:999px;top:6px;height:10px}
+  .yv-bar.bark{top:7px;height:8px}
+  .yv-bar.cone{top:6px;height:10px}
+  .yv-bar.evergreen{top:9px;height:4px;opacity:.7;border-radius:2px;box-shadow:none}
+  .yv-bar.bare{top:9px;height:4px;background:repeating-linear-gradient(90deg,var(--c) 0 4px,transparent 4px 7px);opacity:.6;box-shadow:none}
+  .yv-now{position:absolute;top:0;bottom:0;width:0;border-left:1px dashed var(--accent);opacity:.7;pointer-events:none}
+  @media (max-width:700px){
+    .yv-months,.yv-summary,.yv-row{grid-template-columns:110px repeat(12,minmax(0,1fr))}
+    .yv-name{font-size:12px}
+  }
   /* Settings panel tabs */
   .settings-tabs{margin-bottom:14px}
   .st-pane{display:none}
@@ -643,6 +684,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <div class="view-tabs" role="tablist" aria-label="Plants views">
   <button class="vt active" data-view="dashboard" role="tab" aria-selected="true">Dashboard</button>
   <button class="vt" data-view="calendar" role="tab" aria-selected="false">Care calendar<span class="vt-badge" id="careBadge" style="display:none"></span></button>
+  <button class="vt" data-view="year" role="tab" aria-selected="false">Year</button>
 </div>
 
 <div class="grid" id="dashboardView" style="margin-top:16px">
@@ -875,6 +917,28 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </div>
     </div>
     <div id="careByPlant" class="care-byplant"></div>
+  </div>
+</div>
+
+<!-- Year view (issue #8): the whole yard on one 12-month strip, built from
+     each plant's AI overview calendar (bloom, fall color, fruit, bark, bare…). -->
+<div class="grid" id="yearView" style="margin-top:16px;display:none">
+  <div class="panel full">
+    <div class="yv-head">
+      <h2>Year at a glance <span class="small" id="yvCount"></span></h2>
+      <div class="yv-controls">
+        <div class="yv-legend" id="yvLegend"></div>
+        <select id="yvSort" class="tiny">
+          <option value="first">Sort by first event</option>
+          <option value="name">Sort by name</option>
+          <option value="category">Sort by type</option>
+        </select>
+      </div>
+    </div>
+    <div class="small" id="yvEmpty" style="color:var(--muted);display:none"></div>
+    <div class="yv-months" id="yvMonths"></div>
+    <div class="yv-summary" id="yvSummary"></div>
+    <div class="yv-rows" id="yvRows"></div>
   </div>
 </div>
 
@@ -4734,7 +4798,7 @@ async function ensureTab(name){
 const ensureCareTab = () => ensureTab('care_schedule');
 
 // AI plant overviews (issue #82): one row per plant in a plant_overview tab.
-const OVERVIEW_HEADERS = ['plant_id','summary','height','width','growth','sun','water','soil','hardiness','bloom','features','issues','spring','summer','autumn','winter','model','updatedAt'];
+const OVERVIEW_HEADERS = ['plant_id','summary','height','width','growth','sun','water','soil','hardiness','bloom','features','issues','spring','summer','autumn','winter','calendar','model','updatedAt'];
 function overviewToSheetRows(){
   const rows = [OVERVIEW_HEADERS];
   for (const o of (state.overview || [])){
@@ -5682,8 +5746,8 @@ async function generateCare(plantIds, opts = {}){
 let ovBusy = false, ovInfoPlantId = null;
 function overviewFor(plantId){ return (state.overview || []).find(o => o.plantId === plantId) || null; }
 function plantsMissingOverview(){ const has = new Set((state.overview || []).map(o => o.plantId)); return state.plants.filter(p => isLive(p) && !has.has(p.id)); }
-// Overviews written before seasonal color existed (issue #83) — no spring/summer/autumn/winter.
-function plantsWithOldOverview(){ const old = new Set((state.overview || []).filter(o => !(o.spring || o.summer || o.autumn || o.winter)).map(o => o.plantId)); return state.plants.filter(p => isLive(p) && old.has(p.id)); }
+// Overviews written before seasonal color (#83) or the year calendar (#8) existed.
+function plantsWithOldOverview(){ const old = new Set((state.overview || []).filter(o => !(o.spring || o.summer || o.autumn || o.winter) || !o.calendar).map(o => o.plantId)); return state.plants.filter(p => isLive(p) && old.has(p.id)); }
 function fmtWhen(ts){ return ts ? new Date(ts).toLocaleDateString(undefined, {month:'short', day:'numeric', year:'numeric'}) : ''; }
 
 /* Collapsible plant-card sections (overview, care calendar, log history).
@@ -5779,7 +5843,7 @@ function renderOverviewPop(){
   $('#ovPopInfo').textContent = live ? (missing ? `${missing} of ${live} plants have no overview.` : `All ${live} plants have an overview.`) : 'Add some plants first.';
   const gm = $('#ovGenMissing'); gm.textContent = missing ? `Generate missing (${missing})` : 'Generate missing'; gm.disabled = ovBusy || careBusy || !missing;
   const old = plantsWithOldOverview().length;
-  const uo = $('#ovUpdateOld'); uo.style.display = old ? '' : 'none'; uo.textContent = `Add seasonal color (${old})`; uo.disabled = ovBusy || careBusy;
+  const uo = $('#ovUpdateOld'); uo.style.display = old ? '' : 'none'; uo.textContent = `Update older overviews (${old})`; uo.title = 'Regenerate overviews that predate seasonal color or the Year view'; uo.disabled = ovBusy || careBusy;
   const ra = $('#ovRegenAll'); ra.textContent = `Regenerate all (${live})`; ra.disabled = ovBusy || careBusy || !live;
 }
 $('#overviewBtn').onclick = e => {
@@ -5855,6 +5919,7 @@ async function generateOverviews(plantIds, opts = {}){
     ovBusy = false; ovQueued = new Set(); ovWorking = new Set();
     careProgress(-1); renderOverviewPop();
     if (ovInfoPlantId) renderInfoOverview(plantsById().get(ovInfoPlantId));
+    if ($('#yearView').style.display !== 'none') renderYearView();
   }
 }
 
@@ -5935,13 +6000,15 @@ $('#calendarView').addEventListener('click', e => {
 
 // Dashboard / Care calendar tabs
 function setView(v){
-  const cal = v === 'calendar';
-  $('#dashboardView').style.display = cal ? 'none' : '';
-  $('#calendarView').style.display = cal ? '' : 'none';
+  if (!['dashboard', 'calendar', 'year'].includes(v)) v = 'dashboard';
+  $('#dashboardView').style.display = v === 'dashboard' ? '' : 'none';
+  $('#calendarView').style.display = v === 'calendar' ? '' : 'none';
+  $('#yearView').style.display = v === 'year' ? '' : 'none';
   $$('.view-tabs .vt').forEach(b => { const on = b.dataset.view === v; b.classList.toggle('active', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
   try { localStorage.setItem(VIEW_KEY, v); } catch(e){}
-  history.replaceState(null, '', location.pathname + location.search + (cal ? '#calendar' : ''));
-  if (cal) renderCareViews();
+  history.replaceState(null, '', location.pathname + location.search + (v === 'dashboard' ? '' : '#' + v));
+  if (v === 'calendar') renderCareViews();
+  if (v === 'year' && typeof renderYearView === 'function') renderYearView();
 }
 $$('.view-tabs .vt').forEach(b => b.addEventListener('click', ()=> setView(b.dataset.view)));
 // Called after GAuth.handleReturn() so an OAuth token in the hash is consumed first.
@@ -5949,8 +6016,73 @@ function initCareView(){
   let v = 'dashboard';
   try { v = localStorage.getItem(VIEW_KEY) || v; } catch(e){}
   if (location.hash === '#calendar') v = 'calendar';
+  if (location.hash === '#year') v = 'year';
   setView(v);
 }
+
+/* ── Year view (issue #8) ──
+   Each overview carries `calendar`: JSON [{s,e,k,c,t}] = start/end month
+   (1–12, may wrap), kind, hex color, label. Rows = plants, columns = months. */
+const YV_KINDS = { bloom:'Bloom', foliage:'Foliage color', fruit:'Fruit / berries', bark:'Bark & twigs', cone:'Cones', bare:'Bare', evergreen:'Evergreen' };
+const YV_SORT_KEY = 'plants.yearSort';
+let yvFilter = new Set();   // kinds hidden
+function yearRowsData(){
+  const by = plantsById(), rows = [];
+  for (const o of (state.overview || [])){
+    const p = by.get(o.plantId); if (!p || !isLive(p) || !o.calendar) continue;
+    let items = []; try { items = JSON.parse(o.calendar) || []; } catch(e){ continue; }
+    items = items.filter(i => i && i.s >= 1 && i.s <= 12 && i.e >= 1 && i.e <= 12 && YV_KINDS[i.k]);
+    if (!items.length) continue;
+    rows.push({ p, items });
+  }
+  return rows;
+}
+function yvSpan(i){ // → [[start, end]] in 0..12 month units, split on wrap
+  return i.e >= i.s ? [[i.s - 1, i.e]] : [[i.s - 1, 12], [0, i.e]];
+}
+function renderYearView(){
+  const box = $('#yvRows'); if (!box) return;
+  const rows = yearRowsData();
+  const months = ['J','F','M','A','M','J','J','A','S','O','N','D'];
+  const monthsLong = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  $('#yvMonths').innerHTML = `<div class="yv-name"></div>` + months.map((m, i) => `<div class="yv-m${i === today.getMonth() ? ' now' : ''}" title="${monthsLong[i]}">${m}</div>`).join('');
+  // Legend doubles as a filter
+  const present = new Set(rows.flatMap(r => r.items.map(i => i.k)));
+  $('#yvLegend').innerHTML = Object.entries(YV_KINDS).filter(([k]) => present.has(k)).map(([k, label]) =>
+    `<button class="yv-lg${yvFilter.has(k) ? ' off' : ''}" data-kind="${k}" title="Click to hide/show"><i class="yv-sw ${k}"></i>${label}</button>`).join('');
+  const sort = $('#yvSort').value;
+  const firstEvent = r => Math.min(...r.items.filter(i => i.k !== 'evergreen' && i.k !== 'bare').map(i => i.s), 13);
+  rows.sort((a, b) => sort === 'name' ? a.p.name.localeCompare(b.p.name)
+    : sort === 'category' ? ((a.p.category || '').localeCompare(b.p.category || '') || a.p.name.localeCompare(b.p.name))
+    : (firstEvent(a) - firstEvent(b)) || a.p.name.localeCompare(b.p.name));
+  const live = state.plants.filter(isLive).length;
+  $('#yvCount').textContent = rows.length ? `${rows.length} of ${live} plants` : '';
+  const empty = $('#yvEmpty');
+  if (!rows.length){
+    empty.style.display = ''; empty.textContent = live ? 'No year data yet. Generate AI overviews (the ✨ AI overviews button above the plants table) — each one includes the plant\'s bloom, color and bare months.' : 'Add some plants first.';
+    box.innerHTML = ''; $('#yvSummary').innerHTML = ''; return;
+  }
+  empty.style.display = 'none';
+  // Month summary: how many plants are in bloom / coloring / fruiting each month
+  const counts = months.map(() => ({ bloom:0, foliage:0, fruit:0 }));
+  for (const r of rows) for (const i of r.items){ if (!(i.k in counts[0])) continue; for (const [a, b] of yvSpan(i)) for (let m = a; m < b; m++) counts[m][i.k]++; }
+  $('#yvSummary').innerHTML = `<div class="yv-name small" style="color:var(--muted)">in bloom · coloring</div>` + counts.map((c, i) =>
+    `<div class="yv-m small${i === today.getMonth() ? ' now' : ''}" title="${monthsLong[i]}: ${c.bloom} in bloom, ${c.foliage} coloring, ${c.fruit} fruiting">${c.bloom || c.foliage ? `<span class="yv-c bloom">${c.bloom || ''}</span><span class="yv-c foliage">${c.foliage || ''}</span>` : ''}</div>`).join('');
+  const nowX = ((today.getMonth() + (today.getDate() - 1) / 31) / 12 * 100).toFixed(2);
+  box.innerHTML = rows.map(r => {
+    const bars = r.items.filter(i => !yvFilter.has(i.k)).flatMap(i => yvSpan(i).map(([a, b]) => {
+      const range = i.e >= i.s ? `${monthsLong[i.s - 1]}–${monthsLong[i.e - 1]}` : `${monthsLong[i.s - 1]}–${monthsLong[i.e - 1]} (wraps)`;
+      return `<div class="yv-bar ${i.k}" style="left:${(a / 12 * 100).toFixed(2)}%;width:${((b - a) / 12 * 100).toFixed(2)}%;--c:${escapeHtml(i.c || '#888')}" title="${escapeHtml(range)} · ${YV_KINDS[i.k]}${i.t ? ' · ' + escapeHtml(i.t) : ''}"></div>`;
+    })).join('');
+    return `<div class="yv-row"><div class="yv-name"><span class="ci-plant" data-open="${escapeHtml(r.p.id)}">${escapeHtml(r.p.name)}</span></div><div class="yv-track">${bars}<div class="yv-now" style="left:${nowX}%"></div></div></div>`;
+  }).join('');
+}
+$('#yvSort').value = localStorage.getItem(YV_SORT_KEY) || 'first';
+$('#yvSort').addEventListener('change', ()=>{ localStorage.setItem(YV_SORT_KEY, $('#yvSort').value); renderYearView(); });
+$('#yearView').addEventListener('click', e => {
+  const lg = e.target.closest('.yv-lg'); if (lg){ const k = lg.dataset.kind; if (yvFilter.has(k)) yvFilter.delete(k); else yvFilter.add(k); renderYearView(); return; }
+  const open = e.target.closest('[data-open]'); if (open) openInfo(open.dataset.open);
+});
 
 function render(slices){
   const s = slices || {plants:1, log:1, brief:1, stats:1, gallery:1, frostLog:1, yardMap:1, calendar:1};

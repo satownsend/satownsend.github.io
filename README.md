@@ -152,8 +152,16 @@ the plant looks like in spring, summer, autumn and winter, written for zone 6a.
   Worker.
 - **Storage:** a `plant_overview` tab in the plants sheet, one row per plant
   (`plant_id, summary, height, width, growth, sun, water, soil, hardiness,
-  bloom, features, issues, model, updatedAt`), created on first use and synced
-  row-by-row. The chatbot reads it too, so "how big will the Hinoki get?" works.
+  bloom, features, issues, spring, summer, autumn, winter, calendar, model,
+  updatedAt`), created on first use and synced row-by-row. The chatbot reads
+  it too, so "how big will the Hinoki get?" works.
+- **Year view:** the Plants page's third tab draws the whole yard on one
+  12-month strip from each overview's `calendar` (JSON: month ranges with a
+  kind — bloom, foliage, fruit, bark, cone, bare, evergreen — and a
+  representative color). Legend chips hide/show kinds; a month summary row
+  counts what's in bloom and coloring; click a plant name for its card.
+  Overviews generated before this existed show "Update older overviews" in
+  the AI overviews popover.
 
 ### Digital photo frame (`/<section>-slideshow/` + `shared/frame.js`)
 

@@ -1172,6 +1172,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <input type="text" data-f="tags" placeholder="e.g. tender, shade, rose">
         <label class="small" style="margin-top:6px;display:block">Date purchased</label>
         <input type="date" data-f="purchased">
+        <label class="small" style="margin-top:6px;display:block">Date planted <span class="meta">(blank = same as purchased)</span></label>
+        <input type="date" data-f="planted">
         <label class="small" style="margin-top:6px;display:block"><input type="checkbox" data-f="dead"> Departed (RIP)</label>
         <label class="small" style="margin-top:6px;display:block">Notes</label>
         <textarea data-f="notes"></textarea>
@@ -1444,9 +1446,13 @@ function daysSince(dateStr){
   const d = parseYMD(dateStr);
   return daysBetween(d, today);
 }
+// Issue #67: a plant has a purchase date and a planted date. Age, establishment
+// stage and the AI prompts go by when it went in the ground (or pot); spend
+// stats go by when it was bought. Planted falls back to purchased.
+function plantedDate(p){ return (p && (p.planted || p.purchased)) || ''; }
 function establishmentStage(p){
-  if (!p || !p.purchased) return null;
-  const planted = parseYMD(p.purchased);
+  if (!p || !plantedDate(p)) return null;
+  const planted = parseYMD(plantedDate(p));
   if (!planted || isNaN(planted)) return null;
   const days = daysBetween(planted, today);
   if (days < 0) return null;        // future planting
@@ -1896,7 +1902,7 @@ function buildPrintInventory(){
     const qty = Math.max(1, parseInt(p.quantity||1, 10) || 1);
     const price = Number(p.price)||0;
     const total = price * qty;
-    const planted = p.purchased ? plantedDuration(p.purchased) : '';
+    const planted = plantedDate(p) ? plantedDuration(plantedDate(p)) : '';
     return `<tr>
       <td class="name">${escapeHtml(p.name||'')}</td>
       <td class="latin">${escapeHtml(p.type||'')}</td>
@@ -1949,7 +1955,7 @@ function buildPrintInventory(){
       const qty = Math.max(1, parseInt(p.quantity||1, 10) || 1);
       const price = Number(p.price)||0;
       const total = price * qty;
-      const planted = p.purchased ? plantedDuration(p.purchased) : '';
+      const planted = plantedDate(p) ? plantedDuration(plantedDate(p)) : '';
       const dl = (label, val) => val ? `<dt>${escapeHtml(label)}</dt><dd>${escapeHtml(String(val))}</dd>` : '';
       html += `<div class="ps-card">
         <div class="ps-card-img"><img src="${escapeHtml(url)}" alt=""></div>
@@ -1961,6 +1967,7 @@ function buildPrintInventory(){
             ${dl('Location', p.spot)}
             ${dl('Quantity', qty > 1 ? qty : '')}
             ${dl('Purchased', p.purchased ? fmtDate(p.purchased) : '')}
+            ${dl('Planted', p.planted && p.planted !== p.purchased ? fmtDate(p.planted) : '')}
             ${dl('Age', planted)}
             ${isGsAuthed() ? dl('Unit price', price ? fmtMoney(price) : '') : ''}
             ${isGsAuthed() ? dl('Total cost', total ? fmtMoney(total) : '') : ''}
@@ -2583,7 +2590,7 @@ const sortFns = {
   category:(a,b) => (a.category||'').localeCompare(b.category||''),
   type:    (a,b) => (a.type||'').localeCompare(b.type||''),
   location:(a,b) => (a.spot||'').localeCompare(b.spot||''),
-  planted: (a,b) => (a.purchased||'9999-99-99').localeCompare(b.purchased||'9999-99-99'),
+  planted: (a,b) => (plantedDate(a)||'9999-99-99').localeCompare(plantedDate(b)||'9999-99-99'),
   price:   (a,b) => (Number(a.price)||0) - (Number(b.price)||0),
   total:   (a,b) => ((Number(a.price)||0) * (Number(a.quantity)||1)) - ((Number(b.price)||0) * (Number(b.quantity)||1)),
   photos:  (a,b) => getPhotosForPlant(a).length - getPhotosForPlant(b).length,
@@ -2666,7 +2673,7 @@ function renderPlants(){
     const cellCategory = p.category ? escapeHtml(p.category) : '';
     const cellType = p.type ? `<span class="meta">${escapeHtml(p.type)}</span>` : '';
     const cellSpot = p.spot ? escapeHtml(p.spot) : '';
-    const cellPlanted = p.purchased ? plantedDuration(p.purchased) : '';
+    const cellPlanted = plantedDate(p) ? `<span title="Planted ${escapeHtml(plantedDate(p))}${p.purchased && p.planted && p.planted !== p.purchased ? ` · purchased ${escapeHtml(p.purchased)}` : ''}">${plantedDuration(plantedDate(p))}</span>` : '';
     const priceFormatted = fmtPrice(p.price);
     const cellPrice = priceFormatted ? escapeHtml(priceFormatted) : '';
     const priceNum = Number(p.price);
@@ -2850,7 +2857,8 @@ function openInfo(id){
     ['Container', (p.container===true||p.container==='true') ? 'Yes' : 'In ground'],
     ['Tags', p.tags || '—'],
     ['Purchased', p.purchased || '—'],
-    ['Planted for', p.purchased ? plantedDuration(p.purchased) : '—'],
+    ['Planted', p.planted || (p.purchased ? `${p.purchased} (same day)` : '—')],
+    ['Planted for', plantedDate(p) ? plantedDuration(plantedDate(p)) : '—'],
     ['Stage', (function(){ const s = establishmentStage(p); return s ? stageLabel[s] : '—'; })()],
     ['Status', p.dead ? 'Departed (RIP)' : 'Living'],
   ];
@@ -4581,6 +4589,7 @@ async function pullFromSheets(){
         notes: rp.notes || '',
         price: rp.price ? parseFloat(rp.price) : '',
         purchased: rp.purchased || '',
+        planted: rp.planted || '',
         dead: rp.dead === 'TRUE',
         wishlist: rp.wishlist === 'TRUE',
         quantity: parseInt(rp.quantity, 10) || 1,
@@ -4668,7 +4677,7 @@ async function gsApiFetch(url, opts = {}){
 }
 
 function plantsToSheetRows(){
-  const header = ['id','name','type','category','spot','container','notes','price','purchased','dead','wishlist','quantity','thumbKey'];
+  const header = ['id','name','type','category','spot','container','notes','price','purchased','dead','wishlist','quantity','thumbKey','planted'];
   const rows = [header];
   for (const p of (state.plants || [])){
     rows.push([
@@ -4677,7 +4686,7 @@ function plantsToSheetRows(){
       p.price !== '' && p.price !== undefined ? String(p.price) : '',
       p.purchased||'', p.dead ? 'TRUE' : 'FALSE',
       p.wishlist ? 'TRUE' : 'FALSE', String(p.quantity||1),
-      p.thumbKey||'',
+      p.thumbKey||'', p.planted||'',
     ]);
   }
   return rows;
@@ -5660,7 +5669,7 @@ async function generateCare(plantIds, opts = {}){
         body: JSON.stringify({
           mode: 'care', zone: state.settings.zone, lastFrost: state.settings.lastFrost, firstFrost: state.settings.firstFrost, city: state.settings.city,
           plants: batch.map(p => ({ id: p.id, name: p.name, type: p.type, category: p.category, container: p.container === true || p.container === 'true',
-            spot: p.spot, tags: p.tags, purchased: p.purchased, notes: (p.notes || '').slice(0, 200) })),
+            spot: p.spot, tags: p.tags, purchased: p.purchased, planted: plantedDate(p), notes: (p.notes || '').slice(0, 200) })),
         }),
       });
       const data = await r.json().catch(() => ({}));
@@ -5845,7 +5854,7 @@ async function generateOverviews(plantIds, opts = {}){
         body: JSON.stringify({
           mode: 'overview', zone: state.settings.zone, city: state.settings.city,
           plants: batch.map(p => ({ id: p.id, name: p.name, type: p.type, category: p.category, container: p.container === true || p.container === 'true',
-            spot: p.spot, tags: p.tags, purchased: p.purchased, notes: (p.notes || '').slice(0, 200) })),
+            spot: p.spot, tags: p.tags, purchased: p.purchased, planted: plantedDate(p), notes: (p.notes || '').slice(0, 200) })),
         }),
       });
       const data = await r.json().catch(() => ({}));

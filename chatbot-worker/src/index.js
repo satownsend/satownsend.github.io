@@ -366,7 +366,7 @@ async function handleOverview(body, env, cors){
     `Respond with ONLY valid JSON, no prose and no markdown fences, exactly in this shape: {"overviews":[{"plant_id":"...","summary":"...","height":"...","width":"...","growth":"...","sun":"...","water":"...","soil":"...","hardiness":"...","bloom":"...","features":"...","issues":"...","spring":"...","summer":"...","autumn":"...","winter":"..."}]}`,
   ].join('\n');
   const user = 'Plants:\n' + plants.map(p =>
-    `- id=${p.id} | name="${p.name || ''}" | latin="${p.type || ''}" | category=${p.category || ''} | container=${p.container ? 'yes' : 'no'} | spot=${p.spot || ''} | tags=${p.tags || ''} | planted=${p.purchased || ''}${p.notes ? ` | notes="${String(p.notes).slice(0, 200)}"` : ''}`
+    `- id=${p.id} | name="${p.name || ''}" | latin="${p.type || ''}" | category=${p.category || ''} | container=${p.container ? 'yes' : 'no'} | spot=${p.spot || ''} | tags=${p.tags || ''} | planted=${p.planted || p.purchased || ''}${p.notes ? ` | notes="${String(p.notes).slice(0, 200)}"` : ''}`
   ).join('\n');
   let res;
   if(env.ANTHROPIC_API_KEY){
@@ -436,7 +436,7 @@ async function handleCare(body, env, cors){
     `Respond with ONLY valid JSON, no prose and no markdown fences, exactly in this shape: {"schedules":[{"plant_id":"...","tasks":[{"task":"...","start":"MM-DD","end":"MM-DD","notes":"..."}]}]}`,
   ].join('\n');
   const user = 'Plants:\n' + plants.map(p =>
-    `- id=${p.id} | name="${p.name || ''}" | latin="${p.type || ''}" | category=${p.category || ''} | container=${p.container ? 'yes' : 'no'} | spot=${p.spot || ''} | tags=${p.tags || ''} | planted=${p.purchased || ''}${p.notes ? ` | notes="${String(p.notes).slice(0, 200)}"` : ''}`
+    `- id=${p.id} | name="${p.name || ''}" | latin="${p.type || ''}" | category=${p.category || ''} | container=${p.container ? 'yes' : 'no'} | spot=${p.spot || ''} | tags=${p.tags || ''} | planted=${p.planted || p.purchased || ''}${p.notes ? ` | notes="${String(p.notes).slice(0, 200)}"` : ''}`
   ).join('\n');
   let res;
   if(env.ANTHROPIC_API_KEY){

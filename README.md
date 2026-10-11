@@ -91,6 +91,13 @@ tab GIDs are constants at the top of each page's `<script>`.
 - Uploads are signed **in the browser with AWS SigV4** (R2 is S3-compatible) and
   served from R2's public URL. Images are resized and HEIC-converted before
   upload; videos are uploaded as-is.
+- **Thumbnails:** every image upload also writes a 640px `<key>.thumb.jpg`
+  next to the original. Tables, card grids and the photo wall load the
+  thumbnail (with an automatic fallback to the original if a thumb doesn't
+  exist yet); lightboxes and slideshows use the original. For photos uploaded
+  before this existed, Plants → Settings → Account & storage → Advanced →
+  **Build thumbnails** scans the bucket and makes the missing ones for all five
+  sections (resumable; videos skipped).
 - **R2 credential vault:** rather than re-entering R2 keys on every device, they
   live in a **private Google Sheet** the app auto-creates. Signing in with Google
   auto-loads them (the vault's id is stored in a `config` tab of the main sheet;
@@ -209,6 +216,12 @@ run on boot, and disable screen blanking (`xset s off -dpms`, or in
 | `frame.js` / `frame.css` | The digital photo frame slideshow (loaded by the `*-slideshow/` pages) |
 
 Each is a self-contained script included with `<script defer src="/shared/…">`.
+
+### Fonts
+
+The Typekit stylesheet (the `clother` display face) is loaded **async** via
+`rel=preload` + swap on load, with a `<noscript>` fallback, so pages paint
+immediately in the system font and swap when it arrives.
 
 ### Analytics
 

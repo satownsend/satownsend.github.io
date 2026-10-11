@@ -15,7 +15,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎸</text></svg>">
 
 <link rel="preconnect" href="https://use.typekit.net" crossorigin>
-<link rel="stylesheet" href="https://use.typekit.net/twp1irx.css">
+<!-- Typekit loaded async (issue #21): preload + swap in on load; the font stacks have system fallbacks so text paints immediately. -->
+<link rel="preload" href="https://use.typekit.net/twp1irx.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://use.typekit.net/twp1irx.css"></noscript>
 <link rel="stylesheet" href="/shared/styles.css">
 <script src="/shared/themes.js"></script>
 <script defer src="/shared/nav.js"></script>
@@ -1131,7 +1133,7 @@ function renderInstrumentPhotos(instrumentId){
   }
   grid.innerHTML = photos.map((p,i)=>`
     <div class="ph" data-idx="${i}">
-      <img src="${r2PublicUrl(p.key)}" loading="lazy" alt="">
+      <img src="${r2PublicUrl(p.key + '.thumb.jpg')}" onerror="this.onerror=null;this.src='${r2PublicUrl(p.key)}'" loading="lazy" alt="">
       ${p.date ? `<div class="date">${escapeHtml(p.date)}</div>` : ''}
     </div>
   `).join('');
@@ -1766,6 +1768,12 @@ async function uploadInstrumentPhoto(instrumentId, file, onStatus){
   const key = `instrument-photos/${slug}/${photoDate}-${rand}.jpg`;
   if (onStatus) onStatus('Uploading…');
   await sigv4Request({ method:'PUT', key, body: buf, contentType:'image/jpeg' });
+  // Thumbnail next to the original (issue #20): 640px long edge, ~40 KB, used by
+  // tables, grids and the photo wall; full image stays for lightbox/slideshows.
+  try {
+    const tb = await resizeImage(new Blob([buf], { type:'image/jpeg' }), 640, 0.8);
+    await sigv4Request({ method:'PUT', key: key + '.thumb.jpg', body: await tb.arrayBuffer(), contentType:'image/jpeg' });
+  } catch(e){ console.warn('thumbnail upload failed (original is fine):', e); }
   const photo = { instrument_id: instrumentId, key, date: photoDate, caption: '' };
   state.photos.push(photo);
   if (isGsAuthed()){

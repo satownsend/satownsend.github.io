@@ -17,7 +17,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <meta name="apple-mobile-web-app-title" content="Plants">
 <title>Plants</title>
 <link rel="preconnect" href="https://use.typekit.net" crossorigin>
-<link rel="stylesheet" href="https://use.typekit.net/twp1irx.css">
+<!-- Typekit loaded async (issue #21): preload + swap in on load; the font stacks have system fallbacks so text paints immediately. -->
+<link rel="preload" href="https://use.typekit.net/twp1irx.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://use.typekit.net/twp1irx.css"></noscript>
 <link rel="stylesheet" href="/shared/styles.css">
 <script src="/shared/themes.js"></script>
 <script defer src="/shared/nav.js"></script>
@@ -1023,6 +1025,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <button id="r2SaveBtn" class="tiny">Save credentials</button>
         <button id="r2TestBtn" class="tiny ghost">Test upload</button>
         <button id="r2RecoverBtn" class="tiny ghost">Recover photos</button>
+        <button id="r2ThumbsBtn" class="tiny ghost" title="Make 640px thumbnails for every photo on the site that doesn't have one yet (all sections)">Build thumbnails</button>
         <button id="r2ClearBtn" class="tiny ghost" style="margin-left:auto">Forget</button>
       </div>
     </details>
@@ -2739,7 +2742,7 @@ function renderPlants(){
     const empty = (s) => !s || s === '' ? 'is-empty' : '';
     tr.innerHTML = `
       <td data-col="name"><a href="#" class="namelink" data-info="${p.id}">${escapeHtml(p.name)}</a>${p.dead?' <span class="pill rip">RIP</span>':''}${getPhotosForPlant(p).length?'<span class="mobile-photo-icon" title="Has photos">📷</span>':''}</td>
-      <td data-col="thumb">${(()=>{ const photos = (p.photos||[]); const ph = (p.thumbKey && photos.find(x=>x.key===p.thumbKey)) || photos.find(x=>!x.hideFromGallery); return ph ? `<span class="thumb-wrap"><img class="plant-thumb" loading="lazy" src="${r2PublicUrl(ph.key)}" alt=""><img class="thumb-preview" data-src="${r2PublicUrl(ph.key)}" alt=""></span>` : ''; })()}</td>
+      <td data-col="thumb">${(()=>{ const photos = (p.photos||[]); const ph = (p.thumbKey && photos.find(x=>x.key===p.thumbKey)) || photos.find(x=>!x.hideFromGallery); return ph ? `<span class="thumb-wrap"><img class="plant-thumb" loading="lazy" src="${r2PublicUrl(ph.key + '.thumb.jpg')}" onerror="this.onerror=null;this.src='${r2PublicUrl(ph.key)}'" alt=""><img class="thumb-preview" data-src="${r2PublicUrl(ph.key)}" alt=""></span>` : ''; })()}</td>
       <td data-col="type" data-label="Latin name" class="${empty(cellType)}">${cellType||'<span class="meta">—</span>'}</td>
       <td data-col="category" data-label="Type" class="${empty(cellCategory)}">${cellCategory||'<span class="meta">—</span>'}</td>
       <td data-col="location" data-label="Location" class="${empty(cellSpot)}">${cellSpot||'<span class="meta">—</span>'}</td>
@@ -3060,7 +3063,7 @@ function renderPhotos(p){
     const dt = ph.date ? new Date(ph.date+'T12:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}) : '';
     const linkedBadge = ownKeys.has(ph.key) ? '' : '<div class="ph-linked" title="Linked from another plant">🔗</div>';
     const hiddenBadge = ph.hideFromGallery ? '<div class="ph-hidden" title="Hidden from rotating gallery">🚫</div>' : '';
-    return `<div class="ph" data-idx="${idx}"><img loading="lazy" src="${url}" alt="${escapeHtml(ph.caption||'')}" onerror="this.style.display='none';this.parentNode.style.background='var(--bg2)';this.parentNode.insertAdjacentHTML('afterbegin','<div style=&quot;position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:11px&quot;>missing</div>')"><div class="date">${dt}</div>${linkedBadge}${hiddenBadge}</div>`;
+    return `<div class="ph" data-idx="${idx}"><img loading="lazy" src="${r2PublicUrl(ph.key + '.thumb.jpg')}" alt="${escapeHtml(ph.caption||'')}" onerror="if(!this.dataset.f){this.dataset.f=1;this.src='${url}';return;}this.style.display='none';this.parentNode.style.background='var(--bg2)';this.parentNode.insertAdjacentHTML('afterbegin','<div style=&quot;position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:11px&quot;>missing</div>')"><div class="date">${dt}</div>${linkedBadge}${hiddenBadge}</div>`;
   }).join('');
 }
 
@@ -4007,7 +4010,7 @@ function refreshLogEditPhotoPicker(){
   }
   pop.innerHTML = '<div class="lep-pick">' + available.map(ph => {
     const dt = ph.date ? new Date(ph.date+'T12:00:00').toLocaleDateString(undefined, {month:'short', day:'numeric', year:'2-digit'}) : '';
-    return `<div class="lep-pick-item" data-key="${escapeHtml(ph.key)}"><img loading="lazy" src="${escapeHtml(r2PublicUrl(ph.key))}" alt="">${dt ? `<div class="lep-pick-date">${escapeHtml(dt)}</div>` : ''}</div>`;
+    return `<div class="lep-pick-item" data-key="${escapeHtml(ph.key)}"><img loading="lazy" src="${escapeHtml(r2PublicUrl(ph.key + '.thumb.jpg'))}" onerror="this.onerror=null;this.src='${escapeHtml(r2PublicUrl(ph.key))}'" alt="">${dt ? `<div class="lep-pick-date">${escapeHtml(dt)}</div>` : ''}</div>`;
   }).join('') + '</div>';
   pop.querySelectorAll('.lep-pick-item').forEach(el => {
     el.onclick = () => {
@@ -4392,6 +4395,12 @@ async function uploadPhoto(plant, file, onStatus, opts = {}){
   const key = `photos/${slug}/${photoDate}-${rand}.jpg`;
   if (onStatus) onStatus('Uploading…');
   await sigv4Request({ method:'PUT', key, body: buf, contentType:'image/jpeg' });
+  // Thumbnail next to the original (issue #20): 640px long edge, ~40 KB, used by
+  // tables, grids and the photo wall; full image stays for lightbox/slideshows.
+  try {
+    const tb = await resizeImage(new Blob([buf], { type:'image/jpeg' }), 640, 0.8);
+    await sigv4Request({ method:'PUT', key: key + '.thumb.jpg', body: await tb.arrayBuffer(), contentType:'image/jpeg' });
+  } catch(e){ console.warn('thumbnail upload failed (original is fine):', e); }
   if (!plant.photos) plant.photos = [];
   plant.photos.push({ key, date: photoDate, caption: '' });
   saveLocal();
@@ -4479,6 +4488,7 @@ async function recoverPhotosFromR2(onStatus){
 
   const slugToKeys = new Map();
   for (const k of allKeys){
+    if (/\.thumb\.jpg$/i.test(k)) continue;   // thumbnails live next to originals (issue #20)
     const m = k.match(/^photos\/([^/]+)\/(.+\.jpe?g)$/i);
     if (!m) continue;
     const slug = m[1];
@@ -5083,6 +5093,82 @@ $('#r2ClearBtn').onclick = ()=>{
   if (!confirm('Forget R2 credentials on this device?')) return;
   setR2Creds(null); refreshR2Input();
 };
+/* ── Thumbnail backfill (issue #20) ──
+   New uploads get a `<key>.thumb.jpg` next to the original. This builds the
+   missing ones for every photo on the site (all five sections share the
+   bucket): list the bucket once, read each section's photo list from its
+   public sheet, and for each image without a thumb fetch the original with a
+   signed GET, resize to 640px in the browser, and PUT the thumb. Resumable —
+   rerunning skips what exists. Videos are skipped. */
+const THUMB_SOURCES = [
+  { label:'beer',        id:'1BXFTqV6xCZU63IutRAeAFPrZKLyDPkuGQ-SykIdAy_k', gid:'1135128185' },
+  { label:'instruments', id:'1dWWWIFBpWvNOIBuxA1EIoaffKckDFhsHvPDzhbxdnYg', gid:'617283945' },
+  { label:'wildlife',    id:'1Uq2Fgzron3yDZqYFWsUx1cYigp4w8GmQP2pmk33DG54', gid:'518293746' },
+  { label:'photography', id:'1JXlI9RgLfwrpYgMZxyo8TipEiEn675Bwpnr9ORxUJFA', sheet:'photos' },
+];
+let _thumbsRunning = false;
+function parseCsvText(text){
+  const rows = []; let row = [], cell = '', q = false;
+  for (let i = 0; i < text.length; i++){
+    const c = text[i];
+    if (q){ if (c === '"' && text[i+1] === '"'){ cell += '"'; i++; } else if (c === '"') q = false; else cell += c; }
+    else if (c === '"') q = true;
+    else if (c === ','){ row.push(cell); cell = ''; }
+    else if (c === '\n' || c === '\r'){ if (c === '\r' && text[i+1] === '\n') i++; row.push(cell); cell = ''; if (row.length > 1 || row[0] !== '') rows.push(row); row = []; }
+    else cell += c;
+  }
+  row.push(cell); if (row.length > 1 || row[0] !== '') rows.push(row);
+  return rows;
+}
+async function allSitePhotoKeys(){
+  const keys = new Set();
+  for (const p of (state.plants || [])) for (const ph of (p.photos || [])) if (ph.key) keys.add(ph.key);
+  for (const s of THUMB_SOURCES){
+    const url = s.sheet
+      ? `https://docs.google.com/spreadsheets/d/${s.id}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(s.sheet)}`
+      : `https://docs.google.com/spreadsheets/d/${s.id}/export?format=csv&gid=${s.gid}`;
+    try {
+      const rows = parseCsvText((await (await fetch(url, { cache:'no-store' })).text()).replace(/^﻿/, ''));
+      const ki = rows.length ? rows[0].indexOf('key') : -1;
+      if (ki >= 0) for (const r of rows.slice(1)) if (r[ki]) keys.add(r[ki]);
+    } catch(e){ console.warn('thumbs: could not read', s.label, e); }
+  }
+  return [...keys].filter(k => /\.(jpe?g|png|webp)$/i.test(k) && !/\.thumb\.jpg$/i.test(k));
+}
+$('#r2ThumbsBtn').onclick = async ()=>{
+  const st = $('#r2Status'), btn = $('#r2ThumbsBtn');
+  const setStatus = (m, kind) => { st.textContent = m; st.style.color = kind==='err'?'#e8a06a':kind==='ok'?'var(--accent)':'var(--muted)'; };
+  if (_thumbsRunning){ _thumbsRunning = false; btn.textContent = 'Stopping…'; return; }
+  const creds = getR2Creds();
+  if (!creds.accessKey || !creds.secretKey){ setStatus('Save R2 credentials first.', 'err'); return; }
+  _thumbsRunning = true; btn.textContent = 'Stop';
+  let made = 0, failed = 0;
+  try {
+    setStatus('Listing the bucket…');
+    const existing = new Set(); let token = null;
+    do { const r = await sigv4ListObjects('', token); r.keys.forEach(k => existing.add(k)); token = r.truncated ? r.next : null; } while (token);
+    setStatus('Reading photo lists…');
+    const all = await allSitePhotoKeys();
+    const todo = all.filter(k => existing.has(k) && !existing.has(k + '.thumb.jpg'));
+    if (!todo.length){ setStatus(`All ${all.length} photos already have thumbnails.`, 'ok'); return; }
+    for (let i = 0; i < todo.length && _thumbsRunning; i++){
+      const key = todo[i];
+      setStatus(`Building thumbnails… ${i + 1} of ${todo.length} (${key.split('/').slice(-1)[0]})`);
+      try {
+        const res = await sigv4Request({ method:'GET', key });
+        const tb = await resizeImage(await res.blob(), 640, 0.8);
+        await sigv4Request({ method:'PUT', key: key + '.thumb.jpg', body: await tb.arrayBuffer(), contentType:'image/jpeg' });
+        made++;
+      } catch(e){ failed++; console.warn('thumb failed for', key, e); }
+    }
+    setStatus(`${_thumbsRunning ? 'Done' : 'Stopped'}: ${made} thumbnail${made === 1 ? '' : 's'} built${failed ? `, ${failed} failed (see console)` : ''}${made < todo.length && _thumbsRunning ? '' : ` · ${todo.length - made - failed} left`}.`, failed ? 'err' : 'ok');
+  } catch(e){
+    setStatus('Thumbnails: ' + e.message, 'err');
+  } finally {
+    _thumbsRunning = false; btn.textContent = 'Build thumbnails';
+  }
+};
+
 $('#r2RecoverBtn').onclick = async ()=>{
   if (!confirm('Scan R2 and rebuild missing photo metadata for all plants?')) return;
   const st = $('#r2Status');
@@ -5282,7 +5368,7 @@ function renderLogThumbs(e){
   const max = 3;
   const shown = e.photoKeys.slice(0, max);
   const more = e.photoKeys.length - shown.length;
-  const thumbs = shown.map(k => `<span class="lt" data-log-id="${e.id}" data-key="${escapeHtml(k)}"><img loading="lazy" src="${escapeHtml(r2PublicUrl(k))}" alt=""></span>`).join('');
+  const thumbs = shown.map(k => `<span class="lt" data-log-id="${e.id}" data-key="${escapeHtml(k)}"><img loading="lazy" src="${escapeHtml(r2PublicUrl(k + '.thumb.jpg'))}" onerror="this.onerror=null;this.src='${escapeHtml(r2PublicUrl(k))}'" alt=""></span>`).join('');
   const overflow = more > 0 ? `<span class="lt-more">+${more}</span>` : '';
   return ` <span class="log-thumbs">${thumbs}${overflow}</span>`;
 }

@@ -430,6 +430,15 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .cbp.queued .cbp-actions [data-gen]{opacity:.7}
   #careToast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:45;background:var(--panel);color:var(--ink);border:1px solid var(--line2);border-radius:12px;padding:10px 14px;font-size:13px;box-shadow:0 10px 30px rgba(0,0,0,.4);display:none;align-items:center;gap:10px;max-width:min(92vw,520px)}
   #careToast.on{display:flex}
+  body.undo-on #careToast{bottom:70px}
+  /* Undo toast (deletes) */
+  #undoToast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:46;background:var(--panel);color:var(--ink);border:1px solid var(--line2);border-radius:12px;padding:10px 10px 10px 14px;font-size:13px;box-shadow:0 10px 30px rgba(0,0,0,.4);display:none;align-items:center;gap:12px;max-width:min(92vw,520px);overflow:hidden}
+  #undoToast.on{display:flex}
+  #undoToast .ut-text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #undoToast #undoBtn{flex:none;min-height:0;padding:5px 12px;background:var(--accent);color:#04211d;border:0;font-weight:600}
+  #undoToast .ut-bar{position:absolute;left:0;bottom:0;height:3px;width:100%;background:var(--accent);opacity:.6;transform-origin:left;transform:scaleX(1)}
+  #undoToast.on .ut-bar{animation:undoDrain 10s linear forwards}
+  @keyframes undoDrain{from{transform:scaleX(1)}to{transform:scaleX(0)}}
   #careToast .ct-text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   #careToast .ct-bar{flex:0 0 90px;height:4px;background:var(--line);border-radius:2px;overflow:hidden}
   #careToast .ct-bar i{display:block;height:100%;background:var(--accent);transition:width .4s ease}
@@ -1195,6 +1204,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 </div>
 
 <div id="careToast" role="status" aria-live="polite"><span class="care-spin"></span><span class="ct-text"></span><span class="ct-bar"><i></i></span></div>
+<!-- Undo toast: shown for 10 s after a delete (plant, photo, log entry, care task). -->
+<div id="undoToast" role="status" aria-live="polite"><span class="ut-text"></span><button class="tiny" id="undoBtn">Undo</button><i class="ut-bar"></i></div>
 <div class="modal-back" id="careTaskModal" style="z-index:55">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="careTaskTitle" style="max-width:480px">
     <button class="close" id="careTaskClose" aria-label="Close">×</button>
@@ -3251,17 +3262,48 @@ $('#lightboxHideFromGallery').addEventListener('change', ()=>{
   const cur = state.plants.find(p => p.id === currentInfoPlantId);
   if (cur) renderPhotos(cur);
 });
+/* ── Undo for deletes ──
+   Every delete (plant, photo, log entry, care task) records how to put the
+   thing back and shows a 10-second "Undo" toast. Side effects that can't be
+   undone — deleting the photo's file from R2 — are deferred until the toast
+   expires, is replaced by another delete, or the page is left. The sheet sync
+   runs as usual: a row deleted and then restored within the window is simply
+   re-added by the row-level reconcile (same id). ⌘Z / Ctrl+Z also undoes. */
+let _undo = null;
+function offerUndo(label, restore, commit){
+  commitUndo();
+  _undo = { restore, commit, timer: setTimeout(commitUndo, 10000) };
+  const t = $('#undoToast');
+  t.querySelector('.ut-text').textContent = label;
+  t.classList.remove('on'); void t.offsetWidth;   // restart the drain animation
+  t.classList.add('on'); document.body.classList.add('undo-on');
+}
+function hideUndoToast(){ $('#undoToast').classList.remove('on'); document.body.classList.remove('undo-on'); }
+function commitUndo(){
+  if (!_undo) return;
+  clearTimeout(_undo.timer); const u = _undo; _undo = null; hideUndoToast();
+  if (u.commit){ try { const r = u.commit(); if (r && r.catch) r.catch(e => console.warn('deferred delete failed:', e)); } catch(e){ console.warn(e); } }
+}
+function undoNow(){
+  if (!_undo) return;
+  clearTimeout(_undo.timer); const u = _undo; _undo = null; hideUndoToast();
+  u.restore();
+}
+$('#undoBtn').onclick = undoNow;
+document.addEventListener('keydown', e => {
+  if (!_undo || !(e.key === 'z' && (e.metaKey || e.ctrlKey))) return;
+  if (/^(input|textarea|select)$/i.test((e.target.tagName || '')) || e.target.isContentEditable) return;
+  e.preventDefault(); undoNow();
+});
+window.addEventListener('pagehide', ()=> commitUndo());
+
 $('#lightboxDelete').onclick = async ()=>{
   const ph = (state._lightboxPhotos||[])[lightboxIdx]; if (!ph) return;
   const { owner, target } = getCanonicalPhoto(ph);
   if (!owner || !target) return;
   const viewing = state.plants.find(p => p.id === currentInfoPlantId);
   if (!viewing) return;
-  // Linked view: just remove the link, keep the photo + R2 object intact.
-  if (owner.id !== viewing.id){
-    target.alsoIn = (target.alsoIn || []).filter(x => x !== viewing.id);
-    if (!target.alsoIn.length) delete target.alsoIn;
-    state._lightboxPhotos = (state._lightboxPhotos||[]).filter((_,i)=>i!==lightboxIdx);
+  const afterRemove = ()=>{
     save();
     renderPhotos(viewing);
     if (!state._lightboxPhotos.length){
@@ -3270,29 +3312,32 @@ $('#lightboxDelete').onclick = async ()=>{
       lightboxIdx = Math.min(lightboxIdx, state._lightboxPhotos.length-1);
       showLightboxIdx();
     }
+  };
+  // Linked view: just remove the link, keep the photo + R2 object intact.
+  if (owner.id !== viewing.id){
+    const prevAlso = (target.alsoIn || []).slice();
+    target.alsoIn = prevAlso.filter(x => x !== viewing.id);
+    if (!target.alsoIn.length) delete target.alsoIn;
+    state._lightboxPhotos = (state._lightboxPhotos||[]).filter((_,i)=>i!==lightboxIdx);
+    afterRemove();
+    offerUndo(`Removed photo from ${viewing.name}`, ()=>{ target.alsoIn = prevAlso; save(); if (currentInfoPlantId === viewing.id) renderPhotos(viewing); });
     return;
   }
-  // Owner view: full delete. Warn if linked elsewhere.
+  // Owner view: full delete. Warn if linked elsewhere. The R2 file is deleted
+  // only when the undo window closes.
   const linkedCount = Array.isArray(target.alsoIn) ? target.alsoIn.length : 0;
   const msg = linkedCount
     ? `Delete this photo? It's also linked from ${linkedCount} other plant${linkedCount>1?'s':''}. (Removes from R2 too.)`
     : 'Delete this photo? (Removes from R2 too.)';
   if (!confirm(msg)) return;
-  try {
-    await deletePhotoFromR2(ph.key);
-  } catch(e){
-    if (!confirm('R2 delete failed: '+e.message+'\n\nRemove from dashboard anyway?')) return;
-  }
+  const idx = (owner.photos||[]).findIndex(x => x.key === ph.key);
+  const removed = (owner.photos||[])[idx];
   owner.photos = (owner.photos||[]).filter(x=>x.key!==ph.key);
   state._lightboxPhotos = (state._lightboxPhotos||[]).filter((_,i)=>i!==lightboxIdx);
-  save();
-  renderPhotos(viewing);
-  if (!state._lightboxPhotos.length){
-    $('#lightbox').classList.remove('show');
-  } else {
-    lightboxIdx = Math.min(lightboxIdx, state._lightboxPhotos.length-1);
-    showLightboxIdx();
-  }
+  afterRemove();
+  offerUndo(`Deleted a photo of ${owner.name}`,
+    ()=>{ owner.photos = owner.photos || []; owner.photos.splice(Math.min(idx < 0 ? owner.photos.length : idx, owner.photos.length), 0, removed); save(); if (currentInfoPlantId === owner.id) renderPhotos(owner); refreshGallery(); },
+    ()=> deletePhotoFromR2(ph.key));
 };
 
 $('#photoUploadInput').addEventListener('change', async (e)=>{
@@ -3651,8 +3696,10 @@ function openEdit(id){
   row.querySelector('[data-act=cancel]').onclick = ()=> row.remove();
   row.querySelector('[data-act=delete]').onclick = ()=>{
     if (!confirm(`Delete "${p.name}"?`)) return;
+    const idx = state.plants.findIndex(x => x.id === id);
     state.plants = state.plants.filter(x=>x.id!==id);
     save(); renderPlants(); buildBrief();
+    offerUndo(`Deleted ${p.name}`, ()=>{ state.plants.splice(Math.min(idx, state.plants.length), 0, p); save(); render(); });
   };
 }
 
@@ -4043,9 +4090,14 @@ $('#logEditSave').onclick = () => {
 };
 $('#logEditDelete').onclick = () => {
   if (!confirm('Delete this log entry?')) return;
+  const entry = (state.log||[]).find(x => x.id === editingLogId);
   state.log = (state.log||[]).filter(x => x.id !== editingLogId);
   $('#logEditModal').classList.remove('show');
   save(); render({plants:1, log:1, brief:1, stats:1, gallery:1, frostLog:1});
+  if (entry){
+    const who = (plantsById().get(entry.plantId) || {}).name;
+    offerUndo(`Deleted log entry${who ? ` · ${who}` : ''} · ${entry.action || ''}`, ()=>{ state.log.push(entry); save(); render({plants:1, log:1, brief:1, stats:1, gallery:1, frostLog:1}); });
+  }
 };
 // Click delegation: any .log-row in any panel opens the edit modal
 document.addEventListener('click', e => {
@@ -5959,11 +6011,16 @@ $('#ctSave').onclick = ()=>{
 };
 $('#ctDelete').onclick = async ()=>{
   if (!ctEditing || !confirm('Delete this task?')) return;
+  const task = state.care.find(x => x.id === ctEditing);
   state.care = state.care.filter(x => x.id !== ctEditing);
   closeCareTask();
   // Make sure the sync knows the tab so the row is deleted from the sheet too.
   if (isGsAuthed()){ try { await ensureCareTab(); } catch(e){ console.warn(e); } }
   save(); renderCareViews(); buildBrief();
+  if (task){
+    const who = (plantsById().get(task.plantId) || {}).name;
+    offerUndo(`Deleted task · ${who ? who + ' — ' : ''}${task.task}`, ()=>{ state.care.push(task); save(); renderCareViews(); buildBrief(); });
+  }
 };
 $('#ctCancel').onclick = closeCareTask;
 $('#careTaskClose').onclick = closeCareTask;

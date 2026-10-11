@@ -308,7 +308,7 @@ const claudeCare = (env, sys, user) => claudeJson(env, sys, user, CARE_SCHEMA);
    POST { mode:'overview', zone, city, plants:[{id,name,type,category,container,spot,tags,purchased,notes}] }
    → { overviews:[{ plant_id, summary, height, width, growth, sun, water, soil, hardiness, bloom, features, issues }] }
    Every field is a short string; the dashboard stores one row per plant. */
-const OVERVIEW_FIELDS = ['summary','height','width','growth','sun','water','soil','hardiness','bloom','features','issues'];
+const OVERVIEW_FIELDS = ['summary','height','width','growth','sun','water','soil','hardiness','bloom','features','issues','spring','summer','autumn','winter'];
 const OVERVIEW_SCHEMA = {
   type: 'object',
   properties: {
@@ -325,7 +325,7 @@ const OVERVIEW_SCHEMA = {
   required: ['overviews'],
   additionalProperties: false,
 };
-const OVERVIEW_MAX = { summary: 600, features: 300, issues: 400 }; // others 120
+const OVERVIEW_MAX = { summary: 600, features: 300, issues: 400, spring: 200, summer: 200, autumn: 200, winter: 200 }; // others 120
 function parseOverviewJson(raw){
   let text = String(raw || '').trim();
   const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/);
@@ -362,7 +362,8 @@ async function handleOverview(body, env, cors){
     `- bloom: bloom time and color, or seasonal foliage/cone/bark interest for non-flowering plants.`,
     `- features: notable features and uses, one sentence (wildlife value, fall color, fragrance, deer resistance, container suitability…).`,
     `- issues: the common pests, diseases, and cultural problems to watch for with THIS plant, one or two sentences, most likely first.`,
-    `Respond with ONLY valid JSON, no prose and no markdown fences, exactly in this shape: {"overviews":[{"plant_id":"...","summary":"...","height":"...","width":"...","growth":"...","sun":"...","water":"...","soil":"...","hardiness":"...","bloom":"...","features":"...","issues":"..."}]}`,
+    `- spring / summer / autumn / winter: what the plant looks like in that season in this climate, one short sentence each — foliage color and texture, flowers, fruit or cones, bark, and whether it is bare, evergreen, or dormant (e.g. "New growth emerges coral-pink, maturing to green by June." / "Bare; coral-red twigs are the show against snow."). Be specific to the cultivar.`,
+    `Respond with ONLY valid JSON, no prose and no markdown fences, exactly in this shape: {"overviews":[{"plant_id":"...","summary":"...","height":"...","width":"...","growth":"...","sun":"...","water":"...","soil":"...","hardiness":"...","bloom":"...","features":"...","issues":"...","spring":"...","summer":"...","autumn":"...","winter":"..."}]}`,
   ].join('\n');
   const user = 'Plants:\n' + plants.map(p =>
     `- id=${p.id} | name="${p.name || ''}" | latin="${p.type || ''}" | category=${p.category || ''} | container=${p.container ? 'yes' : 'no'} | spot=${p.spot || ''} | tags=${p.tags || ''} | planted=${p.purchased || ''}${p.notes ? ` | notes="${String(p.notes).slice(0, 200)}"` : ''}`

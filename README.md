@@ -138,7 +138,8 @@ winter protect, repot…), each task a `MM-DD` window that repeats every year.
 
 Each plant card has a collapsible **AI overview**: a short summary plus mature
 size, growth rate, sun, water, soil, hardiness zones, bloom/seasonal interest,
-notable features and the pests/diseases to watch for, written for zone 6a.
+notable features, the pests/diseases to watch for, and a line each for what
+the plant looks like in spring, summer, autumn and winter, written for zone 6a.
 
 - **Generating:** "Generate" on a plant card does one plant; the
   "✨ AI overviews" button above the plants table does the plants that have

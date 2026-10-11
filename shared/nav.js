@@ -17,6 +17,16 @@
     { href:'/wildlife',    label:'Wildlife',    icon:'\u{1F989}', key:'wildlife' },
     { href:'/photography', label:'Photography', icon:'\u{1F4F7}', key:'photography' },
   ];
+  // Full-screen slideshows (the photo-frame pages, issue #72). Listed under the
+  // sections; the current section's own slideshow is marked.
+  const SLIDESHOWS = [
+    { href:'/all-slideshow/',         label:'All photos',  key:'home' },
+    { href:'/plants-slideshow/',      label:'Plants',      key:'plants' },
+    { href:'/beer-slideshow/',        label:'Beer',        key:'beer' },
+    { href:'/instruments-slideshow/', label:'Instruments', key:'instruments' },
+    { href:'/wildlife-slideshow/',    label:'Wildlife',    key:'wildlife' },
+    { href:'/photography-slideshow/', label:'Photography', key:'photography' },
+  ];
 
   function currentKey(){
     const p = location.pathname.toLowerCase();
@@ -44,6 +54,9 @@
   .sitenav-menu a.active{color:var(--accent);font-weight:600;background:var(--panel2,var(--chip))}
   .sitenav-menu a .sn-ico{width:20px;text-align:center;flex:none;font-size:16px;line-height:1}
   .sitenav-menu a .sn-check{margin-left:auto;color:var(--accent)}
+  .sitenav-menu .sn-head{margin:6px 12px 2px;padding-top:8px;border-top:1px solid var(--line);font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+  .sitenav-menu a.sn-show{padding:7px 12px;font-size:13px;color:var(--ink-soft)}
+  .sitenav-menu a.sn-show .sn-ico{font-size:13px;color:var(--muted)}
   @media (max-width:520px){
     .sitenav-menu{min-width:210px}
     .sitenav-menu a{padding:12px}
@@ -74,6 +87,10 @@
          ${SECTIONS.map(s=>`<a role="menuitem" href="${s.href}" class="${s.key===cur?'active':''}">`
            + `<span class="sn-ico">${s.icon}</span><span>${s.label}</span>`
            + `${s.key===cur?'<span class="sn-check">✓</span>':''}</a>`).join('')}
+         <div class="sn-head">Full-screen slideshows</div>
+         ${SLIDESHOWS.map(s=>`<a role="menuitem" href="${s.href}" class="sn-show" title="Open the ${s.label} photo-frame slideshow">`
+           + `<span class="sn-ico">⤢</span><span>${s.label}</span>`
+           + `${s.key===cur?'<span class="sn-check" title="This section">•</span>':''}</a>`).join('')}
        </div>`;
     mount.replaceWith(wrap);
 

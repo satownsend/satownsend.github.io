@@ -43,6 +43,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 .hg-caption .hg-name{font-weight:600}
 .hg-caption:hover{color:#fff;text-decoration:underline}
 @media (max-width:640px){.hero-text{flex-direction:column;align-items:flex-start;gap:10px}.hg-caption{text-align:left}}
+.hg-full{position:absolute;top:12px;left:max(14px,calc(50vw - 600px + 20px));background:rgba(0,0,0,.45);color:#fff;font-size:11px;
+  padding:5px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.15);text-decoration:none;z-index:2}
+.hg-full:hover{background:rgba(0,0,0,.65)}
 .hg-count{position:absolute;top:12px;right:max(14px,calc(50vw - 600px + 20px));background:rgba(0,0,0,.45);color:#fff;font-size:11px;
   padding:5px 9px;border-radius:999px;font-variant-numeric:tabular-nums}
 .hg-nav{position:absolute;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.15);
@@ -114,6 +117,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div class="hg-caption" id="hgCaption"></div>
     </div>
     <div class="hg-count" id="hgCount"></div>
+    <a class="hg-full" href="/all-slideshow/" title="Open the full-screen slideshow (photo frame)">&#10530; full screen</a>
     <button class="hg-nav prev" id="hgPrev" aria-label="Previous">&#8249;</button>
     <button class="hg-nav next" id="hgNext" aria-label="Next">&#8250;</button>
   </div>

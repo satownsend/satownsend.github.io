@@ -314,6 +314,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .st-sub.danger{color:var(--warn)}
   button.danger{border-color:var(--warn);color:var(--warn)}
   #settingsPanel hr{margin:16px 0}
+  .st-adv summary{cursor:pointer;color:var(--muted);font-size:13px;user-select:none}
+  .st-adv summary:hover{color:var(--ink)}
+  .st-adv[open] summary{color:var(--ink);margin-bottom:4px}
   .vt-badge{background:var(--accent);color:#04211d;border-radius:999px;font-size:11px;font-weight:700;padding:1px 7px;line-height:1.4}
   .care-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px}
   .care-tools{display:flex;align-items:center;gap:6px}
@@ -931,35 +934,35 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
     <div class="small" style="margin-top:8px;color:var(--muted)">Sync: <span id="gsStatus">Read-only (not signed in).</span></div>
     <div class="small" style="margin-top:2px;color:var(--muted)">Data: <span id="sheetStatus">Not loaded yet.</span></div>
+    <div class="small" style="margin-top:2px;color:var(--muted)">Photos: <span id="r2Status">Not configured.</span></div>
     <hr>
-    <div class="st-sub">Photo storage (Cloudflare R2)</div>
-    <div class="small" style="margin-bottom:6px">Bucket <code>plant-photos</code> · public URL <code>pub-59a9261…r2.dev</code>. Keys are entered once while signed in and kept in a private Google vault, so any other device loads them on sign-in.</div>
-    <input type="text" id="r2KeyInput" placeholder="Access Key ID">
-    <input type="password" id="r2SecretInput" placeholder="Secret Access Key" style="margin-top:6px">
-    <div class="row" style="margin-top:8px;gap:6px">
-      <button id="r2SaveBtn" class="tiny">Save credentials</button>
-      <button id="r2TestBtn" class="tiny ghost">Test upload</button>
-      <button id="r2RecoverBtn" class="tiny ghost">Recover photos</button>
-      <button id="r2ClearBtn" class="tiny ghost" style="margin-left:auto">Forget</button>
-    </div>
-    <div class="small" style="margin-top:8px;color:var(--muted)">Photos: <span id="r2Status">Not configured.</span></div>
+    <details class="st-adv">
+      <summary>Advanced: photo storage keys (Cloudflare R2)</summary>
+      <div class="small" style="margin:8px 0 6px">Bucket <code>plant-photos</code> · public URL <code>pub-59a9261…r2.dev</code>. Keys are entered once while signed in and kept in a private Google vault, so any other device loads them on sign-in. You only need this to rotate keys or rebuild photo rows.</div>
+      <input type="text" id="r2KeyInput" placeholder="Access Key ID">
+      <input type="password" id="r2SecretInput" placeholder="Secret Access Key" style="margin-top:6px">
+      <div class="row" style="margin-top:8px;gap:6px">
+        <button id="r2SaveBtn" class="tiny">Save credentials</button>
+        <button id="r2TestBtn" class="tiny ghost">Test upload</button>
+        <button id="r2RecoverBtn" class="tiny ghost">Recover photos</button>
+        <button id="r2ClearBtn" class="tiny ghost" style="margin-left:auto">Forget</button>
+      </div>
+    </details>
   </div>
 
   <div class="st-pane" data-stab="data">
     <div class="st-sub">Backup &amp; print</div>
-    <div class="small" style="margin-bottom:8px;color:var(--muted)">Export writes everything on this page (plants, log, care calendar, settings) to a JSON file. Import reads one back in. Print builds a clean inventory for paper or PDF.</div>
+    <div class="small" style="margin-bottom:8px;color:var(--muted)">The Google Sheet is the source of truth. Export writes a JSON snapshot of everything on this page (plants, log, care calendar, settings) as a second backup. Print builds a clean inventory for paper or PDF.</div>
     <div class="row" style="gap:6px">
       <button id="exportBtn" class="ghost tiny">Export data</button>
-      <button id="importBtn" class="ghost tiny">Import</button>
       <button id="printInventoryBtn" class="ghost tiny">Print inventory</button>
-      <input type="file" id="importFile" accept="application/json" style="display:none">
     </div>
     <hr>
-    <div class="st-sub danger">Danger zone</div>
-    <div class="small" style="margin-bottom:8px;color:var(--muted)">These replace what's on this page. With sync on, the sheet follows.</div>
+    <div class="st-sub">Troubleshooting</div>
+    <div class="small" style="margin-bottom:8px;color:var(--muted)">If this browser looks out of date, reload from the sheet. Nothing is deleted; anything added here but not yet synced is kept.</div>
     <div class="row" style="gap:6px">
-      <button id="loadInventoryBtn" class="ghost tiny">Load "Our Trees" starter inventory</button>
-      <button id="resetBtn" class="ghost tiny danger" style="margin-left:auto">Reset all</button>
+      <button id="reloadBtn" class="ghost tiny">Reload from sheet</button>
+      <span class="small" id="reloadStatus" style="color:var(--muted)"></span>
     </div>
   </div>
 </div>
@@ -1248,7 +1251,7 @@ const defaultState = {
       publicUrl: 'https://pub-59a926166fd84970bea75caf38a52d27.r2.dev',
     },
   },
-  plants: ourTreesSeed(),
+  plants: [],              // filled from the Google Sheet on load
   log: [],
   care: [],               // yearly care tasks per plant (issue #69)
   overview: [],           // AI plant overviews, one per plant (issue #82)
@@ -1257,63 +1260,6 @@ const defaultState = {
 };
 
 function uid(){ return Math.random().toString(36).slice(2,10) }
-function ourTreesSeed(){
-  const T = [
-    // ---- living, from "Our Trees" inventory ----
-    {n:"Weeping Pussy Willow", t:"Salix caprea 'Pendula'", s:"Between large black cherry and black walnut trees (replaced stumps)", c:false, tg:"deciduous,weeping", p:"2021-03-25", note:"$89 at purchase."},
-    {n:"Dawn Redwood", t:"Metasequoia glyptostroboides", s:"", c:false, tg:"deciduous-conifer", p:"2021-07-01", note:"$59. ~5 years old at purchase."},
-    {n:"Sango Kaku Japanese Maple", t:"Acer palmatum 'Sango Kaku' (Coral Bark)", s:"Mulch pile near white bench", c:false, tg:"maple,deciduous", p:"2021-05-13", note:"$200. Spring color: green. Coral bark stands out in winter."},
-    {n:"Olsen's Frosted Strawberry Japanese Maple", t:"Acer palmatum \"Olsen's Frosted Strawberry\"", s:"Next to Sango Kaku", c:false, tg:"maple,deciduous,tender", p:"2021-05-16", note:"$90."},
-    {n:"Peaches n Cream Japanese Maple", t:"Acer palmatum 'Peaches n Cream'", s:"Left side of large shed", c:false, tg:"maple,deciduous,tender", p:"2021-05-16", note:"$40. Was 0–1 yrs old at purchase."},
-    {n:"Ukigumo Japanese Maple", t:"Acer palmatum 'Ukigumo' (Floating Clouds)", s:"Next to Sango Kaku", c:false, tg:"maple,deciduous,tender,variegated", p:"2021-05-16", note:"$50. Variegated foliage burns in hot afternoon sun."},
-    {n:"Mikazuki Japanese Maple", t:"Acer palmatum 'Mikazuki'", s:"Right side of large shed", c:false, tg:"maple,deciduous,tender,variegated", p:"2021-05-23", note:"$100."},
-    {n:"Calico Japanese Maple", t:"Acer palmatum 'Calico'", s:"Middle of large shed", c:false, tg:"maple,deciduous,tender,variegated", p:"2021-05-23", note:"$100."},
-    {n:"Kwanzan Cherry", t:"Prunus serrulata 'Kwanzan'", s:"", c:false, tg:"deciduous,flowering", p:"2024-04-01", note:"$25."},
-    {n:"Profusion Crabapple", t:"Malus 'Profusion'", s:"", c:false, tg:"deciduous,flowering,fruit", p:"2024-04-01", note:"$25."},
-    {n:"Shin Deshojo Japanese Maple", t:"Acer palmatum 'Shin Deshojo'", s:"Pot near bird bath", c:true, tg:"maple,deciduous,tender,wind-sensitive,container", p:"2024-04-01", note:"$50. Bright spring foliage burns easily — needs afternoon shade and shelter from wind."},
-    {n:"Moonglow Juniper", t:"Juniperus scopulorum 'Moonglow'", s:"2 near creek, 1 on island near church garage", c:false, tg:"evergreen,conifer", p:"2025-04-01", note:"", qty:3},
-    {n:"Weeping Alaskan Cedar", t:"Cupressus nootkatensis 'Pendula'", s:"", c:false, tg:"evergreen,conifer,weeping", p:"2025-04-01", note:""},
-    {n:"Slender Hinoki Cypress", t:"Chamaecyparis obtusa 'Gracilis'", s:"", c:false, tg:"evergreen,conifer", p:"2025-04-01", note:""},
-    {n:"Soft Serve False Cypress", t:"Chamaecyparis 'Soft Serve'", s:"", c:false, tg:"evergreen,conifer", p:"2024-01-01", note:"Year only known."},
-    {n:"Emerald Green Arborvitae", t:"Thuja occidentalis 'Smaragd'", s:"", c:false, tg:"evergreen,conifer", p:"2024-01-01", note:"Year only known."},
-    {n:"Baby Blue Colorado Spruce", t:"Picea pungens 'Baby Blue'", s:"", c:false, tg:"evergreen,conifer", p:"2025-05-01", note:"Replaced the Fireglow Japanese Maple that died."},
-    {n:"Globe Baby Blue Colorado Spruce", t:"Picea pungens 'Baby Blue Globe'", s:"In front of grapevine", c:false, tg:"evergreen,conifer,dwarf", p:"2025-05-01", note:""},
-    {n:"Wells Special Hinoki Cypress", t:"Chamaecyparis obtusa 'Wells Special'", s:"Along island", c:false, tg:"evergreen,conifer", p:"2025-05-01", note:""},
-    {n:"Hicks Yew", t:"Taxus × media 'Hicksii'", s:"2 pots out front, 2 in back", c:true, tg:"evergreen,conifer,container", p:"2025-01-01", note:"Year only known.", qty:4},
-    {n:"Autumn Gold Gingko", t:"Ginkgo biloba 'Autumn Gold'", s:"Near log", c:false, tg:"deciduous", p:"2026-03-01", note:""},
-    {n:"Contender Peach", t:"Prunus persica 'Contender'", s:"", c:false, tg:"deciduous,fruit,flowering", p:"2026-04-01", note:""},
-    {n:"Schirrmann's Nordlicht Dwarf Dawn Redwood", t:"Metasequoia glyptostroboides 'Schirrmann's Nordlicht'", s:"By garden / weeping Norway spruce", c:false, tg:"deciduous-conifer,variegated,dwarf", p:"2026-04-01", note:"From Mr Maple."},
-    {n:"Asayake Japanese Maple", t:"Acer palmatum 'Asayake'", s:"Hanging pots", c:true, tg:"maple,deciduous,tender,variegated,container", p:"2026-04-01", note:"From Mr Maple."},
-    {n:"Rikuzen Shidare Japanese Maple", t:"Acer palmatum 'Rikuzen Shidare' (Weeping)", s:"Hanging pots", c:true, tg:"maple,deciduous,tender,weeping,container", p:"2026-04-01", note:"From Mr Maple."},
-    {n:"Chirimen Hinoki Cypress", t:"Chamaecyparis obtusa 'Chirimen'", s:"Near big rock", c:false, tg:"evergreen,conifer,dwarf", p:"2026-04-01", note:""},
-    {n:"Wissel's Saguaro Lawson Cypress", t:"Chamaecyparis lawsoniana 'Wissel's Saguaro'", s:"Between garden (by grapevine) and Japanese Maple", c:false, tg:"evergreen,conifer,columnar", p:"2026-04-01", note:"Plan: move dwarf alberta spruce to front of grapevine; move globe blue spruce to where dwarf alberta spruce is now."},
-    {n:"Kohout's Ice Breaker Korean Fir", t:"Abies koreana 'Kohout's Ice Breaker'", s:"Side of house by deck", c:false, tg:"evergreen,conifer,dwarf", p:"", note:""},
-    {n:"Lemon Spreader Oriental Spruce", t:"Picea orientalis 'Lemon Spreader'", s:"Near horseshoe pit / shed / woodpile", c:false, tg:"evergreen,conifer,dwarf", p:"", note:""},
-    {n:"Weeping Blue Atlas Cedar", t:"Cedrus atlantica 'Glauca Pendula'", s:"By the old shed", c:false, tg:"evergreen,conifer,weeping", p:"", note:""},
-    {n:"Weeping Norway Spruce", t:"Picea abies 'Pendula'", s:"Front of workshop border", c:false, tg:"evergreen,conifer,weeping", p:"", note:""},
-    {n:"Weeping White Spruce", t:"Picea glauca 'Pendula'", s:"Woods border", c:false, tg:"evergreen,conifer,weeping", p:"", note:""},
-    // ---- departed (strikethrough in the source) ----
-    {n:"Purple Ghost Japanese Maple", t:"Acer palmatum 'Purple Ghost'", s:"Back of garage, next to deck", c:false, tg:"maple,deciduous", p:"2021-05-08", note:"$130. Spring color: purple.", dead:true},
-    {n:"Spring Delight Japanese Maple", t:"Acer palmatum 'Spring Delight'", s:"Next to grapevine", c:false, tg:"maple,deciduous", p:"2021-05-14", note:"$190. Spring: green/yellow with cranberry tips.", dead:true},
-    {n:"'Columnar' Japanese Maple (Oregon Sunset)", t:"Acer palmatum (sold as 'Columnar', labeled Oregon Sunset)", s:"", c:false, tg:"maple,deciduous", p:"2021-05-25", note:"$137. Was labeled as Oregon Sunset.", dead:true},
-    {n:"Fireglow Japanese Maple", t:"Acer palmatum 'Fireglow'", s:"", c:false, tg:"maple,deciduous", p:"2024-04-01", note:"$120. Replaced by Baby Blue Colorado Spruce.", dead:true},
-    {n:"Mikawa Yatsubusa Japanese Maple", t:"Acer palmatum 'Mikawa Yatsubusa'", s:"", c:false, tg:"maple,deciduous,dwarf", p:"2024-06-01", note:"", dead:true},
-    {n:"Black Tower Elderberry", t:"Sambucus nigra 'Black Tower'", s:"", c:false, tg:"deciduous", p:"", note:"", dead:true},
-    {n:"Weeping White Cherry", t:"Prunus (weeping white)", s:"", c:false, tg:"deciduous,flowering,weeping", p:"2021-07-01", note:"", dead:true},
-  ];
-  return T.map(x=>({
-    id: uid(),
-    name: x.n,
-    type: x.t,
-    spot: x.s,
-    container: !!x.c,
-    tags: x.tg,
-    notes: x.note,
-    purchased: x.p || '',
-    dead: !!x.dead,
-    quantity: x.qty || 1,
-  }));
-}
 function load(){
   try { return Object.assign({}, defaultState, JSON.parse(localStorage.getItem(KEY)||'{}')); }
   catch(e){ return structuredClone(defaultState) }
@@ -2047,25 +1993,14 @@ $('#printInventoryBtn').onclick = async () => {
   // Brief raf so layout settles after the last image swap.
   requestAnimationFrame(() => requestAnimationFrame(() => window.print()));
 };
-$('#importBtn').onclick = ()=> $('#importFile').click();
-$('#importFile').onchange = (ev)=>{
-  const f = ev.target.files[0]; if (!f) return;
-  const r = new FileReader();
-  r.onload = ()=>{
-    try{ state = Object.assign({}, defaultState, JSON.parse(r.result)); save(); render(); updateChips(); fetchForecast(true); alert('Imported.'); }
-    catch(e){ alert('Could not parse file.') }
-  };
-  r.readAsText(f);
-};
-$('#loadInventoryBtn').onclick = ()=>{
-  if (!confirm('Replace the current plant list with the 37-tree "Our Trees" inventory? Watering log and settings will be kept.')) return;
-  state.plants = ourTreesSeed();
-  save(); render();
-  alert('Loaded ' + state.plants.length + ' trees (31 living, 6 departed).');
-};
-$('#resetBtn').onclick = ()=>{
-  if (!confirm('Wipe all yard data and start over?')) return;
-  state = structuredClone(defaultState); save(); render(); updateChips(); fetchForecast(true);
+// Import, the starter-inventory loader and "Reset all" are gone: the Google
+// Sheet is the source of truth, and each of those replaced this page's data
+// and then synced it, which could delete real rows. "Reload from sheet" is
+// the safe replacement — a fresh pull, keeping anything not yet synced.
+$('#reloadBtn').onclick = async ()=>{
+  const st = $('#reloadStatus'); st.textContent = 'Reloading…';
+  try { await pullFromSheets(); st.textContent = `Reloaded ${state.plants.length} plants at ${new Date().toLocaleTimeString()}.`; }
+  catch(e){ st.textContent = 'Could not reload: ' + e.message; }
 };
 
 /* ---------- forecast ---------- */

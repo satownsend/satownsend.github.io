@@ -312,6 +312,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .yv-legend{display:flex;gap:4px;flex-wrap:wrap}
   .yv-lg{background:var(--chip);border:1px solid var(--chip-line);color:var(--ink-soft);border-radius:999px;padding:3px 9px;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;min-height:0}
   .yv-lg.off{opacity:.4;text-decoration:line-through}
+  .yv-lg.yv-sel{background:none;color:var(--muted);border-color:transparent;padding:3px 6px}
+  .yv-lg.yv-sel:hover{color:var(--accent)}
   .yv-sw{display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--muted)}
   .yv-sw.bloom{background:#e58fb0;border-radius:50%}
   .yv-sw.foliage{background:#e0a040}
@@ -932,6 +934,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <option value="first">Sort by first event</option>
           <option value="name">Sort by name</option>
           <option value="category">Sort by type</option>
+          <option value="color">Sort by color</option>
         </select>
       </div>
     </div>
@@ -6049,11 +6052,20 @@ function renderYearView(){
   // Legend doubles as a filter
   const present = new Set(rows.flatMap(r => r.items.map(i => i.k)));
   $('#yvLegend').innerHTML = Object.entries(YV_KINDS).filter(([k]) => present.has(k)).map(([k, label]) =>
-    `<button class="yv-lg${yvFilter.has(k) ? ' off' : ''}" data-kind="${k}" title="Click to hide/show"><i class="yv-sw ${k}"></i>${label}</button>`).join('');
+    `<button class="yv-lg${yvFilter.has(k) ? ' off' : ''}" data-kind="${k}" title="Click to hide/show"><i class="yv-sw ${k}"></i>${label}</button>`).join('')
+    + `<button class="yv-lg yv-sel" data-sel="all" title="Show every kind">All</button><button class="yv-lg yv-sel" data-sel="none" title="Hide every kind">None</button>`;
   const sort = $('#yvSort').value;
   const firstEvent = r => Math.min(...r.items.filter(i => i.k !== 'evergreen' && i.k !== 'bare').map(i => i.s), 13);
+  // "Sort by color": order plants by the hue of their standout event (bloom first,
+  // then foliage, fruit, bark…), so like colors sit together.
+  const hueOf = hex => { const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex || ''); if (!m) return 999;
+    const [r, g, b] = [1, 2, 3].map(i => parseInt(m[i], 16) / 255), max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+    if (d < 0.08) return 400 + (1 - max) * 10;   // greys/whites/blacks go last, light before dark
+    let h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4; h = (h * 60 + 360) % 360; return h; };
+  const mainColor = r => { const pri = ['bloom', 'foliage', 'fruit', 'bark', 'cone', 'evergreen', 'bare']; for (const k of pri){ const it = r.items.find(i => i.k === k && !yvFilter.has(i.k)); if (it) return it.c; } return ''; };
   rows.sort((a, b) => sort === 'name' ? a.p.name.localeCompare(b.p.name)
     : sort === 'category' ? ((a.p.category || '').localeCompare(b.p.category || '') || a.p.name.localeCompare(b.p.name))
+    : sort === 'color' ? ((hueOf(mainColor(a)) - hueOf(mainColor(b))) || a.p.name.localeCompare(b.p.name))
     : (firstEvent(a) - firstEvent(b)) || a.p.name.localeCompare(b.p.name));
   const live = state.plants.filter(isLive).length;
   $('#yvCount').textContent = rows.length ? `${rows.length} of ${live} plants` : '';
@@ -6080,6 +6092,7 @@ function renderYearView(){
 $('#yvSort').value = localStorage.getItem(YV_SORT_KEY) || 'first';
 $('#yvSort').addEventListener('change', ()=>{ localStorage.setItem(YV_SORT_KEY, $('#yvSort').value); renderYearView(); });
 $('#yearView').addEventListener('click', e => {
+  const sel = e.target.closest('.yv-sel'); if (sel){ if (sel.dataset.sel === 'all') yvFilter.clear(); else yvFilter = new Set(Object.keys(YV_KINDS)); renderYearView(); return; }
   const lg = e.target.closest('.yv-lg'); if (lg){ const k = lg.dataset.kind; if (yvFilter.has(k)) yvFilter.delete(k); else yvFilter.add(k); renderYearView(); return; }
   const open = e.target.closest('[data-open]'); if (open) openInfo(open.dataset.open);
 });

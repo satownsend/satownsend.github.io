@@ -149,6 +149,14 @@ winter protect, repot…), each task a `MM-DD` window that repeats every year.
 - Tasks in progress or starting within a week also appear in Today's brief and
   as a count badge on the tab.
 
+### Yard photos
+
+Under the yard map on the Plants dashboard is a **Yard photos** wall for wide
+shots of the whole yard that don't belong to one plant. They upload like any
+plant photo and sync as `plant_photos` rows with `plant_id = "yard"`; the
+rotating gallery, the homepage slideshow and the photo-frame pages include
+them, labelled "Yard".
+
 ### AI plant overviews (`plants/index.html` + Worker `mode: "overview"`)
 
 Each plant card has a collapsible **AI overview**: a short summary plus mature

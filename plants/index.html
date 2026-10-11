@@ -309,6 +309,14 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .view-tabs .vt{background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);padding:8px 12px;font:inherit;font-size:14px;cursor:pointer;margin-bottom:-1px;display:inline-flex;align-items:center;gap:6px}
   .view-tabs .vt:hover{color:var(--ink)}
   .view-tabs .vt.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+  /* Yard photos (issue #88): a small masonry wall under the yard map */
+  .yp-wall{column-gap:10px;column-width:240px}
+  .yp{position:relative;break-inside:avoid;margin:0 0 10px;border-radius:10px;overflow:hidden;cursor:pointer;background:var(--bg2);border:1px solid var(--line2)}
+  .yp img{width:100%;height:auto;display:block;transition:transform .25s}
+  .yp:hover img{transform:scale(1.02)}
+  .yp-cap{position:absolute;left:0;right:0;bottom:0;padding:18px 9px 7px;color:#fff;font-size:11px;background:linear-gradient(transparent,rgba(0,0,0,.7));opacity:0;transition:opacity .2s;text-shadow:0 1px 2px rgba(0,0,0,.6)}
+  .yp:hover .yp-cap{opacity:1}
+  @media (max-width:520px){.yp-wall{column-width:46%}}
   /* Year view (issue #8) */
   .yv-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:6px}
   .yv-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
@@ -866,6 +874,23 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="ymp-wrap" id="ympWrap"></div>
   </div>
 
+  <!-- Yard photos (issue #88): wide-angle shots of the whole yard, not tied to
+       a plant, right under the yard map. Stored in plant_photos as plant_id "yard". -->
+  <div class="panel full" id="yardPhotosPanel">
+    <div class="yv-head">
+      <h2>Yard photos <span class="small" id="ypCount" style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted)"></span></h2>
+      <div class="yv-controls">
+        <select id="ypSort" class="tiny"><option value="new">Newest first</option><option value="old">Oldest first</option></select>
+        <label class="ghost tiny care-edit" id="ypUploadLabel" style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;border:1px solid var(--line2);border-radius:8px;padding:5px 10px;background:transparent;color:var(--ink);font-size:12px">
+          📷 Add yard photos
+          <input type="file" id="ypUploadInput" accept="image/*,.heic,.heif" multiple style="display:none">
+        </label>
+      </div>
+    </div>
+    <div class="small" id="ypStatus" style="color:var(--muted);min-height:1.2em;margin-bottom:6px"></div>
+    <div class="yp-wall" id="ypGrid"></div>
+  </div>
+
   <div class="panel full" id="frostPanel">
     <h2>Frost log <span class="small" id="frostCount" style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted)"></span></h2>
     <div id="frostLog" class="small"></div>
@@ -1341,6 +1366,7 @@ const defaultState = {
   log: [],
   care: [],               // yearly care tasks per plant (issue #69)
   overview: [],           // AI plant overviews, one per plant (issue #82)
+  yardPhotos: [],         // wide-angle yard photos, not tied to a plant (issue #88); stored as plant_id 'yard'
   forecast: null,         // cached forecast
   forecastFetched: 0,     // ms epoch
 };
@@ -1677,6 +1703,14 @@ function buildGalleryPool(){
       if (f.to && (!d || d > f.to)) continue;
       items.push({ plantId: p.id, plantName: p.name, key: ph.key, date: d, caption: ph.caption || '' });
     }
+  }
+  // Yard-wide shots (issue #88) join the rotation when no single plant is selected.
+  if (!f.plantId) for (const ph of (state.yardPhotos || [])){
+    if (!ph || !ph.key || ph.hideFromGallery) continue;
+    const d = ph.date || '';
+    if (f.from && (!d || d < f.from)) continue;
+    if (f.to && (!d || d > f.to)) continue;
+    items.push({ plantId: 'yard', plantName: 'Yard', key: ph.key, date: d, caption: ph.caption || '' });
   }
   if (f.plantId){
     // Single-plant: chronological is more useful than random
@@ -3023,8 +3057,11 @@ function findPhotoOwner(key){
   for (const p of (state.plants||[])){
     if ((p.photos||[]).some(ph => ph && ph.key === key)) return p;
   }
+  if ((state.yardPhotos||[]).some(ph => ph && ph.key === key)) return yardPlant();   // issue #88
   return null;
 }
+// A plant by id, or the Yard pseudo-plant (issue #88) — for lightbox owner lookups.
+function plantOrYard(id){ return id === 'yard' ? yardPlant() : state.plants.find(x => x.id === id); }
 // Set hideFromGallery=true on the canonical photo entry for a given R2 key.
 // Used to auto-hide damage photos from the rotating gallery so they don't
 // surface in the front-page hero strip. Idempotent: skips already-hidden.
@@ -3309,11 +3346,12 @@ $('#lightboxDelete').onclick = async ()=>{
   const ph = (state._lightboxPhotos||[])[lightboxIdx]; if (!ph) return;
   const { owner, target } = getCanonicalPhoto(ph);
   if (!owner || !target) return;
-  const viewing = state.plants.find(p => p.id === currentInfoPlantId);
+  const viewing = plantOrYard(currentInfoPlantId);
   if (!viewing) return;
+  const rerender = p => { if (p.id === YARD_ID) renderYardPhotos(); else renderPhotos(p); };
   const afterRemove = ()=>{
     save();
-    renderPhotos(viewing);
+    rerender(viewing);
     if (!state._lightboxPhotos.length){
       $('#lightbox').classList.remove('show');
     } else {
@@ -3328,7 +3366,7 @@ $('#lightboxDelete').onclick = async ()=>{
     if (!target.alsoIn.length) delete target.alsoIn;
     state._lightboxPhotos = (state._lightboxPhotos||[]).filter((_,i)=>i!==lightboxIdx);
     afterRemove();
-    offerUndo(`Removed photo from ${viewing.name}`, ()=>{ target.alsoIn = prevAlso; save(); if (currentInfoPlantId === viewing.id) renderPhotos(viewing); });
+    offerUndo(`Removed photo from ${viewing.name}`, ()=>{ target.alsoIn = prevAlso; save(); if (currentInfoPlantId === viewing.id) rerender(viewing); });
     return;
   }
   // Owner view: full delete. Warn if linked elsewhere. The R2 file is deleted
@@ -3344,7 +3382,7 @@ $('#lightboxDelete').onclick = async ()=>{
   state._lightboxPhotos = (state._lightboxPhotos||[]).filter((_,i)=>i!==lightboxIdx);
   afterRemove();
   offerUndo(`Deleted a photo of ${owner.name}`,
-    ()=>{ owner.photos = owner.photos || []; owner.photos.splice(Math.min(idx < 0 ? owner.photos.length : idx, owner.photos.length), 0, removed); save(); if (currentInfoPlantId === owner.id) renderPhotos(owner); refreshGallery(); },
+    ()=>{ owner.photos = owner.photos || []; owner.photos.splice(Math.min(idx < 0 ? owner.photos.length : idx, owner.photos.length), 0, removed); save(); if (currentInfoPlantId === owner.id) rerender(owner); refreshGallery(); },
     ()=> deletePhotoFromR2(ph.key));
 };
 
@@ -4681,6 +4719,14 @@ async function pullFromSheets(){
       });
     }
 
+    // Yard photos (issue #88): rows with plant_id 'yard'. Keep local-only ones.
+    {
+      const remoteYard = photosByPlant.get(YARD_ID) || [];
+      const remoteKeys = new Set(remoteYard.map(ph => ph.key));
+      state.yardPhotos = [...remoteYard, ...(state.yardPhotos || []).filter(ph => ph.key && !remoteKeys.has(ph.key))];
+      photosByPlant.delete(YARD_ID);
+    }
+
     // Preserve local-only photo additions (uploaded but not yet pushed to sheets)
     const localById = new Map((state.plants||[]).map(p => [p.id, p]));
 
@@ -4818,7 +4864,7 @@ function tagsToSheetRows(){
 function photosToSheetRows(){
   const header = ['plant_id','key','date','caption','hideFromGallery','alsoIn'];
   const rows = [header];
-  for (const p of (state.plants || [])){
+  for (const p of [...(state.plants || []), yardPlant()]){
     for (const ph of (p.photos || [])){
       rows.push([
         p.id, ph.key||'', ph.date||'', ph.caption||'',
@@ -6209,6 +6255,43 @@ function initCareView(){
   setView(v);
 }
 
+/* ── Yard photos (issue #88) ──
+   Wide shots of the whole yard. They live in state.yardPhotos and sync as
+   plant_photos rows with plant_id "yard". YARD is a pseudo-plant so the
+   existing upload, lightbox, caption and delete code works unchanged. */
+const YARD_ID = 'yard';
+const YARD = { id: YARD_ID, name: 'Yard', get photos(){ if (!state.yardPhotos) state.yardPhotos = []; return state.yardPhotos; }, set photos(v){ state.yardPhotos = v; } };
+function yardPlant(){ return YARD; }
+function renderYardPhotos(){
+  const grid = $('#ypGrid'); if (!grid) return;
+  const sort = $('#ypSort').value;
+  const list = (state.yardPhotos || []).filter(ph => ph && ph.key).slice()
+    .sort((a, b) => sort === 'old' ? (a.date || '').localeCompare(b.date || '') : (b.date || '').localeCompare(a.date || ''));
+  state._yardList = list;
+  $('#ypCount').textContent = list.length ? `${list.length} photo${list.length === 1 ? '' : 's'}` : '';
+  grid.innerHTML = list.length
+    ? list.map((ph, i) => `<div class="yp" data-idx="${i}"><img loading="lazy" src="${r2PublicUrl(ph.key + '.thumb.jpg')}" onerror="this.onerror=null;this.src='${r2PublicUrl(ph.key)}'" alt="${escapeHtml(ph.caption || '')}">${(ph.date || ph.caption) ? `<div class="yp-cap">${escapeHtml(ph.caption || '')}${ph.caption && ph.date ? ' · ' : ''}${escapeHtml(ph.date || '')}</div>` : ''}</div>`).join('')
+    : `<div class="empty" style="padding:14px 4px">No yard photos yet${isGsAuthed() ? ' — add a few wide shots of the whole yard to see it change over the years.' : '.'}</div>`;
+}
+$('#ypGrid').addEventListener('click', e => {
+  const t = e.target.closest('.yp'); if (!t) return;
+  currentInfoPlantId = YARD_ID;   // lightbox delete/caption look the owner up by this
+  openLightbox(state._yardList || [], +t.dataset.idx);
+});
+$('#ypSort').addEventListener('change', renderYardPhotos);
+$('#ypUploadInput').addEventListener('change', async e => {
+  const files = Array.from(e.target.files || []); e.target.value = '';
+  if (!files.length) return;
+  const st = $('#ypStatus'); let n = 0;
+  for (const f of files){
+    try {
+      await uploadPhoto(YARD, f, m => { st.textContent = `${n + 1} of ${files.length}: ${m}`; }, { sync: false });
+      n++; renderYardPhotos();
+    } catch(err){ console.error(err); st.textContent = 'Upload failed: ' + err.message; }
+  }
+  if (n){ save(); st.textContent = `Added ${n} yard photo${n === 1 ? '' : 's'}.`; refreshGallery(); }
+});
+
 /* ── Year view (issue #8) ──
    Each overview carries `calendar`: JSON [{s,e,k,c,t}] = start/end month
    (1–12, may wrap), kind, hex color, label. Rows = plants, columns = months. */
@@ -6284,7 +6367,7 @@ $('#yearView').addEventListener('click', e => {
 });
 
 function render(slices){
-  const s = slices || {plants:1, log:1, brief:1, stats:1, gallery:1, frostLog:1, yardMap:1, calendar:1};
+  const s = slices || {plants:1, log:1, brief:1, stats:1, gallery:1, frostLog:1, yardMap:1, calendar:1, yard:1};
   if (s.plants)    renderPlants();
   if (s.log)       renderLog();
   if (s.brief)     buildBrief();
@@ -6292,6 +6375,7 @@ function render(slices){
   if (s.gallery)   refreshGallery();
   if (s.frostLog)  renderFrostLog();
   if (s.yardMap)   renderYardMap();
+  if (s.yard && typeof renderYardPhotos === 'function') renderYardPhotos();
   if (s.calendar){ if ($('#calendarView').style.display !== 'none') renderCareViews(); else renderCareStatus(); }
 }
 render();

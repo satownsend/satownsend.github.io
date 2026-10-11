@@ -101,7 +101,7 @@
       else {
         const it = byId.get(p[s.idField]);
         if(s.skip && s.skip(it)) continue;
-        name = it ? (s.nameOf(it) || '') : '';
+        name = it ? (s.nameOf(it) || '') : (p[s.idField] === 'yard' ? 'Yard' : '');   // plants' yard-wide shots (issue #88)
       }
       out.push({ key:p.key, name, date:p.date || '', section:s.label, icon:s.icon });
     }

@@ -216,6 +216,14 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .ov-body .ov-meta{color:var(--muted);font-size:12px;margin-top:6px}
   .ov-body .ov-empty{color:var(--muted);font-style:italic}
   .ov-body .ov-sub{color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-size:11px;margin:10px 0 6px;padding-top:8px;border-top:1px dashed var(--line2)}
+  /* Trunk growth chart (issue #86) */
+  .trunk-chart{margin:4px 0 10px;padding:8px 6px 4px;background:var(--panel2);border:1px solid var(--line);border-radius:10px}
+  .trunk-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--muted);padding:6px 4px 2px}
+  .trunk-legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+  #infoTrunk table{width:100%;border-collapse:collapse;font-size:12px}
+  #infoTrunk th{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+  #infoTrunk td{padding:5px 8px;border-bottom:1px solid var(--line2);vertical-align:top}
+  #infoTrunk td.when{font-variant-numeric:tabular-nums;color:var(--ink-soft);white-space:nowrap}
   .ov-body .ov-seasons dt{color:var(--accent)}
   .ov-pop{position:absolute;right:0;top:110%;background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:10px;z-index:30;box-shadow:var(--shadow);min-width:240px;display:none;flex-direction:column;gap:6px}
   .ov-pop.on{display:flex}
@@ -1016,9 +1024,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <dl class="kv" id="infoKV"></dl>
     <div id="infoNotes" style="font-size:14px;line-height:1.55;margin-top:6px"></div>
 
-    <div class="trunk-section" id="infoTrunkSection" style="margin-top:18px;display:none">
-      <div class="small" style="color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-size:11px;margin-bottom:6px">Trunk growth</div>
-      <div id="infoTrunk" class="small"></div>
+    <div class="ov-section" id="infoTrunkSection" data-key="trunk" style="margin-top:18px;display:none">
+      <div class="ov-head" role="button" aria-expanded="false" title="Click to expand">
+        <span class="ov-chev">▶</span>
+        <span class="ov-label">Trunk growth</span>
+        <span class="ov-teaser" id="itTeaser"></span>
+      </div>
+      <div class="ov-body bare"><div id="infoTrunk" class="small"></div></div>
     </div>
 
     <!-- Collapsible sections (issues #82, #84): click a header to toggle; the
@@ -2769,6 +2781,63 @@ $('#plantTable').addEventListener('click', e=>{
   if (link){ e.preventDefault(); openInfo(link.dataset.info); return; }
 });
 
+/* Trunk growth chart (issue #86). Readings are grouped into series by where
+   they were taken (from the note): anything mentioning base/ground, or with no
+   note, is "At the base"; other notes become their own series. */
+function trunkSeries(measurements){
+  const by = new Map();
+  for (const m of measurements){
+    const note = (m.note || '').trim();
+    const label = (!note || /\b(base|ground|soil|bottom)\b/i.test(note)) ? 'At the base' : note.charAt(0).toUpperCase() + note.slice(1, 40);
+    if (!by.has(label)) by.set(label, { label, points: [] });
+    by.get(label).points.push({ id: m.id, date: m.date, t: parseYMD(m.date).getTime(), v: Number(m.value) });
+  }
+  const series = [...by.values()].map(s => ({ ...s, points: s.points.sort((a, b) => a.t - b.t) }));
+  series.sort((a, b) => b.points.length - a.points.length || (a.label === 'At the base' ? -1 : 1));
+  return series;
+}
+function trunkChartSvg(series){
+  const pts = series.flatMap(s => s.points);
+  if (pts.length < 2) return '';
+  const w = 360, h = 150, padL = 34, padR = 10, padT = 10, padB = 20;
+  const t0 = Math.min(...pts.map(p => p.t)), t1 = Math.max(...pts.map(p => p.t));
+  const span = Math.max(t1 - t0, 30 * 864e5);
+  const vMin = Math.min(...pts.map(p => p.v)), vMax = Math.max(...pts.map(p => p.v));
+  // "Nice" y range: pad a little, step to 1/2/5/10… so gridlines land on round numbers
+  const rawStep = (vMax - vMin || 1) / 4, mag = Math.pow(10, Math.floor(Math.log10(rawStep)));
+  const step = [1, 2, 5, 10].map(k => k * mag).find(k => k >= rawStep) || 10 * mag;
+  const y0 = Math.floor((vMin - step * 0.3) / step) * step, y1 = Math.ceil((vMax + step * 0.3) / step) * step;
+  const X = t => padL + ((t - t0) / span) * (w - padL - padR);
+  const Y = v => padT + (1 - (v - y0) / (y1 - y0)) * (h - padT - padB);
+  let grid = '';
+  for (let v = y0; v <= y1 + 1e-9; v += step){
+    grid += `<line x1="${padL}" y1="${Y(v).toFixed(1)}" x2="${w - padR}" y2="${Y(v).toFixed(1)}" stroke="var(--line)" stroke-width="0.5"/>`
+      + `<text x="${padL - 4}" y="${(Y(v) + 3).toFixed(1)}" text-anchor="end" font-size="8" fill="var(--muted)">${Number.isInteger(v) ? v : v.toFixed(1)}</text>`;
+  }
+  // X ticks: each Jan 1 in range (or first/last reading when the span is short)
+  let ticks = '';
+  const d0 = new Date(t0), d1 = new Date(t0 + span);
+  const years = [];
+  for (let y = d0.getFullYear() + 1; y <= d1.getFullYear(); y++) years.push(new Date(y, 0, 1).getTime());
+  const tickTs = years.length ? years : [t0, t0 + span];
+  for (const t of tickTs){
+    const lab = years.length ? String(new Date(t).getFullYear()) : new Date(t).toLocaleDateString(undefined, { month:'short', year:'2-digit' });
+    ticks += `<line x1="${X(t).toFixed(1)}" y1="${padT}" x2="${X(t).toFixed(1)}" y2="${h - padB}" stroke="var(--line)" stroke-width="0.5" stroke-dasharray="2 3"/>`
+      + `<text x="${X(t).toFixed(1)}" y="${h - padB + 11}" text-anchor="middle" font-size="8" fill="var(--muted)">${lab}</text>`;
+  }
+  const colors = ['var(--accent)', 'var(--accent2)', 'var(--cool)', 'var(--warn)'];
+  const fmtD = t => new Date(t).toLocaleDateString(undefined, { month:'short', day:'numeric', year:'numeric' });
+  const lines = series.map((s, i) => {
+    const c = colors[i % colors.length];
+    const path = s.points.map((p, j) => `${j ? 'L' : 'M'}${X(p.t).toFixed(1)},${Y(p.v).toFixed(1)}`).join(' ');
+    const dots = s.points.map(p => `<circle cx="${X(p.t).toFixed(1)}" cy="${Y(p.v).toFixed(1)}" r="3" fill="${c}" stroke="var(--panel)" stroke-width="1"><title>${escapeHtml(fmtD(p.t))} · ${p.v.toFixed(1)} in · ${escapeHtml(s.label)}</title></circle>`).join('');
+    return `<path d="${path}" fill="none" stroke="${c}" stroke-width="1.6" stroke-linejoin="round" opacity="${i ? 0.8 : 1}"/>${dots}`;
+  }).join('');
+  const legend = series.length > 1
+    ? `<div class="trunk-legend">${series.map((s, i) => `<span><i style="background:${colors[i % colors.length]}"></i>${escapeHtml(s.label)}</span>`).join('')}</div>` : '';
+  return `<div class="trunk-chart"><svg viewBox="0 0 ${w} ${h}" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block" aria-label="Trunk measurements over time">${grid}${ticks}${lines}</svg>${legend}</div>`;
+}
+
 function openInfo(id){
   const p = state.plants.find(x=>x.id===id); if (!p) return;
   $('#infoName').textContent = p.name + (p.dead ? '  †' : '');
@@ -2801,22 +2870,33 @@ function openInfo(id){
     trunkSection.style.display = 'none';
   } else {
     trunkSection.style.display = '';
+    applyCardSection('trunk');
+    // Issue #86: chart + table. Readings taken at different spots (the note
+    // says where: "at the base" vs "below first branch") are separate series
+    // so the line doesn't zigzag between them.
+    const series = trunkSeries(measurements);
+    const main = series[0];
+    const first = main.points[0], last = main.points[main.points.length - 1];
+    let summary = '';
+    if (main.points.length >= 2){
+      const totalDelta = last.v - first.v;
+      const years = (last.t - first.t) / (365.25 * 864e5);
+      const rate = years >= 0.5 ? ` ≈ ${(totalDelta / years).toFixed(1)} in/yr` : '';
+      summary = ` <span class="meta">· ${totalDelta >= 0 ? '+' : ''}${totalDelta.toFixed(1)} in over ${years >= 1 ? years.toFixed(1) + ' yrs' : main.points.length + ' readings'}${rate}</span>`;
+    }
+    $('#itTeaser').textContent = `${fmtTrunk(last.v)}${main.points.length >= 2 ? ` · ${last.v - first.v >= 0 ? '+' : ''}${(last.v - first.v).toFixed(1)} in since ${first.date.slice(0, 4)}` : ''}`;
     const rows = measurements.map((m, i) => {
-      const prev = i > 0 ? measurements[i-1] : null;
-      const delta = prev ? (Number(m.value) - Number(prev.value)) : null;
+      const s = series.find(x => x.points.some(pt => pt.id === m.id));
+      const prevInSeries = s ? s.points[s.points.findIndex(pt => pt.id === m.id) - 1] : null;
+      const delta = prevInSeries ? (Number(m.value) - prevInSeries.v) : null;
       const deltaCell = delta === null ? '<span class="meta">—</span>'
         : delta === 0 ? '<span class="meta">no change</span>'
         : `<span style="color:${delta > 0 ? 'var(--accent)' : 'var(--warn)'}">${delta > 0 ? '+' : ''}${delta.toFixed(1)} in</span>`;
-      return `<tr><td class="when">${escapeHtml(fmtLogWhen(m))}</td><td>${escapeHtml(fmtTrunk(m.value))}</td><td>${deltaCell}</td></tr>`;
+      return `<tr><td class="when">${escapeHtml(fmtLogWhen(m))}</td><td>${escapeHtml(fmtTrunk(m.value))}</td><td>${deltaCell}</td><td class="meta">${escapeHtml(s && series.length > 1 ? s.label : (m.note || ''))}</td></tr>`;
     }).join('');
-    const first = measurements[0], last = measurements[measurements.length-1];
-    let summary = '';
-    if (measurements.length >= 2){
-      const totalDelta = Number(last.value) - Number(first.value);
-      summary = ` <span class="meta">· ${totalDelta >= 0 ? '+' : ''}${totalDelta.toFixed(1)} in over ${measurements.length} readings</span>`;
-    }
-    $('#infoTrunk').innerHTML = `<div style="margin-bottom:6px">Latest: <strong>${escapeHtml(fmtTrunk(last.value))}</strong>${summary}</div>`
-      + `<table><thead><tr><th>When</th><th>Trunk</th><th>Δ</th></tr></thead><tbody>${rows}</tbody></table>`;
+    $('#infoTrunk').innerHTML = `<div style="margin-bottom:6px">Latest: <strong>${escapeHtml(fmtTrunk(last.v))}</strong>${summary}</div>`
+      + trunkChartSvg(series)
+      + `<table><thead><tr><th>When</th><th>Trunk</th><th>Δ</th><th>Where / note</th></tr></thead><tbody>${rows}</tbody></table>`;
   }
 
   // Log history for this plant, newest first
@@ -5628,7 +5708,7 @@ function fmtWhen(ts){ return ts ? new Date(ts).toLocaleDateString(undefined, {mo
 /* Collapsible plant-card sections (overview, care calendar, log history).
    Each remembers its own open/closed state; history starts open, the AI
    sections start closed. */
-const CARD_SECTION_DEFAULT = { overview: false, care: false, history: true };
+const CARD_SECTION_DEFAULT = { overview: false, care: false, history: true, trunk: true };
 function cardSectionOpen(key){
   const v = localStorage.getItem('plants.cardOpen.' + key);
   return v === null ? !!CARD_SECTION_DEFAULT[key] : v === '1';

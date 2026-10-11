@@ -282,14 +282,21 @@ a{color:var(--accent);text-decoration:none}
 .wrap{max-width:1200px;margin:0 auto;padding:24px 20px 80px}
 header{display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px}
 h1{font:700 30px/1.1 "clother", -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;margin:0;letter-spacing:-.015em;color:var(--accent)}
-h2{font:600 14px/1 "SF Pro Display",sans-serif;margin:0 0 12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+/* Panel titles in the display face, sentence case (issue #73). Small
+   uppercase micro-labels inside panels stay as they are, so there are two
+   clear levels: title, then section label. */
+h2{font:600 19px/1.15 "clother",-apple-system,BlinkMacSystemFont,"SF Pro Display",sans-serif;margin:0 0 12px;letter-spacing:-.01em;color:var(--ink)}
+h2 .small{font:inherit;font-size:13px;font-weight:400;letter-spacing:0;color:var(--muted)}
 .sub{color:var(--muted);font-size:13px}
 .meta{color:var(--muted);font-size:13px}
 .small{font-size:13px}
 hr{border:0;border-top:1px solid var(--line);margin:14px 0}
 
 /* ── Panels & chips ── */
-.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;box-shadow:var(--shadow)}
+/* Panels step up from the page background instead of being outlined (issue
+   #73): the shadow and the lighter fill do the work; a faint hairline keeps
+   the edge legible on near-black themes. */
+.panel{background:var(--panel);border:1px solid transparent;border-color:color-mix(in srgb,var(--line) 40%,transparent);border-radius:14px;padding:18px 20px;box-shadow:var(--shadow)}
 .panel.full{grid-column:1/-1}
 .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .chip{display:inline-flex;align-items:center;gap:6px;background:var(--chip);color:var(--ink-soft);border:1px solid var(--chip-line);

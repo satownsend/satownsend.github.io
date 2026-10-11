@@ -306,6 +306,14 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .view-tabs .vt{background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);padding:8px 12px;font:inherit;font-size:14px;cursor:pointer;margin-bottom:-1px;display:inline-flex;align-items:center;gap:6px}
   .view-tabs .vt:hover{color:var(--ink)}
   .view-tabs .vt.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+  /* Settings panel tabs */
+  .settings-tabs{margin-bottom:14px}
+  .st-pane{display:none}
+  .st-pane.active{display:block}
+  .st-sub{color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-size:11px;margin:0 0 8px}
+  .st-sub.danger{color:var(--warn)}
+  button.danger{border-color:var(--warn);color:var(--warn)}
+  #settingsPanel hr{margin:16px 0}
   .vt-badge{background:var(--accent);color:#04211d;border-radius:999px;font-size:11px;font-weight:700;padding:1px 7px;line-height:1.4}
   .care-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px}
   .care-tools{display:flex;align-items:center;gap:6px}
@@ -873,40 +881,59 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <div class="panel full" id="settingsPanel" style="display:none;margin-top:16px">
   <h2>Settings</h2>
-  <div class="grid3">
-    <div>
-      <label class="small">Location (city, region)</label>
-      <input type="text" id="cityInput" placeholder="e.g. Asheville, NC">
-      <button id="geocodeBtn" class="tiny" style="margin-top:6px">Find</button>
-      <div class="small" id="geoStatus" style="margin-top:4px"></div>
+  <!-- Three tabs instead of one long scroll: what you set (Preferences), how
+       you're signed in and where things are stored (Account & storage), and
+       the rarely-used import/export/reset tools (Data). -->
+  <div class="view-tabs settings-tabs" role="tablist" aria-label="Settings sections" style="margin-top:0">
+    <button class="vt active" data-stab="prefs" role="tab" aria-selected="true">Preferences</button>
+    <button class="vt" data-stab="sync" role="tab" aria-selected="false">Account &amp; storage</button>
+    <button class="vt" data-stab="data" role="tab" aria-selected="false">Data</button>
+  </div>
+
+  <div class="st-pane active" data-stab="prefs">
+    <div class="grid3">
+      <div>
+        <label class="small">Location (city, region)</label>
+        <input type="text" id="cityInput" placeholder="e.g. Asheville, NC">
+        <button id="geocodeBtn" class="tiny" style="margin-top:6px">Find</button>
+        <div class="small" id="geoStatus" style="margin-top:4px"></div>
+      </div>
+      <div>
+        <label class="small">Last spring frost (avg)</label>
+        <input type="date" id="lastFrostInput">
+        <label class="small" style="margin-top:8px;display:block">First fall frost (avg)</label>
+        <input type="date" id="firstFrostInput">
+      </div>
+      <div>
+        <label class="small">Units</label>
+        <select id="unitsInput">
+          <option value="F">°F / inches</option>
+          <option value="C">°C / mm</option>
+        </select>
+        <label class="small" style="margin-top:8px;display:block">Hardiness zone (optional)</label>
+        <input type="text" id="zoneInput" placeholder="e.g. 7a">
+      </div>
     </div>
-    <div>
-      <label class="small">Last spring frost (avg)</label>
-      <input type="date" id="lastFrostInput">
-      <label class="small" style="margin-top:8px;display:block">First fall frost (avg)</label>
-      <input type="date" id="firstFrostInput">
-    </div>
-    <div>
-      <label class="small">Units</label>
-      <select id="unitsInput">
-        <option value="F">°F / inches</option>
-        <option value="C">°C / mm</option>
-      </select>
-      <label class="small" style="margin-top:8px;display:block">Hardiness zone (optional)</label>
-      <input type="text" id="zoneInput" placeholder="e.g. 7a">
+    <div class="row" style="margin-top:14px">
+      <button id="saveSettings">Save preferences</button>
+      <span class="small" style="color:var(--muted)">Frost dates and units drive the brief, the forecast and the care calendar.</span>
     </div>
   </div>
-  <hr>
-  <div>
-    <h2 style="margin:0 0 8px">Google Sheet (data store)</h2>
-    <div class="small" style="margin-bottom:6px">Plants, tags, and photos are stored in a <a href="https://docs.google.com/spreadsheets/d/1Q1kRZG0jjkYF7pCSZXZIgE5B_kCorDovO2I7ATE3vUM/edit" target="_blank">Google Sheet</a>. Data loads automatically.</div>
-    <div class="small" id="sheetStatus" style="margin-top:6px;color:var(--muted)">Not loaded yet.</div>
-  </div>
-  <hr>
-  <div>
-    <h2 style="margin:0 0 8px">Photo storage (Cloudflare R2)</h2>
-    <div class="small" style="margin-bottom:6px">Bucket: <code>plant-photos</code> · Public URL: <code>pub-59a9261…r2.dev</code></div>
-    <div class="small" style="margin-bottom:6px;color:var(--muted)">Enter these once while signed in with Google. They're saved to a private Google vault, so signing in on any other device loads them automatically.</div>
+
+  <div class="st-pane" data-stab="sync">
+    <div class="st-sub">Google account &amp; sync</div>
+    <div class="small" style="margin-bottom:6px">Plants, tags, photos, the log and the care calendar live in a <a href="https://docs.google.com/spreadsheets/d/1Q1kRZG0jjkYF7pCSZXZIgE5B_kCorDovO2I7ATE3vUM/edit" target="_blank">Google Sheet</a>. Anyone can view; sign in to edit. Changes sync row by row a couple of seconds after you make them.</div>
+    <div class="row" style="margin-top:8px;gap:6px">
+      <button id="gsSaveTokenBtn" class="tiny">Sign in with Google</button>
+      <button id="gsPullBtn" class="tiny ghost">Pull now</button>
+      <button id="gsPushBtn" class="tiny ghost">Push now</button>
+      <button id="gsSignOutBtn" class="tiny ghost" style="margin-left:auto">Sign out</button>
+    </div>
+    <div class="small" style="margin-top:8px;color:var(--muted)">Sync: <span id="gsStatus">Read-only (not signed in).</span></div>
+    <div class="small" style="margin-top:2px;color:var(--muted)">Data: <span id="sheetStatus">Not loaded yet.</span></div>
+    <hr>
+    <div class="st-sub">Photo storage (Cloudflare R2)</div>
+    <div class="small" style="margin-bottom:6px">Bucket <code>plant-photos</code> · public URL <code>pub-59a9261…r2.dev</code>. Keys are entered once while signed in and kept in a private Google vault, so any other device loads them on sign-in.</div>
     <input type="text" id="r2KeyInput" placeholder="Access Key ID">
     <input type="password" id="r2SecretInput" placeholder="Secret Access Key" style="margin-top:6px">
     <div class="row" style="margin-top:8px;gap:6px">
@@ -915,29 +942,25 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <button id="r2RecoverBtn" class="tiny ghost">Recover photos</button>
       <button id="r2ClearBtn" class="tiny ghost" style="margin-left:auto">Forget</button>
     </div>
-    <div class="small" id="r2Status" style="margin-top:6px;color:var(--muted)">Not configured.</div>
+    <div class="small" style="margin-top:8px;color:var(--muted)">Photos: <span id="r2Status">Not configured.</span></div>
   </div>
-  <hr>
-  <div>
-    <h2 style="margin:0 0 8px">Google Sheets sync</h2>
-    <div class="small" style="margin-bottom:6px">Data stored in Google Sheets. Sign in to enable editing. The header only shows a sync chip while syncing or on an error; the current status is always here.</div>
-    <div class="row" style="margin-top:8px;gap:6px">
-      <button id="gsSaveTokenBtn" class="tiny">Sign in with Google</button>
-      <button id="gsPullBtn" class="tiny ghost">Pull now</button>
-      <button id="gsPushBtn" class="tiny ghost">Push now</button>
-      <button id="gsSignOutBtn" class="tiny ghost" style="margin-left:auto">Sign out</button>
+
+  <div class="st-pane" data-stab="data">
+    <div class="st-sub">Backup &amp; print</div>
+    <div class="small" style="margin-bottom:8px;color:var(--muted)">Export writes everything on this page (plants, log, care calendar, settings) to a JSON file. Import reads one back in. Print builds a clean inventory for paper or PDF.</div>
+    <div class="row" style="gap:6px">
+      <button id="exportBtn" class="ghost tiny">Export data</button>
+      <button id="importBtn" class="ghost tiny">Import</button>
+      <button id="printInventoryBtn" class="ghost tiny">Print inventory</button>
+      <input type="file" id="importFile" accept="application/json" style="display:none">
     </div>
-    <div class="small" id="gsStatus" style="margin-top:6px;color:var(--muted)">Read-only (not signed in).</div>
-  </div>
-  <hr>
-  <div class="row">
-    <button id="saveSettings">Save</button>
-    <button id="loadInventoryBtn" class="ghost">Load "Our Trees" inventory</button>
-    <button id="exportBtn" class="ghost">Export data</button>
-    <button id="importBtn" class="ghost">Import</button>
-    <button id="printInventoryBtn" class="ghost">Print inventory</button>
-    <input type="file" id="importFile" accept="application/json" style="display:none">
-    <button id="resetBtn" class="ghost" style="margin-left:auto">Reset all</button>
+    <hr>
+    <div class="st-sub danger">Danger zone</div>
+    <div class="small" style="margin-bottom:8px;color:var(--muted)">These replace what's on this page. With sync on, the sheet follows.</div>
+    <div class="row" style="gap:6px">
+      <button id="loadInventoryBtn" class="ghost tiny">Load "Our Trees" starter inventory</button>
+      <button id="resetBtn" class="ghost tiny danger" style="margin-left:auto">Reset all</button>
+    </div>
   </div>
 </div>
 
@@ -1802,9 +1825,10 @@ function updateChips(){
 updateChips();
 
 /* ---------- settings panel ---------- */
-function openSettings(){
+function openSettings(tab){
   const p = $('#settingsPanel');
   p.style.display = 'block';
+  if (typeof tab === 'string') setSettingsTab(tab);
   $('#cityInput').value = state.settings.city || '';
   $('#lastFrostInput').value = state.settings.lastFrost || '';
   $('#firstFrostInput').value = state.settings.firstFrost || '';
@@ -1814,6 +1838,18 @@ function openSettings(){
   if (typeof refreshR2Input === 'function') refreshR2Input();
   p.scrollIntoView({behavior:'smooth', block:'start'});
 }
+// Settings tabs: remembered across visits; chips in the header open the
+// relevant tab (location → Preferences, sync → Account & storage).
+const SETTINGS_TAB_KEY = 'plants.settingsTab';
+function setSettingsTab(tab){
+  if (!$(`.settings-tabs [data-stab="${tab}"]`)) tab = 'prefs';
+  $$('.settings-tabs .vt').forEach(b => { const on = b.dataset.stab === tab; b.classList.toggle('active', on); b.setAttribute('aria-selected', on); });
+  $$('#settingsPanel .st-pane').forEach(p => p.classList.toggle('active', p.dataset.stab === tab));
+  localStorage.setItem(SETTINGS_TAB_KEY, tab);
+}
+$('.settings-tabs').addEventListener('click', e => { const b = e.target.closest('[data-stab]'); if (b) setSettingsTab(b.dataset.stab); });
+setSettingsTab(localStorage.getItem(SETTINGS_TAB_KEY) || 'prefs');
+
 $('#settingsBtn').onclick = $('#settingsBtnBottom').onclick = ()=>{
   const p = $('#settingsPanel');
   if (p.style.display === 'block') p.style.display = 'none';
@@ -1825,12 +1861,12 @@ $('#syncchip').onclick = ()=>{
     gsPushNow();
     return;
   }
-  openSettings();
+  openSettings('sync');
 };
 $('#syncchip').style.cursor = 'pointer';
-$('#locchip').onclick = openSettings;
+$('#locchip').onclick = ()=> openSettings('prefs');
 $('#locchip').style.cursor = 'pointer';
-if ($('#frostchip')){ $('#frostchip').onclick = openSettings; $('#frostchip').style.cursor = 'pointer'; }
+if ($('#frostchip')){ $('#frostchip').onclick = ()=> openSettings('prefs'); $('#frostchip').style.cursor = 'pointer'; }
 $('#saveSettings').onclick = ()=>{
   state.settings.city = $('#cityInput').value.trim();
   state.settings.lastFrost = $('#lastFrostInput').value;

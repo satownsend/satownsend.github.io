@@ -141,7 +141,11 @@ winter protect, repot…), each task a `MM-DD` window that repeats every year.
   (`id, plant_id, task, start, end, notes, source, updatedAt`), created on
   first use and synced row-by-row like the other tabs.
 - **Done tracking:** a task shows ✓ once the matching action is logged inside
-  its window (prune → "pruned", fertilize → "fertilized", cover → "covered", …).
+  its window (prune → "pruned", fertilize → "fertilized", cover → "covered", …;
+  tasks with no mapped action are matched by their own wording). A **✓ Done**
+  button on any active task row writes that log entry for today itself
+  (undoable for 10 s); a "plant …" task, or the Quick log's "planted" action,
+  also fills in the plant's planted date when it's blank.
 - Tasks in progress or starting within a week also appear in Today's brief and
   as a count badge on the tab.
 

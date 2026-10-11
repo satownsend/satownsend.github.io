@@ -407,6 +407,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .care-item .ci-win{color:var(--muted);font-size:12px;margin-left:auto;white-space:nowrap}
   .care-item.done{opacity:.6}
   .ci-edit{background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:0 4px;line-height:1}
+  .ci-done{background:var(--chip);border:1px solid var(--chip-line);color:var(--accent);border-radius:999px;padding:2px 9px;font-size:11px;font-weight:600;cursor:pointer;min-height:0;line-height:1.4;white-space:nowrap}
+  .ci-done:hover{background:var(--accent);color:#04211d;border-color:var(--accent)}
   .ci-edit:hover{color:var(--accent)}
   .care-byplant{display:flex;flex-direction:column;gap:10px}
   .cbp{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--panel2)}
@@ -765,6 +767,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <option value="pruned">pruned</option>
         <option value="sprayed">sprayed</option>
 
+        <option value="planted">planted</option>
         <option value="moved">moved</option>
         <option value="repotted">repotted</option>
         <option value="covered">covered</option>
@@ -3907,7 +3910,13 @@ $('#logBtn').onclick = ()=>{
   $('#logMeasure').value = '';
   if ($('#logCausedBy')) $('#logCausedBy').value = '';
   resetLogDateTime();
+  // "planted" (issue #46) also fills in the plant's planted date when it's blank.
+  if (action === 'planted'){
+    const by = plantsById();
+    for (const t of targets){ const p = by.get(t); if (p && !p.planted) p.planted = date; }
+  }
   save(); renderPlants(); renderLog(); buildBrief();
+  if (typeof renderCareViews === 'function' && $('#calendarView').style.display !== 'none') renderCareViews();
 };
 function renderLog(){
   // Sort by date+time descending so back-dated entries land in the right place
@@ -5582,6 +5591,7 @@ let careSelDay = null;   // 'MM-DD' selected in the month grid
 
 // Task wording → log action. Order matters ("uncover" must win over "cover").
 const TASK_LOG_ACTION = [
+  [/^(plant|transplant|sow|put in (the )?ground)\b/i, 'planted'],   // issue #46
   [/uncover|unwrap|remove (the )?(cover|wrap|protection|burlap)/i, 'uncovered'],
   [/cover|wrap|protect|burlap|shelter|insulat/i, 'covered'],
   [/prun|trim|cut back|shear|thin|deadhead|pinch|shape/i, 'pruned'],
@@ -5594,6 +5604,10 @@ const TASK_LOG_ACTION = [
   [/move|relocat|transplant/i, 'moved'],
 ];
 function taskLogAction(task){ for (const [re, a] of TASK_LOG_ACTION){ if (re.test(task || '')) return a; } return null; }
+// The log action a task is recorded as: the mapped Quick-log action when the
+// wording matches, otherwise the task text itself (so "Done" on any task can
+// be detected and the log stays readable: "collect seed", "stake leader"…).
+function taskAction(task){ return taskLogAction(task) || (task || '').trim().toLowerCase().slice(0, 60); }
 
 function plantsById(){ return new Map(state.plants.map(p => [p.id, p])); }
 function isLive(p){ return !!p && !p.dead && !p.wishlist; }
@@ -5612,13 +5626,36 @@ function occurrence(t, ref){
   return { start: mdToDate(t.start, sy), end: mdToDate(e, wraps ? sy + 1 : sy) };
 }
 function isTaskDone(t, ref){
-  const action = taskLogAction(t.task);
+  const action = taskAction(t.task);
   if (!action) return false;
   const { start, end } = occurrence(t, ref || today);
   const a = ymd(start), b = ymd(end);
   return state.log.some(e => e.plantId === t.plantId && e.action === action && e.date >= a && e.date <= b);
 }
 function shortName(p){ const n = (p && p.name) || '?'; return n.length > 18 ? n.slice(0, 17) + '…' : n; }
+
+/* "Done" on a task row writes the log entry the calendar would otherwise wait
+   for: the mapped action (pruned, covered…) or the task text, dated today,
+   noted as coming from the care calendar. A "planted" task also sets the
+   plant's planted date if it's blank (issue #46). Undoable for 10 s. */
+function markCareDone(taskId){
+  const t = (state.care || []).find(x => x.id === taskId); if (!t) return;
+  const p = plantsById().get(t.plantId); if (!p) return;
+  if (!isGsAuthed()){ alert('Sign in with Google first (Settings).'); return; }
+  const action = taskAction(t.task);
+  const entry = { id: uid(), plantId: p.id, action, date: ymd(today), time: hmNow(), note: `Care calendar: ${t.task}`, modifiedAt: Date.now() };
+  state.log = state.log || []; state.log.push(entry);
+  let plantedWas = null;
+  if (action === 'planted' && !p.planted){ plantedWas = p.planted || ''; p.planted = entry.date; }
+  const refresh = ()=>{ render({plants:1, log:1, brief:1, stats:1, calendar:1}); if (typeof renderInfoCare === 'function' && ovInfoPlantId === p.id) renderInfoCare(p); };
+  save(); refresh();
+  offerUndo(`Logged "${action}" for ${p.name}`, ()=>{
+    state.log = state.log.filter(e => e.id !== entry.id);
+    if (plantedWas !== null) p.planted = plantedWas;
+    save(); refresh();
+  });
+}
+const doneBtn = (t, done) => done ? '' : `<button class="ci-done care-edit" data-done="${escapeHtml(t.id)}" title="Log this as done today">✓ Done</button>`;
 
 // Task rows that are expanded to show their notes (kept across re-renders).
 const careOpen = new Set();
@@ -5636,6 +5673,7 @@ function careItemHtml(t, ref, opts = {}){
     <span class="ci-plant" data-open="${escapeHtml(t.plantId)}">${escapeHtml(p ? p.name : '(unknown plant)')}</span>
     <span class="ci-task">${escapeHtml(t.task)}</span>${status}
     <span class="ci-win">${escapeHtml(winLabel(t))}</span>
+    ${doneBtn(t, done)}
     <button class="ci-edit care-edit" data-edit="${escapeHtml(t.id)}" aria-label="Edit task" title="Edit">✎</button>
     <div class="ci-notes">${notes}<span class="ci-meta">${escapeHtml(meta)}</span></div>
   </div>`;
@@ -5721,6 +5759,7 @@ function careGroupHtml(g, ref){
       const own = (t.task || '').trim().toLowerCase() !== g.task.toLowerCase() ? `<span class="ci-task">${escapeHtml(t.task)}</span>` : '';
       return `<li><span class="ci-plant" data-open="${escapeHtml(t.plantId)}">${escapeHtml(p ? p.name : '(unknown plant)')}</span>${own}
         <span class="ci-win">${escapeHtml(winLabel(t))}</span>
+        ${doneBtn(t, isTaskDone(t, ref))}
         <button class="ci-edit care-edit" data-edit="${escapeHtml(t.id)}" aria-label="Edit task" title="Edit">✎</button>
         ${t.notes ? `<span class="ci-gnote">${escapeHtml(t.notes)}</span>` : ''}</li>`;
     }).join('');
@@ -5770,7 +5809,7 @@ function renderCareByPlant(){
   box.innerHTML = plants.map(p => {
     const tasks = (by.get(p.id) || []).slice().sort((a, b) => (a.start || '').localeCompare(b.start || ''));
     const list = tasks.length
-      ? `<ul class="cbp-tasks">${tasks.map(t => `<li><span class="t-win">${escapeHtml(winLabel(t))}</span><span>${escapeHtml(t.task)}</span>${t.source === 'manual' ? '<span class="small" style="color:var(--muted)">manual</span>' : ''}<button class="ci-edit care-edit" data-edit="${escapeHtml(t.id)}" aria-label="Edit" title="Edit">✎</button>${t.notes ? `<span class="t-notes">${escapeHtml(t.notes)}</span>` : ''}</li>`).join('')}</ul>`
+      ? `<ul class="cbp-tasks">${tasks.map(t => { const done = isTaskDone(t, today), active = inWindow(t, mdOf(today)); return `<li class="${done ? 'done' : ''}"><span class="t-win">${escapeHtml(winLabel(t))}</span><span>${done ? '✓ ' : ''}${escapeHtml(t.task)}</span>${t.source === 'manual' ? '<span class="small" style="color:var(--muted)">manual</span>' : ''}${active ? doneBtn(t, done) : ''}<button class="ci-edit care-edit" data-edit="${escapeHtml(t.id)}" aria-label="Edit" title="Edit">✎</button>${t.notes ? `<span class="t-notes">${escapeHtml(t.notes)}</span>` : ''}</li>`; }).join('')}</ul>`
       : '<div class="cbp-empty">No schedule yet.</div>';
     return `<div class="cbp${careWorking.has(p.id) ? ' working' : careQueued.has(p.id) ? ' queued' : ''}" data-pid="${escapeHtml(p.id)}">
       <div class="cbp-head"><span class="cbp-name" data-open="${escapeHtml(p.id)}">${escapeHtml(p.name)}</span>${p.type ? `<span class="cbp-lat">${escapeHtml(p.type)}</span>` : ''}
@@ -5966,10 +6005,11 @@ function renderInfoCare(p){
   teaser.textContent = `${tasks.length} task${tasks.length === 1 ? '' : 's'}` + (live.length ? ` · now: ${live.map(t => t.task).slice(0, 2).join(', ')}` : next ? ` · next: ${next.task} (${fmtMD(next.start)})` : '');
   body.innerHTML = `<ul class="cbp-tasks">${tasks.map(t => {
     const done = isTaskDone(t, today), active = inWindow(t, tmd);
-    return `<li class="${done ? 'done' : ''}"><span class="t-win">${escapeHtml(winLabel(t))}</span><span${active ? ' style="color:var(--accent)"' : ''}>${done ? '✓ ' : ''}${escapeHtml(t.task)}</span>${t.source === 'manual' ? '<span class="small" style="color:var(--muted)">manual</span>' : ''}<button class="ci-edit care-edit" data-ic-edit="${escapeHtml(t.id)}" aria-label="Edit" title="Edit">✎</button>${t.notes ? `<span class="t-notes">${escapeHtml(t.notes)}</span>` : ''}</li>`;
+    return `<li class="${done ? 'done' : ''}"><span class="t-win">${escapeHtml(winLabel(t))}</span><span${active ? ' style="color:var(--accent)"' : ''}>${done ? '✓ ' : ''}${escapeHtml(t.task)}</span>${t.source === 'manual' ? '<span class="small" style="color:var(--muted)">manual</span>' : ''}${active ? doneBtn(t, done) : ''}<button class="ci-edit care-edit" data-ic-edit="${escapeHtml(t.id)}" aria-label="Edit" title="Edit">✎</button>${t.notes ? `<span class="t-notes">${escapeHtml(t.notes)}</span>` : ''}</li>`;
   }).join('')}</ul>`;
 }
 $('#icBody').addEventListener('click', e => {
+  const d = e.target.closest('[data-done]'); if (d){ markCareDone(d.dataset.done); return; }
   const b = e.target.closest('[data-ic-edit]'); if (b) openCareTask(b.dataset.icEdit);
 });
 $('#icAddBtn').onclick = () => { if (!isGsAuthed()){ alert('Sign in with Google first (Settings).'); return; } if (ovInfoPlantId) openCareTask(null, ovInfoPlantId); };
@@ -6133,6 +6173,7 @@ $('#careAddTask').onclick = ()=>{ if (!isGsAuthed()){ alert('Sign in with Google
 $('#careFilter').addEventListener('input', renderCareByPlant);
 $('#calendarView').addEventListener('click', e => {
   const open = e.target.closest('[data-open]'); if (open){ openInfo(open.dataset.open); return; }
+  const done = e.target.closest('[data-done]'); if (done){ markCareDone(done.dataset.done); return; }
   const edit = e.target.closest('[data-edit]'); if (edit){ openCareTask(edit.dataset.edit); return; }
   const add  = e.target.closest('[data-add]');  if (add){ openCareTask(null, add.dataset.add); return; }
   // Click a task row (Upcoming / selected day) to expand its full notes.

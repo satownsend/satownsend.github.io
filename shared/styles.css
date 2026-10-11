@@ -291,6 +291,17 @@ html,body{margin:0;padding:0;overflow-x:hidden;overflow-wrap:break-word;-webkit-
 [data-font="mono"]{--font-body:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;--font-display:"JetBrains Mono",ui-monospace,Menlo,monospace}
 [data-font="mono"] body{font-size:14px}
 [data-font="editorial"] body{font-size:16px}
+[data-font="classic"]{--font-body:"Lora",Georgia,"Times New Roman",serif;--font-display:"Playfair Display",Georgia,serif}
+[data-font="classic"] body{font-size:16px}
+[data-font="humanist"]{--font-body:"Source Sans 3",-apple-system,BlinkMacSystemFont,Arial,sans-serif;--font-display:"Merriweather",Georgia,serif}
+[data-font="humanist"] body{font-size:16px}
+[data-font="slab"]{--font-body:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,Arial,sans-serif;--font-display:"Zilla Slab",Georgia,serif}
+[data-font="geometric"]{--font-body:"DM Sans",-apple-system,BlinkMacSystemFont,Arial,sans-serif;--font-display:"Poppins",sans-serif}
+[data-font="typewriter"]{--font-body:"Courier Prime",ui-monospace,"Courier New",monospace;--font-display:"Special Elite","Courier Prime",monospace}
+[data-font="typewriter"] body{font-size:14.5px}
+[data-font="garden"]{--font-body:"Nunito Sans",-apple-system,BlinkMacSystemFont,Arial,sans-serif;--font-display:"Caveat",cursive}
+[data-font="garden"] h2{font-size:24px}
+[data-font="garden"] h1{font-size:36px}
 a{color:var(--accent);text-decoration:none}
 .wrap{max-width:1200px;margin:0 auto;padding:24px 20px 80px}
 header{display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px}

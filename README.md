@@ -40,10 +40,11 @@ Shared per-dashboard features:
   remembered per browser and shared across pages. Colors live in
   `shared/styles.css`, the picker list in `shared/themes.js` — adding one is a
   CSS block plus one line.
-- **Fonts** — five font options in the same picker (`data-font`): Clean
+- **Fonts** — eleven font options in the same picker (`data-font`): Clean
   (system text + clother titles, the default), Editorial, Grotesk, Rounded,
-  Mono. Each is a `--font-body` / `--font-display` pair in `styles.css`; the
-  non-default ones load from Google Fonts on demand (`shared/themes.js`).
+  Mono, Classic, Humanist, Slab, Geometric, Typewriter, Garden. Each is a
+  `--font-body` / `--font-display` pair in `styles.css`; the non-default ones
+  load from Google Fonts on demand (`shared/themes.js`).
 - **Mobile-friendly** — tables collapse to cards; the nav becomes a dropdown.
 
 ---

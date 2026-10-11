@@ -41,6 +41,18 @@ window.FONTS = [
     url:'https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;800&display=swap' },
   { id:'mono',      label:'Mono',      blurb:'JetBrains Mono throughout',       sample:'Aa',
     url:'https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap' },
+  { id:'classic',   label:'Classic',   blurb:'Lora text, Playfair Display titles', sample:'Aa',
+    url:'https://fonts.googleapis.com/css2?family=Lora:wght@400;600&family=Playfair+Display:wght@600;700&display=swap' },
+  { id:'humanist',  label:'Humanist',  blurb:'Source Sans text, Merriweather titles', sample:'Aa',
+    url:'https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600&family=Merriweather:wght@700&display=swap' },
+  { id:'slab',      label:'Slab',      blurb:'IBM Plex Sans text, Zilla Slab titles', sample:'Aa',
+    url:'https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&family=Zilla+Slab:wght@600;700&display=swap' },
+  { id:'geometric', label:'Geometric', blurb:'DM Sans text, Poppins titles',    sample:'Aa',
+    url:'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600&family=Poppins:wght@600;700&display=swap' },
+  { id:'typewriter',label:'Typewriter',blurb:'Courier Prime text, Special Elite titles', sample:'Aa',
+    url:'https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Special+Elite&display=swap' },
+  { id:'garden',    label:'Garden',    blurb:'Nunito Sans text, handwritten Caveat titles', sample:'Aa',
+    url:'https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600&family=Caveat:wght@600;700&display=swap' },
 ];
 
 (function(){
@@ -81,7 +93,12 @@ window.FONTS = [
   // The sample swatch shows each option in its own face (and triggers the
   // font download for the hover/preview), independent of the page's choice.
   function fontStack(id){
-    return ({ default:'"clother",-apple-system,BlinkMacSystemFont,"SF Pro Display",sans-serif', editorial:'"Fraunces",Georgia,serif', grotesk:'"Space Grotesk","Inter",sans-serif', rounded:'"Nunito",sans-serif', mono:'"JetBrains Mono",ui-monospace,monospace' })[id] || 'inherit';
+    return ({
+      default:'"clother",-apple-system,BlinkMacSystemFont,"SF Pro Display",sans-serif', editorial:'"Fraunces",Georgia,serif',
+      grotesk:'"Space Grotesk","Inter",sans-serif', rounded:'"Nunito",sans-serif', mono:'"JetBrains Mono",ui-monospace,monospace',
+      classic:'"Playfair Display",Georgia,serif', humanist:'"Merriweather",Georgia,serif', slab:'"Zilla Slab",Georgia,serif',
+      geometric:'"Poppins",sans-serif', typewriter:'"Special Elite","Courier Prime",monospace', garden:'"Caveat",cursive',
+    })[id] || 'inherit';
   }
   // Apply the saved font before first paint (this script runs in <head>).
   apply(current());

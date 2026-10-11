@@ -202,9 +202,15 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .ov-head .ov-label{color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-size:11px;white-space:nowrap}
   .ov-head .ov-teaser{flex:1;min-width:0;color:var(--ink-soft);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .ov-section.open .ov-head .ov-teaser{visibility:hidden}
-  .ov-head #ovGenBtn{margin-left:auto;flex:none}
+  .ov-head .ov-actions{margin-left:auto;flex:none;display:flex;gap:6px}
   .ov-body{display:none;margin-top:8px;padding:12px 14px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;font-size:13px;line-height:1.5}
+  .ov-body.bare{padding:0;background:none;border:0}
   .ov-section.open .ov-body{display:block}
+  /* Care calendar section in the plant card (issue #84) */
+  .ov-body .cbp-tasks{margin:0}
+  .ov-body .cbp-tasks li.done{opacity:.6}
+  .ov-body .cbp-tasks li.done > span:nth-child(2){text-decoration:line-through}
+  .ov-body .cbp-tasks .t-win{min-width:120px}
   .ov-body p{margin:0 0 10px;font-size:14px;line-height:1.55;color:var(--ink)}
   .ov-body .kv{margin:0 0 8px}
   .ov-body .ov-meta{color:var(--muted);font-size:12px;margin-top:6px}
@@ -1012,19 +1018,38 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div id="infoTrunk" class="small"></div>
     </div>
 
-    <div class="ov-section" id="infoOverviewSection" style="margin-top:18px">
+    <!-- Collapsible sections (issues #82, #84): click a header to toggle; the
+         open/closed choice is remembered per section. -->
+    <div class="ov-section" id="infoOverviewSection" data-key="overview" style="margin-top:18px">
       <div class="ov-head" id="ovHead" role="button" aria-expanded="false" title="Click to expand">
         <span class="ov-chev">▶</span>
         <span class="ov-label">AI overview</span>
         <span class="ov-teaser" id="ovTeaser"></span>
-        <button class="ghost tiny" id="ovGenBtn">Generate</button>
+        <span class="ov-actions"><button class="ghost tiny" id="ovGenBtn">Generate</button></span>
       </div>
       <div class="ov-body" id="ovBody"></div>
     </div>
 
-    <div class="history-section" id="infoHistorySection" style="margin-top:18px">
-      <div class="small" style="color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-size:11px;margin-bottom:6px">Log history</div>
-      <div id="infoHistory" class="small"></div>
+    <div class="ov-section" id="infoCareSection" data-key="care" style="margin-top:14px">
+      <div class="ov-head" role="button" aria-expanded="false" title="Click to expand">
+        <span class="ov-chev">▶</span>
+        <span class="ov-label">Care calendar</span>
+        <span class="ov-teaser" id="icTeaser"></span>
+        <span class="ov-actions care-edit">
+          <button class="ghost tiny" id="icAddBtn">+ Task</button>
+          <button class="ghost tiny" id="icGenBtn">Generate</button>
+        </span>
+      </div>
+      <div class="ov-body" id="icBody"></div>
+    </div>
+
+    <div class="ov-section" id="infoHistorySection" data-key="history" style="margin-top:14px">
+      <div class="ov-head" role="button" aria-expanded="false" title="Click to expand">
+        <span class="ov-chev">▶</span>
+        <span class="ov-label">Log history</span>
+        <span class="ov-teaser" id="ihTeaser"></span>
+      </div>
+      <div class="ov-body bare"><div id="infoHistory" class="small"></div></div>
     </div>
 
     <div class="photos-section" id="infoPhotosSection" style="margin-top:18px">
@@ -2760,6 +2785,8 @@ function openInfo(id){
   $('#infoKV').innerHTML = rows.map(([k,v])=>`<dt>${k}</dt><dd>${escapeHtml(String(v))}</dd>`).join('');
   $('#infoNotes').innerHTML = p.notes ? `<em style="color:var(--muted)">Notes:</em> ${escapeHtml(p.notes)}` : '';
   if (typeof renderInfoOverview === 'function') renderInfoOverview(p);
+  if (typeof renderInfoCare === 'function') renderInfoCare(p);
+  if (typeof applyCardSection === 'function') applyCardSection('history');
 
   // Trunk growth — show all measurements oldest→newest with deltas
   const measurements = (state.log||[])
@@ -2793,6 +2820,10 @@ function openInfo(id){
   const entries = (state.log||[]).filter(e => e.plantId === p.id)
     .slice().sort((a,b) => fmtLogWhen(b).localeCompare(fmtLogWhen(a)));
   const histEl = $('#infoHistory');
+  const ihTeaser = $('#ihTeaser');
+  if (ihTeaser) ihTeaser.textContent = entries.length
+    ? `${entries.length} entr${entries.length === 1 ? 'y' : 'ies'} · latest ${fmtLogWhen(entries[0]).slice(0, 10)} ${entries[0].action || ''}`
+    : 'No log entries yet';
   if (!entries.length){
     histEl.innerHTML = '<div class="empty">No log entries yet.</div>';
   } else {
@@ -5506,7 +5537,14 @@ function renderCareNudge(missing){
   $('#careNudgeBtn').onclick = ()=>{ setView('calendar'); generateCare(plantsMissingCare().map(p => p.id)); };
   $('#careNudgeView').onclick = ()=> setView('calendar');
 }
-function renderCareViews(){ renderCareCalendar(); renderCareUpcoming(); renderCareByPlant(); renderCareStatus(); }
+function renderCareViews(){
+  renderCareCalendar(); renderCareUpcoming(); renderCareByPlant(); renderCareStatus();
+  // Keep the open plant card's Care calendar section in step (issue #84).
+  const m = $('#infoModal');
+  if (m && getComputedStyle(m).display !== 'none' && typeof renderInfoCare === 'function' && ovInfoPlantId){
+    const p = plantsById().get(ovInfoPlantId); if (p) renderInfoCare(p);
+  }
+}
 
 // Ask the Worker for schedules, a few plants per request. replace=true swaps out
 // a plant's AI tasks (tasks you added or edited yourself are kept).
@@ -5573,19 +5611,38 @@ async function generateCare(plantIds, opts = {}){
    mode:'overview' and stored in the plant_overview sheet tab. Shown in the
    plant card as a collapsible "AI overview" section; bulk buttons live in the
    "✨ AI overviews" popover above the plants table. */
-const OV_OPEN_KEY = 'plants.overviewOpen';
 let ovBusy = false, ovInfoPlantId = null;
 function overviewFor(plantId){ return (state.overview || []).find(o => o.plantId === plantId) || null; }
 function plantsMissingOverview(){ const has = new Set((state.overview || []).map(o => o.plantId)); return state.plants.filter(p => isLive(p) && !has.has(p.id)); }
 function fmtWhen(ts){ return ts ? new Date(ts).toLocaleDateString(undefined, {month:'short', day:'numeric', year:'numeric'}) : ''; }
 
+/* Collapsible plant-card sections (overview, care calendar, log history).
+   Each remembers its own open/closed state; history starts open, the AI
+   sections start closed. */
+const CARD_SECTION_DEFAULT = { overview: false, care: false, history: true };
+function cardSectionOpen(key){
+  const v = localStorage.getItem('plants.cardOpen.' + key);
+  return v === null ? !!CARD_SECTION_DEFAULT[key] : v === '1';
+}
+function applyCardSection(key, open){
+  const sec = document.querySelector(`.ov-section[data-key="${key}"]`); if (!sec) return;
+  if (open === undefined) open = cardSectionOpen(key);
+  sec.classList.toggle('open', open);
+  sec.querySelector('.ov-head').setAttribute('aria-expanded', open);
+}
+$('#infoModal').addEventListener('click', e => {
+  const head = e.target.closest('.ov-head'); if (!head) return;
+  if (e.target.closest('button, a, input, label')) return;
+  const sec = head.closest('.ov-section'), key = sec.dataset.key, open = !sec.classList.contains('open');
+  localStorage.setItem('plants.cardOpen.' + key, open ? '1' : '0');
+  applyCardSection(key, open);
+});
+
 function renderInfoOverview(p){
   ovInfoPlantId = p.id;
   const sec = $('#infoOverviewSection'), body = $('#ovBody'), teaser = $('#ovTeaser'), btn = $('#ovGenBtn');
   const o = overviewFor(p.id);
-  const open = localStorage.getItem(OV_OPEN_KEY) === '1';
-  sec.classList.toggle('open', open);
-  $('#ovHead').setAttribute('aria-expanded', open);
+  applyCardSection('overview');
   btn.textContent = ovBusy && ovInfoPlantId && (ovWorking.has(p.id) || ovQueued.has(p.id)) ? 'Generating…' : (o ? 'Regenerate' : 'Generate');
   btn.disabled = ovBusy;
   if (!o){
@@ -5603,14 +5660,42 @@ function renderInfoOverview(p){
     + `<dl class="kv">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${escapeHtml(v)}</dd>`).join('')}</dl>`
     + `<div class="ov-meta">Generated by ${escapeHtml(o.model || 'AI')}${o.updatedAt ? ' · ' + fmtWhen(o.updatedAt) : ''}. Double-check anything you're about to act on.</div>`;
 }
-$('#ovHead').addEventListener('click', e => {
-  if (e.target.closest('#ovGenBtn')) return;
-  const sec = $('#infoOverviewSection'), open = !sec.classList.contains('open');
-  sec.classList.toggle('open', open);
-  $('#ovHead').setAttribute('aria-expanded', open);
-  localStorage.setItem(OV_OPEN_KEY, open ? '1' : '0');
-});
 $('#ovGenBtn').onclick = () => { if (ovInfoPlantId) generateOverviews([ovInfoPlantId], { replace: true, openCard: true }); };
+
+/* Care calendar section in the plant card (issue #84): this plant's yearly
+   tasks, ✓ when logged in the current window, with + Task / Generate. */
+function renderInfoCare(p){
+  const body = $('#icBody'), teaser = $('#icTeaser'); if (!body) return;
+  applyCardSection('care');
+  const tasks = (state.care || []).filter(t => t.plantId === p.id && MD_RE.test(t.start || ''))
+    .slice().sort((a, b) => (a.start || '').localeCompare(b.start || ''));
+  const gen = $('#icGenBtn');
+  gen.textContent = careBusy && (careWorking.has(p.id) || careQueued.has(p.id)) ? 'Generating…' : (tasks.length ? 'Regenerate' : 'Generate');
+  gen.disabled = careBusy || ovBusy;
+  if (!tasks.length){
+    teaser.textContent = '';
+    body.innerHTML = `<div class="ov-empty">No care schedule yet${isGsAuthed() ? ' — click Generate for a yearly schedule, or + Task to add your own.' : '.'}</div>`;
+    return;
+  }
+  const tmd = mdOf(today);
+  const live = tasks.filter(t => inWindow(t, tmd));
+  const next = tasks.find(t => t.start > tmd) || tasks[0];
+  teaser.textContent = `${tasks.length} task${tasks.length === 1 ? '' : 's'}` + (live.length ? ` · now: ${live.map(t => t.task).slice(0, 2).join(', ')}` : next ? ` · next: ${next.task} (${fmtMD(next.start)})` : '');
+  body.innerHTML = `<ul class="cbp-tasks">${tasks.map(t => {
+    const done = isTaskDone(t, today), active = inWindow(t, tmd);
+    return `<li class="${done ? 'done' : ''}"><span class="t-win">${escapeHtml(winLabel(t))}</span><span${active ? ' style="color:var(--accent)"' : ''}>${done ? '✓ ' : ''}${escapeHtml(t.task)}</span>${t.source === 'manual' ? '<span class="small" style="color:var(--muted)">manual</span>' : ''}<button class="ci-edit care-edit" data-ic-edit="${escapeHtml(t.id)}" aria-label="Edit" title="Edit">✎</button>${t.notes ? `<span class="t-notes">${escapeHtml(t.notes)}</span>` : ''}</li>`;
+  }).join('')}</ul>`;
+}
+$('#icBody').addEventListener('click', e => {
+  const b = e.target.closest('[data-ic-edit]'); if (b) openCareTask(b.dataset.icEdit);
+});
+$('#icAddBtn').onclick = () => { if (!isGsAuthed()){ alert('Sign in with Google first (Settings).'); return; } if (ovInfoPlantId) openCareTask(null, ovInfoPlantId); };
+$('#icGenBtn').onclick = () => {
+  if (!ovInfoPlantId) return;
+  const has = (state.care || []).some(t => t.plantId === ovInfoPlantId && t.source !== 'manual');
+  if (has && !confirm('Regenerate this plant\'s schedule? AI tasks are replaced; tasks you added or edited are kept.')) return;
+  generateCare([ovInfoPlantId], { replace: true });
+};
 
 // Bulk popover above the plants table
 function renderOverviewPop(){
@@ -5681,7 +5766,7 @@ async function generateOverviews(plantIds, opts = {}){
     }
     st.style.color = 'var(--accent)';
     st.textContent = `Done — ${done} overview${done === 1 ? '' : 's'} written.`;
-    if (opts.openCard && targets.length === 1){ localStorage.setItem(OV_OPEN_KEY, '1'); }
+    if (opts.openCard && targets.length === 1){ localStorage.setItem('plants.cardOpen.overview', '1'); }
   } catch(e){
     console.error(e);
     st.style.color = '#e8a06a';

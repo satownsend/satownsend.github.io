@@ -196,6 +196,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   body.view-only label:has(#photoUploadInput),
   body.view-only #ympEditBtn,
   body.view-only #yardMapPanel,
+  body.view-only #yardPhotosPanel,
   body.view-only #statsSpendWrap,
   body.view-only #lightboxHideRow{display:none!important}
   /* AI overview section in the plant card (issue #82): click the header to expand. */
@@ -1704,8 +1705,9 @@ function buildGalleryPool(){
       items.push({ plantId: p.id, plantName: p.name, key: ph.key, date: d, caption: ph.caption || '' });
     }
   }
-  // Yard-wide shots (issue #88) join the rotation when no single plant is selected.
-  if (!f.plantId) for (const ph of (state.yardPhotos || [])){
+  // Yard-wide shots (issue #88) join the rotation when no single plant is
+  // selected — signed in only, like the panel.
+  if (!f.plantId && isGsAuthed()) for (const ph of (state.yardPhotos || [])){
     if (!ph || !ph.key || ph.hideFromGallery) continue;
     const d = ph.date || '';
     if (f.from && (!d || d < f.from)) continue;
@@ -1768,6 +1770,7 @@ function refreshGallery(){
   // Only rebuild + restart if the photo set OR the active filter changed.
   const keys = [];
   for (const p of (state.plants||[])) for (const ph of (p.photos||[])) if (ph && ph.key) keys.push(ph.key);
+  if (isGsAuthed()) for (const ph of (state.yardPhotos||[])) if (ph && ph.key) keys.push(ph.key);
   const f = galleryState.filter;
   const sig = keys.sort().join('|') + '#' + f.plantId + '|' + f.from + '|' + f.to;
   if (sig === galleryState.sig){ applyGalleryToggle(); return; }
@@ -5088,6 +5091,8 @@ function refreshGsStatus(){
     $('#gsSaveTokenBtn').textContent = 'Sign in with Google';
     $('#gsSaveTokenBtn').disabled = false;
   }
+  // Yard photos are signed-in only (issue #88): the gallery pool changes with sign-in state.
+  if (typeof refreshGallery === 'function' && galleryState) refreshGallery();
 }
 
 $('#gsSaveTokenBtn').onclick = ()=> GAuth.signIn();

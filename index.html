@@ -203,7 +203,8 @@ function galleryItems(photos, items, idField, nameOf, section, icon, href, skip)
     if(!p.key || p.hideFromGallery === 'TRUE' || /\.(mp4|mov|webm)$/i.test(p.key)) continue;
     const it = byId.get(p[idField]);
     if(skip && skip(it)) continue;
-    out.push({ key: p.key, date: p.date || '', name: it ? nameOf(it) : (p[idField] === 'yard' ? 'Yard' : ''), section, icon, href });
+    if(p[idField] === 'yard') continue;   // yard-wide shots are signed-in only (issue #88)
+    out.push({ key: p.key, date: p.date || '', name: it ? nameOf(it) : '', section, icon, href });
   }
   return out;
 }

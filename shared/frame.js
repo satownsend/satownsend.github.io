@@ -99,9 +99,10 @@
       let name = '';
       if(s.standalone) name = s.nameOf(p);
       else {
+        if(p[s.idField] === 'yard') continue;   // yard-wide shots are signed-in only (issue #88)
         const it = byId.get(p[s.idField]);
         if(s.skip && s.skip(it)) continue;
-        name = it ? (s.nameOf(it) || '') : (p[s.idField] === 'yard' ? 'Yard' : '');   // plants' yard-wide shots (issue #88)
+        name = it ? (s.nameOf(it) || '') : '';
       }
       out.push({ key:p.key, name, date:p.date || '', section:s.label, icon:s.icon });
     }

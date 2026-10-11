@@ -277,16 +277,37 @@ html,body{margin:0;padding:0;overflow-x:hidden;overflow-wrap:break-word;-webkit-
     var(--bg);
   background-attachment:fixed;
   color:var(--ink);
-  font:15px/1.5 -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif;}
+  font:15px/1.5 var(--font-body);}
+/* ── Font options (issue #87), picked next to the theme. The list and the
+   Google Fonts loading live in shared/themes.js; each option just sets the
+   two stacks. "Clean" is the default: system text + the clother display face. */
+:root{
+  --font-body:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif;
+  --font-display:"clother",-apple-system,BlinkMacSystemFont,"SF Pro Display",sans-serif;
+}
+[data-font="editorial"]{--font-body:"Source Serif 4",Georgia,"Times New Roman",serif;--font-display:"Fraunces",Georgia,serif}
+[data-font="grotesk"]{--font-body:"Inter",-apple-system,BlinkMacSystemFont,Arial,sans-serif;--font-display:"Space Grotesk","Inter",sans-serif}
+[data-font="rounded"]{--font-body:"Nunito",-apple-system,BlinkMacSystemFont,Arial,sans-serif;--font-display:"Nunito",sans-serif}
+[data-font="mono"]{--font-body:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;--font-display:"JetBrains Mono",ui-monospace,Menlo,monospace}
+[data-font="mono"] body{font-size:14px}
+[data-font="editorial"] body{font-size:16px}
 a{color:var(--accent);text-decoration:none}
 .wrap{max-width:1200px;margin:0 auto;padding:24px 20px 80px}
 header{display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px}
-h1{font:700 30px/1.1 "clother", -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;margin:0;letter-spacing:-.015em;color:var(--accent)}
+h1{font:700 30px/1.1 var(--font-display);margin:0;letter-spacing:-.015em;color:var(--accent)}
 /* Panel titles in the display face, sentence case (issue #73). Small
    uppercase micro-labels inside panels stay as they are, so there are two
    clear levels: title, then section label. */
-h2{font:600 19px/1.15 "clother",-apple-system,BlinkMacSystemFont,"SF Pro Display",sans-serif;margin:0 0 12px;letter-spacing:-.01em;color:var(--ink)}
+h2{font:600 19px/1.15 var(--font-display);margin:0 0 12px;letter-spacing:-.01em;color:var(--ink)}
 h2 .small{font:inherit;font-size:13px;font-weight:400;letter-spacing:0;color:var(--muted)}
+/* Theme/font popover: long list on small screens */
+#themePop{max-height:72vh;overflow:auto}
+.fp-head{margin:10px 0 4px;padding-top:8px;border-top:1px solid var(--line);font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.fp-row{display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:6px;cursor:pointer;color:var(--ink);font-size:13px}
+.fp-row:hover{background:var(--panel2)}
+.fp-row.is-current{background:var(--panel2)}
+.fp-row .fp-sample{width:48px;height:28px;border-radius:6px;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:15px;line-height:1;background:var(--bg2);color:var(--ink);flex:none}
+.fp-row .fp-check{margin-left:auto;color:var(--accent)}
 .sub{color:var(--muted);font-size:13px}
 .meta{color:var(--muted);font-size:13px}
 .small{font-size:13px}

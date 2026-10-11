@@ -40,6 +40,10 @@ Shared per-dashboard features:
   remembered per browser and shared across pages. Colors live in
   `shared/styles.css`, the picker list in `shared/themes.js` — adding one is a
   CSS block plus one line.
+- **Fonts** — five font options in the same picker (`data-font`): Clean
+  (system text + clother titles, the default), Editorial, Grotesk, Rounded,
+  Mono. Each is a `--font-body` / `--font-display` pair in `styles.css`; the
+  non-default ones load from Google Fonts on demand (`shared/themes.js`).
 - **Mobile-friendly** — tables collapse to cards; the nav becomes a dropdown.
 
 ---
@@ -190,7 +194,7 @@ run on boot, and disable screen blanking (`xset s off -dpms`, or in
 | File | Role |
 |------|------|
 | `styles.css` | Theme system (CSS variables + `data-theme`) and shared component styles |
-| `themes.js` | The theme list for the picker (loaded synchronously in `<head>`; colors are in `styles.css`) |
+| `themes.js` | The theme and font lists for the picker (loaded synchronously in `<head>`; colors and font stacks are in `styles.css`) |
 | `nav.js` | The cross-page dropdown menu (mounts into `<div id="siteNav">`) |
 | `gauth.js` | Shared Google login + silent renewal (`window.GAuth`) |
 | `chat.js` | The floating chatbot widget |

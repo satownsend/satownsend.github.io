@@ -822,6 +822,7 @@ function buildThemePop(){
       <span style="font-size:13px">${t.label}</span>
       ${t.id===cur?'<span style="margin-left:auto;color:var(--accent)">✓</span>':''}
     </div>`).join('');
+  pop.insertAdjacentHTML('beforeend', window.Fonts ? window.Fonts.pickerHtml() : '');  // font options (issue #87)
   pop.addEventListener('click', e=>{
     const row = e.target.closest('[data-theme]');
     if(row){ applyTheme(row.dataset.theme); buildThemePop(); }

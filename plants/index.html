@@ -1483,6 +1483,7 @@ function buildThemePop(){
       <span class="tp-check">${t.id === cur ? '✓' : ''}</span>
     </div>
   `).join('');
+  pop.insertAdjacentHTML('beforeend', window.Fonts ? window.Fonts.pickerHtml() : '');  // font options (issue #87)
 }
 function toggleThemePop(force){
   const pop = $('#themePop');

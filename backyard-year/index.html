@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#08191c">
+<title>A year in your backyard · satownsend.com</title>
+<meta name="description" content="A seasonal photo journal of the plants, wildlife, and little changes in the backyard.">
+<link rel="stylesheet" href="/shared/styles.css"><script src="/shared/themes.js"></script>
+<script defer src="/shared/nav.js?v=backyard-year-1"></script>
+<link rel="stylesheet" href="/backyard-year/style.css?v=1">
+<script defer src="/backyard-year/model.js?v=1"></script><script defer src="/backyard-year/app.js?v=1"></script>
+</head>
+<body>
+<main class="year-page">
+<header class="year-header"><div id="siteNav"></div><div class="header-controls"><label>Theme<select id="themeSelect" aria-label="Color theme"></select></label><button id="reloadData" class="ghost" type="button">Refresh data</button></div></header>
+<div class="year-toolbar"><label for="yearSelect">Leaf through a year <select id="yearSelect" disabled></select></label><div><button id="shareYear" class="ghost" type="button">Copy year link</button><button id="printYear" class="ghost" type="button">Print recap</button></div></div>
+<p id="loadStatus" role="status" aria-live="polite">Gathering your backyard journal…</p>
+<div id="notices" role="status"></div>
+<div id="recap" aria-busy="true"></div>
+<noscript><p>This recap needs JavaScript to load your plant and wildlife records. <a href="/plants/">Visit Plants</a> or <a href="/wildlife/">Wildlife</a>.</p></noscript>
+<footer>From your plant journal and wildlife observations. A little more to remember, every year.</footer>
+</main>
+<dialog id="photoDialog" aria-labelledby="dialogTitle"><button id="closePhoto" type="button" aria-label="Close photo">×</button><img id="dialogImage" alt=""><div class="dialog-caption"><h2 id="dialogTitle"></h2><p id="dialogDate"></p><p id="dialogNote"></p><a id="dialogSource">Open collection →</a></div></dialog>
+</body>
+</html>

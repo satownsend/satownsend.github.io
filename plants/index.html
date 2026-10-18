@@ -23,7 +23,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <link rel="stylesheet" href="/shared/styles.css?v=section-details-1">
 <script src="/shared/themes.js?v=section-details-1"></script>
 <script src="/shared/yard-photo-views.js?v=1"></script>
-<script src="/shared/forecast-history.js?v=1"></script>
+<script src="/shared/forecast-history.js?v=2"></script>
+<script src="/shared/weather-data.js?v=1"></script>
 <script defer src="/shared/nav.js"></script>
 <script defer src="/shared/chat.js"></script>
 <style>
@@ -790,7 +791,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div id="upcomingAlerts" class="upcoming-alerts"></div>
     <details id="weatherHistoryPanel" style="margin-top:16px;border-top:1px solid var(--line2);padding-top:12px">
       <summary style="cursor:pointer;font-weight:600">Weather history</summary>
-      <p class="small">Forecasts as they looked at the time, including predicted temperatures, rain, wind, and alerts. Recorded when this dashboard refreshes, at most once an hour unless official alerts change. No recording while the site is closed.</p>
+      <p class="small">Forecasts as they looked at the time, including predicted temperatures, rain, wind, and alerts. Dashboard visits save forecasts up to once an hour, plus official alert changes. The scheduled collector can keep recording while this site is closed; its status is shown below.</p>
+      <p class="small" id="weatherCollectorStatus" role="status">Checking scheduled collection…</p>
+      <a class="small" href="https://github.com/satownsend/satownsend.github.io/actions/workflows/weather-collector.yml" target="_blank" rel="noopener">Collector runs and manual controls ↗</a>
       <div class="small" id="weatherHistoryStatus" role="status" aria-live="polite"></div>
       <div class="row" style="margin:12px 0;align-items:end;flex-wrap:wrap">
         <label class="small">From<input id="weatherHistoryFrom" type="date"></label>
@@ -2208,10 +2211,12 @@ function recordWeatherSnapshot(input){
   const snapshot = ForecastHistory.capture(input);
   if (!ForecastHistory.shouldCapture(weatherHistory,snapshot)) return;
   weatherHistory = ForecastHistory.merge(weatherHistory,[snapshot]);
+  snapshot.collection = {kind:'browser'};
   weatherPending.add(snapshot.id);
   persistWeatherHistory(); renderWeatherHistory();
 }
 async function loadWeatherHistory(){
+  loadWeatherCollectorStatus();
   weatherHistoryMessage = 'Loading saved history…'; renderWeatherHistory();
   try {
     // Authenticated reads avoid stale CSV immediately after writes. Missing tab is normal on first use.
@@ -2245,14 +2250,18 @@ async function syncWeatherHistory(){
         method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({values:[ForecastHistory.headers]}),
       });
     }
-    const rows = ForecastHistory.pendingRows(current,pending);
+    const remote = ForecastHistory.fromRows(current);
+    // A scheduled capture may have arrived after the browser's initial history read.
+    // Apply the normal hourly/alert-change rule again before writing local pending captures.
+    const superseded = new Set(pending.filter(s=>s.collection?.kind !== 'scheduled' && !ForecastHistory.shouldCapture(remote.filter(r=>r.capturedAt <= s.capturedAt),s)).map(s=>s.id));
+    const rows = ForecastHistory.pendingRows(current,pending.filter(s=>!superseded.has(s.id)));
     if (rows.length){
       await gsApiFetch(`${base}/weather_history!A:D:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, {
         method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({values:rows}),
       });
     }
     // Never reconcile/delete archive rows: another browser can have captures we haven't seen.
-    weatherHistory = ForecastHistory.merge(ForecastHistory.fromRows(current), weatherHistory);
+    weatherHistory = ForecastHistory.merge(remote, weatherHistory.filter(s=>!superseded.has(s.id)));
     pending.forEach(s=>weatherPending.delete(s.id));
     weatherHistoryMessage = 'Saved to Google Sheets.';
     persistWeatherHistory();
@@ -2260,6 +2269,20 @@ async function syncWeatherHistory(){
     weatherHistoryMessage = 'History sync failed. Captures remain pending in this browser; reload history to retry.';
     throw e;
   } finally { weatherSyncing = false; renderWeatherHistory(); }
+}
+async function loadWeatherCollectorStatus(){
+  const el = $('#weatherCollectorStatus');
+  el.textContent = 'Checking scheduled collection…';
+  try {
+    const [response, rows] = await Promise.all([
+      fetch('/scripts/weather/config.json', {cache:'no-store'}),
+      fetchSheetTabByName('weather_collector').catch(()=>[]),
+    ]);
+    if (!response.ok) throw new Error('Config unavailable');
+    const config = await response.json();
+    const status = ForecastHistory.collectorStatus(config,rows,Date.now());
+    el.textContent = status;
+  } catch(e){ el.textContent = 'Scheduled collector status unavailable. Reload history to retry. Dashboard captures still work.'; }
 }
 function filteredWeatherHistory(){
   const from = $('#weatherHistoryFrom').value, through = $('#weatherHistoryThrough').value;
@@ -2273,7 +2296,7 @@ function renderWeatherHistory(){
   const esc = v=>escapeHtml(String(v ?? ''));
   $('#weatherHistoryStatus').textContent = weatherStorageError || `${weatherHistoryMessage} ${weatherPending.size ? `${weatherPending.size} pending capture(s). ${isGsAuthed() ? 'Waiting for sync.' : 'Sign in to save them to Google Sheets.'}` : ''}`;
   const select = $('#weatherHistorySnapshot'), previous = select.value, snapshots = filteredWeatherHistory();
-  select.innerHTML = snapshots.map(s=>`<option value="${esc(s.id)}">${esc(new Date(s.capturedAt).toLocaleString())} · ${esc(s.location.name || `${s.location.lat}, ${s.location.lon}`)} · ${esc(s.source === 'nws' ? 'NWS' : s.source)} · °${esc(s.units)}</option>`).join('');
+  select.innerHTML = snapshots.map(s=>`<option value="${esc(s.id)}">${esc(new Date(s.capturedAt).toLocaleString())} · ${esc(s.location.name || `${s.location.lat}, ${s.location.lon}`)} · ${esc(s.source === 'nws' ? 'NWS' : s.source)} · °${esc(s.units)} · ${s.collection?.kind==='scheduled'?'scheduled':'dashboard'}</option>`).join('');
   if (snapshots.some(s=>s.id===previous)) select.value = previous;
   select.disabled = !snapshots.length;
   $('#weatherHistoryExport').disabled = !snapshots.length;
@@ -2332,62 +2355,7 @@ async function nwsFetchPoints(lat, lon){
 }
 
 // Convert NWS /forecast periods into the open-meteo daily shape we already use.
-function nwsPeriodsToDaily(periods, units){
-  const wantC = units === 'C';
-  const byDate = new Map();
-  for (const p of periods){
-    const date = (p.startTime || '').slice(0, 10);
-    if (!date) continue;
-    if (!byDate.has(date)) byDate.set(date, []);
-    byDate.get(date).push(p);
-  }
-  const dates = [...byDate.keys()].slice(0, 7);
-  const time = dates;
-  const hi = [], lo = [], pop = [], wind = [], pcp = [], code = [];
-  for (const d of dates){
-    const items = byDate.get(d);
-    const day = items.find(x => x.isDaytime);
-    const night = items.find(x => !x.isDaytime);
-    const dayT = day ? day.temperature : null;
-    const nightT = night ? night.temperature : null;
-    // NWS returns °F for US points by default. Convert if user wants °C.
-    const toUserUnit = (t, srcUnit) => {
-      if (t == null) return null;
-      const isF = (srcUnit || 'F') === 'F';
-      if (wantC && isF) return (t - 32) * 5/9;
-      if (!wantC && !isF) return t * 9/5 + 32;
-      return t;
-    };
-    const dayU = day ? toUserUnit(dayT, day.temperatureUnit) : null;
-    const nightU = night ? toUserUnit(nightT, night.temperatureUnit) : null;
-    // High = warmer of the two periods; low = cooler.
-    const samples = [dayU, nightU].filter(v => v != null);
-    hi.push(samples.length ? Math.max(...samples) : null);
-    lo.push(samples.length ? Math.min(...samples) : null);
-    // Probability of precipitation: max across periods.
-    const pops = items.map(p => p.probabilityOfPrecipitation && p.probabilityOfPrecipitation.value).filter(v => v != null);
-    pop.push(pops.length ? Math.max(...pops) : 0);
-    // Wind: parse "5 to 10 mph" / "10 mph" — take the upper bound across periods.
-    const winds = items.map(p => {
-      const m = String(p.windSpeed || '').match(/(\d+)\s*(?:to\s*(\d+))?\s*mph/i);
-      return m ? parseInt(m[2] || m[1], 10) : 0;
-    });
-    wind.push(winds.length ? Math.max(...winds) : 0);
-    // /forecast doesn't expose daily precip amount; leave as 0 for legacy rendering. Brief uses
-    // pop (probability) as the primary signal, so this is acceptable.
-    pcp.push(0);
-    code.push(0);
-  }
-  return {
-    time,
-    temperature_2m_max: hi,
-    temperature_2m_min: lo,
-    precipitation_sum: pcp,
-    precipitation_probability_max: pop,
-    wind_speed_10m_max: wind,
-    weather_code: code,
-  };
-}
+function nwsPeriodsToDaily(periods, units){ return WeatherData.nwsPeriodsToDaily(periods, units); }
 
 async function fetchForecastNWS(s){
   const point = await nwsFetchPoints(s.lat, s.lon);
@@ -2448,8 +2416,7 @@ async function fetchRainfallHistory(s){
   if (!r.ok) throw new Error(`Open-Meteo archive ${r.status}`);
   const j = await r.json();
   const d = j.daily;
-  if (!d || !d.time) return [];
-  return d.time.map((t, i) => ({ date: t, amount: d.precipitation_sum[i] || 0 }));
+  return WeatherData.rainfallFromDaily(d);
 }
 
 async function fetchForecast(force=false){
@@ -2516,27 +2483,7 @@ async function fetchForecast(force=false){
   renderForecast();
 }
 
-function dayAlerts(d, units){
-  const u = units==='C' ? '°C' : '°F';
-  const pu = units==='C' ? 'mm' : 'in';
-  const frostT = units==='C' ? 2 : 36;
-  const heatT  = units==='C' ? 31 : 88;
-  const windT  = 25;
-  const alerts = [];
-  if (d.lo != null && d.lo <= frostT){
-    alerts.push({label:'Frost risk',
-      detail:`Overnight low of ${Math.round(d.lo)}${u}. Cover tender or recently-planted trees with frost cloth, and bring potted plants in or against the house.`});
-  }
-  if (d.hi != null && d.hi >= heatT){
-    alerts.push({label:'Extreme heat',
-      detail:`High of ${Math.round(d.hi)}${u}. Deep-water established trees and check container plants twice. Variegated and spring-foliage maples (Shin Deshojo, Ukigumo, Asayake) burn fast — give afternoon shade.`});
-  }
-  if (d.wind != null && d.wind >= windT){
-    alerts.push({label:'High wind',
-      detail:`Gusts up to ${Math.round(d.wind)} mph. Move hanging pots (Asayake, Rikuzen Shidare) to a sheltered spot. Check stake ties on young trees.`});
-  }
-  return alerts;
-}
+function dayAlerts(d, units){ return WeatherData.dayAlerts(d, units); }
 
 function renderForecast(){
   const f = state.forecast; if (!f) return;

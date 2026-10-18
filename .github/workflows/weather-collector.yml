@@ -1,0 +1,24 @@
+name: Collect backyard weather
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: backyard-weather-collector
+  cancel-in-progress: false
+jobs:
+  collect:
+    if: github.repository == 'satownsend/satownsend.github.io' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Collect forecast and append history
+        run: node scripts/weather/run.cjs
+        env:
+          WEATHER_GOOGLE_SERVICE_ACCOUNT: ${{ secrets.WEATHER_GOOGLE_SERVICE_ACCOUNT }}
+          WEATHER_COLLECTOR_PAUSED: ${{ vars.WEATHER_COLLECTOR_PAUSED }}

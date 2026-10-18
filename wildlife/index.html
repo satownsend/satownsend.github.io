@@ -18,8 +18,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <!-- Typekit loaded async (issue #21): preload + swap in on load; the font stacks have system fallbacks so text paints immediately. -->
 <link rel="preload" href="https://use.typekit.net/twp1irx.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
 <noscript><link rel="stylesheet" href="https://use.typekit.net/twp1irx.css"></noscript>
-<link rel="stylesheet" href="/shared/styles.css">
-<script src="/shared/themes.js"></script>
+<link rel="stylesheet" href="/shared/styles.css?v=section-details-1">
+<script src="/shared/themes.js?v=section-details-1"></script>
 <script defer src="/shared/nav.js"></script>
 <script defer src="/shared/chat.js"></script>
 <style>
@@ -147,6 +147,7 @@ body.view-only #lightboxCaption{display:none!important}
   tbody td[data-col]:not([data-col="species"]):not([data-col="category"]):not([data-col="count"]):not([data-col="lastSeen"]){display:none}
 }
 </style>
+<link rel="stylesheet" href="/shared/section-details.css?v=2">
 </head>
 <body>
 <!-- Google Tag Manager (noscript) -->
@@ -286,7 +287,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <div class="info-card">
     <button class="info-close" id="infoClose">&times;</button>
     <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding-right:28px">
-      <div><h2 id="infoSpecies" style="margin:0"></h2><div id="infoCategory" style="color:var(--accent);font-size:14px;font-weight:600"></div></div>
+      <div><div class="section-detail-only specimen-kicker">Field observations</div><h2 id="infoSpecies" style="margin:0"></h2><div id="infoCategory" style="color:var(--accent);font-size:14px;font-weight:600"></div></div>
       <button class="ghost tiny edit-row" id="addSightingForSpeciesBtn">+ Log Sighting</button>
     </div>
 
@@ -365,6 +366,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <button class="close" id="lightboxClose" style="position:absolute;top:12px;right:12px;color:#fff;font-size:28px;background:rgba(0,0,0,.4);border-radius:50%;width:36px;height:36px;line-height:1;z-index:1;border:none;cursor:pointer">&times;</button>
     <img id="lightboxImg" style="flex:1 1 auto;min-height:0;width:100%;object-fit:contain;border-radius:8px;background:#0a0a0a">
     <video id="lightboxVideo" controls playsinline style="display:none;flex:1 1 auto;min-height:0;width:100%;max-height:80vh;border-radius:8px;background:#0a0a0a"></video>
+    <div id="lightboxSpecimen" class="section-detail-only specimen-lightbox"></div>
     <div id="lightboxMeta" style="flex:none;color:#ddd;font-size:13px;text-align:center;max-width:100%;padding:0 4px">
       <span id="lightboxDate" style="display:inline-block;color:#fff;font-weight:600;padding:5px 10px"></span>
       <input type="text" id="lightboxCaption" placeholder="add caption&hellip;" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:6px;padding:6px 10px;margin-top:6px;width:280px;max-width:90vw">
@@ -1189,11 +1191,13 @@ function renderSpeciesPhotos(species){
     const thumb = vid
       ? `<video src="${r2PublicUrl(p.key)}" preload="metadata" muted playsinline></video><div class="play-icon"></div>`
       : `<img src="${r2PublicUrl(p.key + '.thumb.jpg')}" onerror="this.onerror=null;this.src='${r2PublicUrl(p.key)}'" loading="lazy" alt="">`;
+    const observation = state.sightings.find(s => s.id === p.sighting_id);
+    const specimenCaption = `<div class="section-detail-only specimen-caption"><strong>${escapeHtml(species)}</strong><span>${escapeHtml(p.date || observation?.date || 'Date not recorded')}</span>${observation?.location ? `<span>${escapeHtml(observation.location)}</span>` : ''}</div>`;
     const hiddenBadge = p.hideFromGallery ? '<div class="ph-hidden" title="Hidden from slideshow">🚫</div>' : '';
     return `<div class="ph" data-idx="${i}">
       ${thumb}
       ${p.date ? `<div class="date">${escapeHtml(p.date)}</div>` : ''}
-      ${hiddenBadge}
+      ${hiddenBadge}${specimenCaption}
     </div>`;
   }).join('');
 }
@@ -1972,6 +1976,8 @@ function showLightbox(){
     imgEl.src = r2PublicUrl(p.key);
   }
   $('#lightboxDate').textContent = p.date || '';
+  const observation = state.sightings.find(s => s.id === p.sighting_id);
+  $('#lightboxSpecimen').textContent = [observation?.species || state._currentSpecies, p.date || observation?.date, observation?.location].filter(Boolean).join(' · ');
   $('#lightboxCaption').value = p.caption || '';
   const canonical = state.photos.find(x=>x.key===p.key);
   $('#lightboxHideFromGallery').checked = !!(canonical && canonical.hideFromGallery);

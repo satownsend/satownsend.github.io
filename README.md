@@ -40,6 +40,7 @@ Shared per-dashboard features:
   remembered per browser and shared across pages. Colors live in
   `shared/styles.css`, the picker list in `shared/themes.js` — adding one is a
   CSS block plus one line.
+- **Section details** — optional styling in the theme picker: botanical plant labels, recipe-card brew details, and wildlife observation captions. Off by default, remembered across pages, and independent of the chosen color theme and font.
 - **Fonts** — eleven font options in the same picker (`data-font`): Clean
   (system text + clother titles, the default), Editorial, Grotesk, Rounded,
   Mono, Classic, Humanist, Slab, Geometric, Typewriter, Garden. Each is a

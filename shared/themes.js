@@ -55,6 +55,43 @@ window.FONTS = [
     url:'https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600&family=Caveat:wght@600;700&display=swap' },
 ];
 
+/* Optional section-specific presentation, shared across themes and pages. */
+(function(){
+  const KEY = 'satownsend.sectionDetails';
+  const html = document.documentElement;
+  const section = (location.pathname.match(/^\/(plants|beer|wildlife)(?:\/|$)/) || [])[1];
+  if (section) html.dataset.section = section;
+  let enabled = false;
+  try { enabled = localStorage.getItem(KEY) === 'on'; } catch (_) {}
+  function apply(on, save = true){
+    enabled = !!on;
+    if (enabled) html.dataset.sectionDetails = 'on';
+    else html.removeAttribute('data-section-details');
+    if (save) try { localStorage.setItem(KEY, enabled ? 'on' : 'off'); } catch (_) {}
+    document.querySelectorAll('[data-section-details-toggle]').forEach(button => {
+      button.setAttribute('aria-checked', String(enabled));
+      button.querySelector('.section-details-state').textContent = enabled ? 'On' : 'Off';
+    });
+  }
+  function pickerHtml(){
+    return `<div class="section-details-control"><button type="button" role="switch" aria-checked="${enabled}" data-section-details-toggle>
+      <span>Section details<small>Botanical labels, recipe cards &amp; field notes</small></span>
+      <span class="section-details-state" aria-hidden="true">${enabled ? 'On' : 'Off'}</span>
+    </button></div>`;
+  }
+  apply(enabled, false);
+  document.addEventListener('click', event => {
+    const button = event.target.closest('[data-section-details-toggle]');
+    if (!button) return;
+    event.stopPropagation();
+    apply(!enabled);
+  }, true);
+  window.addEventListener('storage', event => {
+    if (event.key === KEY || event.key === null) apply(event.key === null ? false : event.newValue === 'on', false);
+  });
+  window.SectionDetails = { apply, current: () => enabled, pickerHtml };
+})();
+
 (function(){
   const KEY = 'satownsend.font';
   const loaded = new Set();
@@ -83,7 +120,7 @@ window.FONTS = [
   }
   function pickerHtml(){
     const cur = current();
-    return `<div class="fp-head">Font</div>` + window.FONTS.map(f => `
+    return window.SectionDetails.pickerHtml() + `<div class="fp-head">Font</div>` + window.FONTS.map(f => `
       <div class="fp-row${f.id === cur ? ' is-current' : ''}" data-font="${f.id}" title="${f.blurb}">
         <span class="fp-sample" style="font-family:${fontStack(f.id)}">${f.sample}</span>
         <span>${f.label}</span>

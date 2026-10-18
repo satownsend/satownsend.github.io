@@ -22,6 +22,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <noscript><link rel="stylesheet" href="https://use.typekit.net/twp1irx.css"></noscript>
 <link rel="stylesheet" href="/shared/styles.css?v=section-details-1">
 <script src="/shared/themes.js?v=section-details-1"></script>
+<script src="/shared/yard-photo-views.js?v=1"></script>
 <script defer src="/shared/nav.js"></script>
 <script defer src="/shared/chat.js"></script>
 <style>
@@ -318,6 +319,22 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .yp-cap{position:absolute;left:0;right:0;bottom:0;padding:18px 9px 7px;color:#fff;font-size:11px;background:linear-gradient(transparent,rgba(0,0,0,.7));opacity:0;transition:opacity .2s;text-shadow:0 1px 2px rgba(0,0,0,.6)}
   .yp:hover .yp-cap{opacity:1}
   @media (max-width:520px){.yp-wall{column-width:46%}}
+
+  /* Yard view tags (issue #100). */
+  .yp-view-filter{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+  #ypViewFilter{width:auto;max-width:240px}#ypSort{width:auto}
+  .yp-upload-views{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0 14px;color:var(--muted);font-size:12px}
+  #ypUploadViews{width:min(320px,100%);font-size:13px}.yp-upload-views span{font-size:11px}
+  .yp-view-tags{position:absolute;top:8px;left:8px;right:8px;display:flex;flex-wrap:wrap;gap:4px;pointer-events:none}
+  .yp-view-tags span{background:rgba(0,0,0,.75);color:#fff;border:1px solid rgba(255,255,255,.2);font-size:11px;border-radius:999px;padding:3px 8px;overflow-wrap:anywhere;max-width:100%}
+  .yp:focus-visible{outline:2px solid var(--accent);outline-offset:3px}.yp:focus .yp-cap{opacity:1}
+  #lightboxViewTagsRow{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px;margin:8px auto;max-width:700px}
+  #lightboxViewTagsRow[hidden],body.view-only #lightboxViewTagsRow{display:none!important}
+  #lightboxViewTags{width:min(300px,70vw);background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.25)}
+  #lightboxViewTagsRow label{font-size:12px}#lightboxSaveViewTags{color:#fff;border-color:rgba(255,255,255,.25);min-height:36px}
+  #lightboxViewTagsHelp,#lightboxViewTagsStatus{flex-basis:100%;font-size:11px;color:#ccc}#lightboxViewTagsStatus{color:#99dfc8}
+  @media(max-width:640px){#lightboxViewTagsRow{gap:5px;margin:6px auto}#lightboxViewTagsHelp{font-size:10px}.yp-upload-views{align-items:flex-start;flex-direction:column}}
+
   /* Year view (issue #8) */
   .yv-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:6px}
   .yv-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
@@ -884,13 +901,19 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="yv-head">
       <h2>Yard photos <span class="small" id="ypCount" style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted)"></span></h2>
       <div class="yv-controls">
-        <select id="ypSort" class="tiny"><option value="new">Newest first</option><option value="old">Oldest first</option></select>
+        <label class="yp-view-filter">View <select id="ypViewFilter" class="tiny" aria-label="Filter yard photos by view"><option value="all">All views</option></select></label>
+        <select id="ypSort" class="tiny" aria-label="Sort yard photos"><option value="new">Newest first</option><option value="old">Oldest first</option></select>
         <label class="ghost tiny care-edit" id="ypUploadLabel" style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;border:1px solid var(--line2);border-radius:8px;padding:5px 10px;background:transparent;color:var(--ink);font-size:12px">
           📷 Add yard photos
           <input type="file" id="ypUploadInput" accept="image/*,.heic,.heif" multiple style="display:none">
         </label>
       </div>
     </div>
+    <label class="yp-upload-views care-edit" for="ypUploadViews">View tags for new photos
+      <input type="text" id="ypUploadViews" list="yardViewSuggestions" placeholder="e.g. Office window, Porch" aria-describedby="ypUploadViewsHelp">
+      <span id="ypUploadViewsHelp">Optional · separate multiple tags with commas. Applies to this upload batch.</span>
+    </label>
+    <datalist id="yardViewSuggestions"></datalist>
     <div class="small" id="ypStatus" style="color:var(--muted);min-height:1.2em;margin-bottom:6px"></div>
     <div class="yp-wall" id="ypGrid"></div>
   </div>
@@ -1088,6 +1111,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div id="lightboxMeta" style="flex:none;color:#ddd;font-size:13px;text-align:center;max-width:100%;padding:0 4px">
       <span id="lightboxDate" style="display:inline-block;color:#fff;font-weight:600;padding:5px 10px"></span>
       <input type="text" id="lightboxCaption" placeholder="add caption…" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:6px;padding:6px 10px;margin-top:6px;width:280px;max-width:90vw">
+      <div id="lightboxViewTagsRow" hidden>
+        <label for="lightboxViewTags">Yard view tags</label>
+        <input type="text" id="lightboxViewTags" list="yardViewSuggestions" placeholder="Office window, Porch" aria-describedby="lightboxViewTagsHelp">
+        <button type="button" id="lightboxSaveViewTags" class="ghost tiny">Save tags</button>
+        <span id="lightboxViewTagsHelp">Separate multiple tags with commas; leave blank to remove tags.</span>
+        <span id="lightboxViewTagsStatus" role="status" aria-live="polite"></span>
+      </div>
       <div id="lightboxAlsoIn" style="margin-top:8px;color:#ccc;font-size:12px;display:flex;flex-wrap:wrap;gap:5px;justify-content:center;align-items:center;max-width:100%"></div>
       <label id="lightboxHideRow" style="margin-top:8px;color:#ccc;font-size:12px;display:inline-flex;align-items:center;gap:6px;cursor:pointer">
         <input type="checkbox" id="lightboxHideFromGallery" style="margin:0">
@@ -3203,6 +3233,7 @@ function showLightboxIdx(){
   // shows the same state as the owner's view).
   const { target } = getCanonicalPhoto(ph);
   $('#lightboxHideFromGallery').checked = !!(target && target.hideFromGallery);
+  renderYardViewTagEditor(ph);
   const curPlant = state.plants.find(x=>x.id===currentInfoPlantId);
   const thumbBtn = $('#lightboxThumb');
   if (curPlant && curPlant.thumbKey === ph.key){ thumbBtn.textContent = '✓ Thumbnail'; thumbBtn.disabled = true; }
@@ -4468,7 +4499,8 @@ async function uploadPhoto(plant, file, onStatus, opts = {}){
     await sigv4Request({ method:'PUT', key: key + '.thumb.jpg', body: await tb.arrayBuffer(), contentType:'image/jpeg' });
   } catch(e){ console.warn('thumbnail upload failed (original is fine):', e); }
   if (!plant.photos) plant.photos = [];
-  plant.photos.push({ key, date: photoDate, caption: '' });
+  const viewTags = plant.id === YARD_ID ? YardPhotoViews.read(opts.viewTags) : [];
+  plant.photos.push({ key, date: photoDate, caption: '', ...(viewTags.length ? { viewTags } : {}) });
   saveLocal();
   if (opts.sync === false) return key;
   if (isGsAuthed()){
@@ -4728,14 +4760,7 @@ async function pullFromSheets(){
       const id = ph.plant_id;
       if (!id) continue;
       if (!photosByPlant.has(id)) photosByPlant.set(id, []);
-      const also = (ph.alsoIn||'').split('|').filter(Boolean);
-      photosByPlant.get(id).push({
-        key: ph.key || '',
-        date: ph.date || '',
-        caption: ph.caption || '',
-        ...(ph.hideFromGallery === 'TRUE' ? {hideFromGallery: true} : {}),
-        ...(also.length ? {alsoIn: also} : {}),
-      });
+      photosByPlant.get(id).push(YardPhotoViews.fromSheetPhoto(ph));
     }
 
     // Yard photos (issue #88): rows with plant_id 'yard'. Keep local-only ones.
@@ -4881,18 +4906,7 @@ function tagsToSheetRows(){
 }
 
 function photosToSheetRows(){
-  const header = ['plant_id','key','date','caption','hideFromGallery','alsoIn'];
-  const rows = [header];
-  for (const p of [...(state.plants || []), yardPlant()]){
-    for (const ph of (p.photos || [])){
-      rows.push([
-        p.id, ph.key||'', ph.date||'', ph.caption||'',
-        ph.hideFromGallery ? 'TRUE' : 'FALSE',
-        (ph.alsoIn||[]).join('|'),
-      ]);
-    }
-  }
-  return rows;
+  return YardPhotoViews.toSheetRows([...(state.plants || []), yardPlant()]);
 }
 
 function logToSheetRows(){
@@ -6283,17 +6297,71 @@ function initCareView(){
 const YARD_ID = 'yard';
 const YARD = { id: YARD_ID, name: 'Yard', get photos(){ if (!state.yardPhotos) state.yardPhotos = []; return state.yardPhotos; }, set photos(v){ state.yardPhotos = v; } };
 function yardPlant(){ return YARD; }
+const YARD_VIEW_FILTER_KEY = 'yardDashboard.yardViewFilter';
+let yardViewFilter = 'all';
+try { yardViewFilter = localStorage.getItem(YARD_VIEW_FILTER_KEY) || 'all'; } catch (_) {}
+function updateYardViewChoices(photos){
+  const select = $('#ypViewFilter');
+  const views = YardPhotoViews.choices(photos);
+  const untagged = YardPhotoViews.filter(photos, 'untagged').length;
+  const options = [new Option('All views', 'all'), new Option(`Untagged (${untagged})`, 'untagged')];
+  for (const view of views) options.push(new Option(`${view.label} (${view.count})`, view.value));
+  if (yardViewFilter.startsWith('view:') && !views.some(view => view.value === yardViewFilter)){
+    options.push(new Option(`${yardViewFilter.slice(5)} (0)`, yardViewFilter));
+  }
+  if (!options.some(option => option.value === yardViewFilter)) yardViewFilter = 'all';
+  select.replaceChildren(...options); select.value = yardViewFilter;
+  const suggestions = $('#yardViewSuggestions');
+  suggestions.replaceChildren(...views.map(view => { const option = document.createElement('option'); option.value = view.label; return option; }));
+}
 function renderYardPhotos(){
   const grid = $('#ypGrid'); if (!grid) return;
   const sort = $('#ypSort').value;
-  const list = (state.yardPhotos || []).filter(ph => ph && ph.key).slice()
+  const all = (state.yardPhotos || []).filter(ph => ph && ph.key);
+  updateYardViewChoices(all);
+  const list = YardPhotoViews.filter(all, yardViewFilter)
     .sort((a, b) => sort === 'old' ? (a.date || '').localeCompare(b.date || '') : (b.date || '').localeCompare(a.date || ''));
   state._yardList = list;
-  $('#ypCount').textContent = list.length ? `${list.length} photo${list.length === 1 ? '' : 's'}` : '';
+  $('#ypCount').textContent = all.length ? `${yardViewFilter === 'all' ? '' : list.length + ' of '}${all.length} photo${all.length === 1 ? '' : 's'}` : '';
   grid.innerHTML = list.length
-    ? list.map((ph, i) => `<div class="yp" data-idx="${i}"><img loading="lazy" src="${r2PublicUrl(ph.key + '.thumb.jpg')}" onerror="this.onerror=null;this.src='${r2PublicUrl(ph.key)}'" alt="${escapeHtml(ph.caption || '')}">${(ph.date || ph.caption) ? `<div class="yp-cap">${escapeHtml(ph.caption || '')}${ph.caption && ph.date ? ' · ' : ''}${escapeHtml(ph.date || '')}</div>` : ''}</div>`).join('')
-    : `<div class="empty" style="padding:14px 4px">No yard photos yet${isGsAuthed() ? ' — add a few wide shots of the whole yard to see it change over the years.' : '.'}</div>`;
+    ? list.map((ph, i) => {
+      const tags = YardPhotoViews.read(ph.viewTags);
+      return `<div class="yp" data-idx="${i}" role="button" tabindex="0" aria-label="Open yard photo ${escapeHtml(ph.date || '').replace(/"/g, '&quot;')}"><img loading="lazy" src="${r2PublicUrl(ph.key + '.thumb.jpg')}" onerror="this.onerror=null;this.src='${r2PublicUrl(ph.key)}'" alt="${escapeHtml(ph.caption || 'Yard photo').replace(/"/g, '&quot;')}">${tags.length ? `<div class="yp-view-tags">${tags.map(tag => `<span>${escapeHtml(tag)}</span>`).join('')}</div>` : ''}${(ph.date || ph.caption) ? `<div class="yp-cap">${escapeHtml(ph.caption || '')}${ph.caption && ph.date ? ' · ' : ''}${escapeHtml(ph.date || '')}</div>` : ''}</div>`;
+    }).join('')
+    : `<div class="empty" style="padding:14px 4px">${all.length ? 'No yard photos match this view. Choose All views or tag a photo.' : 'No yard photos yet — add a few wide shots of the whole yard to see it change over the years.'}</div>`;
 }
+function renderYardViewTagEditor(photo){
+  const { owner, target } = getCanonicalPhoto(photo);
+  const editable = !!(owner && owner.id === YARD_ID && target && isGsAuthed());
+  $('#lightboxViewTagsRow').hidden = !editable;
+  $('#lightboxViewTags').value = editable ? YardPhotoViews.read(target.viewTags).join(', ') : '';
+  $('#lightboxViewTagsStatus').textContent = '';
+}
+function saveYardViewTags(){
+  const photo = (state._lightboxPhotos || [])[lightboxIdx];
+  const { owner, target } = getCanonicalPhoto(photo);
+  if (!isGsAuthed() || !owner || owner.id !== YARD_ID || !target) return;
+  const tags = YardPhotoViews.parseInput($('#lightboxViewTags').value, state.yardPhotos || []);
+  if (tags.length) target.viewTags = tags;
+  else delete target.viewTags;
+  photo.viewTags = target.viewTags;
+  save(); renderYardPhotos();
+  $('#lightboxViewTags').value = tags.join(', ');
+  $('#lightboxViewTagsStatus').textContent = 'View tags updated.';
+}
+$('#lightboxSaveViewTags').addEventListener('click', saveYardViewTags);
+$('#lightboxViewTags').addEventListener('keydown', event => {
+  if (event.key === 'Enter' && !event.isComposing){ event.preventDefault(); saveYardViewTags(); }
+});
+$('#ypViewFilter').addEventListener('change', () => {
+  yardViewFilter = $('#ypViewFilter').value;
+  try { localStorage.setItem(YARD_VIEW_FILTER_KEY, yardViewFilter); } catch (_) {}
+  renderYardPhotos();
+});
+$('#ypGrid').addEventListener('keydown', event => {
+  const photo = event.target.closest('.yp');
+  if (photo && (event.key === 'Enter' || event.key === ' ')){ event.preventDefault(); photo.click(); }
+});
 $('#ypGrid').addEventListener('click', e => {
   const t = e.target.closest('.yp'); if (!t) return;
   currentInfoPlantId = YARD_ID;   // lightbox delete/caption look the owner up by this
@@ -6302,11 +6370,12 @@ $('#ypGrid').addEventListener('click', e => {
 $('#ypSort').addEventListener('change', renderYardPhotos);
 $('#ypUploadInput').addEventListener('change', async e => {
   const files = Array.from(e.target.files || []); e.target.value = '';
-  if (!files.length) return;
+  if (!files.length || !isGsAuthed()) return;
+  const viewTags = YardPhotoViews.parseInput($('#ypUploadViews').value, state.yardPhotos || []);
   const st = $('#ypStatus'); let n = 0;
   for (const f of files){
     try {
-      await uploadPhoto(YARD, f, m => { st.textContent = `${n + 1} of ${files.length}: ${m}`; }, { sync: false });
+      await uploadPhoto(YARD, f, m => { st.textContent = `${n + 1} of ${files.length}: ${m}`; }, { sync: false, viewTags });
       n++; renderYardPhotos();
     } catch(err){ console.error(err); st.textContent = 'Upload failed: ' + err.message; }
   }

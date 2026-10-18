@@ -71,10 +71,16 @@
     try { localStorage.setItem(storageKey, params.toString()); } catch (_) {}
     history.replaceState(null, '', `${location.pathname}?${params}`);
   }
-  form.addEventListener('input', () => {
-    if (updateLinks()) status.textContent = 'Settings changed. Update the preview to see them.';
+  form.addEventListener('input', event => {
+    if (updateLinks()) {
+      if (event.target.type === 'checkbox' || event.target.tagName === 'SELECT') applyPreview();
+      else status.textContent = 'Settings changed. Update the preview to see them.';
+    }
     copyStatus.textContent = 'Copy this link to the device you want to use.';
   });
+  // Committed control changes must affect the preview as well as the copied link.
+  // Keep the button for applying a timing value while its field is still focused.
+  form.addEventListener('change', applyPreview);
   form.addEventListener('submit', event => { event.preventDefault(); applyPreview(); });
   document.getElementById('copyLink').addEventListener('click', async () => {
     const copied = link.value;

@@ -308,8 +308,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .bu-state.err{color:#e8a06a}
   .bu-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap}
   /* Care calendar (issue #69): Dashboard / Care calendar tabs, month grid, lists */
-  .view-tabs{display:flex;gap:6px;margin-top:14px;border-bottom:1px solid var(--line)}
-  .view-tabs .vt{background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);padding:8px 12px;font:inherit;font-size:14px;cursor:pointer;margin-bottom:-1px;display:inline-flex;align-items:center;gap:6px}
+  .view-tabs{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px;border-bottom:1px solid var(--line)}
+  .plant-view-tabs{display:flex;gap:6px}
+  .view-tabs .vt{text-decoration:none;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);padding:8px 12px;font:inherit;font-size:14px;cursor:pointer;margin-bottom:-1px;display:inline-flex;align-items:center;gap:6px}
   .view-tabs .vt:hover{color:var(--ink)}
   .view-tabs .vt.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
   /* Yard photos (issue #88): a small masonry wall under the yard map */
@@ -727,10 +728,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </div>
 </header>
 
-<div class="view-tabs" role="tablist" aria-label="Plants views">
-  <button class="vt active" data-view="dashboard" role="tab" aria-selected="true">Dashboard</button>
-  <button class="vt" data-view="calendar" role="tab" aria-selected="false">Care calendar<span class="vt-badge" id="careBadge" style="display:none"></span></button>
-  <button class="vt" data-view="year" role="tab" aria-selected="false">Year</button>
+<div class="view-tabs">
+  <div class="plant-view-tabs" role="tablist" aria-label="Plants views">
+    <button class="vt active" data-view="dashboard" role="tab" aria-selected="true">Dashboard</button>
+    <button class="vt" data-view="calendar" role="tab" aria-selected="false">Care calendar<span class="vt-badge" id="careBadge" style="display:none"></span></button>
+    <button class="vt" data-view="year" role="tab" aria-selected="false">Seasons</button>
+  </div>
+  <a class="vt" href="/backyard-year/">Backyard year</a>
 </div>
 
 <div class="grid" id="dashboardView" style="margin-top:16px">
@@ -6423,13 +6427,13 @@ function setView(v){
   $('#dashboardView').style.display = v === 'dashboard' ? '' : 'none';
   $('#calendarView').style.display = v === 'calendar' ? '' : 'none';
   $('#yearView').style.display = v === 'year' ? '' : 'none';
-  $$('.view-tabs .vt').forEach(b => { const on = b.dataset.view === v; b.classList.toggle('active', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
+  $$('.plant-view-tabs [data-view]').forEach(b => { const on = b.dataset.view === v; b.classList.toggle('active', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
   try { localStorage.setItem(VIEW_KEY, v); } catch(e){}
   history.replaceState(null, '', location.pathname + location.search + (v === 'dashboard' ? '' : '#' + v));
   if (v === 'calendar') renderCareViews();
   if (v === 'year' && typeof renderYearView === 'function') renderYearView();
 }
-$$('.view-tabs .vt').forEach(b => b.addEventListener('click', ()=> setView(b.dataset.view)));
+$$('.plant-view-tabs [data-view]').forEach(b => b.addEventListener('click', ()=> setView(b.dataset.view)));
 // Called after GAuth.handleReturn() so an OAuth token in the hash is consumed first.
 function initCareView(){
   let v = 'dashboard';

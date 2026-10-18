@@ -322,3 +322,9 @@ These IDs live in the page source (the site is public, so none are secrets):
 - **Frost dates are duplicated.** The frost planning dates + location live in the
   plants app config *and* in the Worker's reference block (they're not in a
   sheet). Change both if they ever change.
+
+### A year in your backyard
+
+`/backyard-year/?year=2026` brings together public Plants and Wildlife photos, observations, planting dates, and journal entries in a seasonal recap. Choose a year, browse seasonal chapters, compare earlier/later plant photos, and see recorded trunk measurements. Measurement changes compare only the same recorded point; photos are not used to infer measurements or unlogged seasonal events.
+
+Favorite photos are saved per year in the current browser. Copy year link shares the public recap, while favorites remain local. Hidden slideshow photos, videos, yard-wide photos, wishlist plants, and orphan photo rows are excluded. Missing sources are identified in the page so a partial recap does not appear complete.

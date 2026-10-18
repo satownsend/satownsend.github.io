@@ -16,6 +16,7 @@
     { href:'/instruments', label:'Instruments', icon:'\u{1F3B8}', key:'instruments' },
     { href:'/wildlife',    label:'Wildlife',    icon:'\u{1F989}', key:'wildlife' },
     { href:'/photography', label:'Photography', icon:'\u{1F4F7}', key:'photography' },
+    { href:'/backyard-year/', label:'Backyard year', icon:'\u{1F343}', key:'backyard-year' },
     { href:'/photo-frame/', label:'Photo frame', icon:'\u{1F5BC}', key:'photo-frame' },
   ];
   // Full-screen slideshows (the photo-frame pages, issue #72). Listed under the

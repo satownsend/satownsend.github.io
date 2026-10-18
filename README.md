@@ -159,6 +159,8 @@ plant photo and sync as `plant_photos` rows with `plant_id = "yard"`. They are
 **signed-in only**: the panel and the dashboard gallery show them only when
 signed in, and the homepage slideshow and photo-frame pages skip them.
 
+**View tags:** tag upload batches or open a yard photo and use **Yard view tags → Save tags** (comma-separated, e.g. `Office window, Porch`). Filter the wall by a named view or **Untagged**, alongside newest/oldest sorting. Tags sync in the appended `viewTags` column of `plant_photos` as pipe-separated labels; older photos remain untagged until edited. The selected view filter is remembered in the current browser.
+
 ### AI plant overviews (`plants/index.html` + Worker `mode: "overview"`)
 
 Each plant card has a collapsible **AI overview**: a short summary plus mature

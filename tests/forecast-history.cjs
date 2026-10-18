@@ -2,7 +2,7 @@ const assert=require('node:assert/strict'), fs=require('node:fs'), vm=require('n
 const H=require('../shared/forecast-history.js');
 const page=fs.readFileSync('plants/index.html','utf8');
 const riskSource=page.slice(page.indexOf('function dayAlerts('),page.indexOf('function renderForecast('));
-const ctx=vm.createContext({});vm.runInContext(riskSource,ctx);
+const ctx=vm.createContext({WeatherData:require('../shared/weather-data.js')});vm.runInContext(riskSource,ctx);
 const input={settings:{lat:40.4,lon:-78.6,city:'Lilly',units:'F'}, source:'nws', alerts:[],alertsAvailable:true,capturedAt:Date.parse('2026-10-18T12:00:00Z'),
   daily:{time:['2026-10-18','2026-10-19'],temperature_2m_max:[55,null],temperature_2m_min:[30,null],precipitation_sum:[0,0],precipitation_probability_max:[75,null],wind_speed_10m_max:[30,null]},
   rainfall:[{date:'2026-10-17',amount:0.25}],rainfallFetched:Date.parse('2026-10-18T11:00:00Z'),dayAlerts:ctx.dayAlerts};
@@ -60,4 +60,18 @@ const integrationSource=page.slice(page.indexOf('const WEATHER_HISTORY_KEY ='),p
   mode='failed';await context.fetchForecast(true);assert.equal(snapshots.length,1);
   mode='move';await context.fetchForecast(true);assert.equal(snapshots.length,1); // do not relabel an in-flight response with new coordinates
   console.log('PASS production weather fetch fallback, failures, fresh cache and in-flight location guard');
+})().catch(e=>{console.error(e);process.exitCode=1});
+// A collector capture that arrives after page load suppresses a redundant browser
+// write, but a newer remote capture must never discard an older offline pending one.
+(async()=>{
+  for(const offset of [1000,-7200000]){
+    const local=H.capture({...input,capturedAt:input.capturedAt+offset});local.collection={kind:'browser'};
+    const remote={...a,collection:{kind:'scheduled'}};let appends=0;
+    const context={ForecastHistory:H,localStorage:{getItem:()=>null,setItem(){}},isGsAuthed:()=>true,ensureTab:async()=>{},SHEETS_ID:'test',renderWeatherHistory(){},
+      gsApiFetch:async(url,opts)=>{if(!opts)return{values:H.toRows([remote])};if(url.includes(':append?'))appends++;return{};},local};
+    vm.createContext(context);vm.runInContext(integrationSource+syncSource+';weatherHistory=[local];weatherPending.add(local.id);',context);
+    await context.syncWeatherHistory();assert.equal(appends,offset>0?0:1);assert.equal(vm.runInContext('weatherPending.size',context),0);
+    assert.equal(vm.runInContext('weatherHistory.length',context),offset>0?1:2);
+  }
+  console.log('PASS browser/collector coordination and preservation of older offline pending captures');
 })().catch(e=>{console.error(e);process.exitCode=1});

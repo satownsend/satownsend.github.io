@@ -1,0 +1,7 @@
+{
+  "enabled": true,
+  "intervalHours": 1,
+  "sheetId": "1Q1kRZG0jjkYF7pCSZXZIgE5B_kCorDovO2I7ATE3vUM",
+  "location": { "city": "Lilly, PA 15938", "lat": 40.4238, "lon": -78.6231, "units": "F", "timezone": "America/New_York" },
+  "userAgent": "satownsend-weather-collector/1.0 (https://satownsend.com)"
+}

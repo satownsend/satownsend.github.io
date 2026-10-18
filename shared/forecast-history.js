@@ -68,5 +68,25 @@
     const keys = new Set(current.slice(1).map(r=>`${r[0]}\n${r[2]}`));
     return toRows(snapshots).slice(1).filter(r=>!keys.has(`${r[0]}\n${r[2]}`));
   }
-  return {headers, capture, merge, shouldCapture, toRows, fromRows, pendingRows};
+  function collectorStatus(config,rows,now){
+    if (!config.enabled) return 'Scheduled collection is paused in configuration. Saved history remains available.';
+    if (rows[0]?.[0] !== 'collector' || rows[0]?.[1] !== 'status_json' || !rows[1]?.[1]) return 'Scheduled collection has not reported a run yet. Setup may still be needed; see Collector runs. Dashboard captures remain available.';
+    let s;
+    try { s=JSON.parse(rows[1][1]); } catch(e){ return 'Scheduled collector status could not be read. See Collector runs.'; }
+    const when=t=>Number.isFinite(Date.parse(t)) ? new Date(t).toLocaleString() : 'never';
+    const location=s.location || config.location;
+    const base=`Scheduled collector for ${location.city}, °${location.units}. Last saved capture: ${when(s.lastCapture)}. `;
+    if (s.state==='paused') return base+'Collection is paused. Resume using the repository pause control.';
+    const interval=Number(s.intervalHours) || config.intervalHours;
+    const age=now-Date.parse(s.lastCapture);
+    const overdue=Number.isFinite(age) && age > (interval+1)*3600000;
+    const gap=s.coverage?.missing ? `${s.coverage.missing} missing interval(s) in the last reported coverage window. ` : '';
+    const warnings=Array.isArray(s.warnings)?s.warnings:[];
+    const sourceWarnings=warnings.filter(x=>x!=='collection_failed').map(x=>String(x).replace(/_/g,' ')).join(', ');
+    return base+`Expected every ${interval} hour(s). `+gap+
+      (s.state==='error' ? 'Last attempt failed. See Collector runs. ' : sourceWarnings ? `Source gaps: ${sourceWarnings}. ` : '')+
+      (overdue ? 'Collection is overdue; recent intervals may be missing. ' : '')+
+      `Last attempt: ${when(s.lastAttempt)}.`;
+  }
+  return {headers, capture, merge, shouldCapture, toRows, fromRows, pendingRows, collectorStatus};
 });

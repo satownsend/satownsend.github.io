@@ -195,6 +195,8 @@ they read is public.
 | `/plants-slideshow/`, `/beer-slideshow/`, `/instruments-slideshow/`, `/wildlife-slideshow/`, `/photography-slideshow/` | one section |
 | `/slideshow/?src=plants,wildlife` | any combination |
 
+Configure these options visually at **[/photo-frame/](https://satownsend.com/photo-frame/)**. Choose collections, timing, image fit, clock, captions, and slow drift; update the live preview, then open or copy the generated frame link. The setup remembers your last applied settings and can be bookmarked.
+
 Options go on the query string: `interval=20` (seconds per photo), `fit=cover`
 (fill the screen instead of letterboxing), `clock=1`, `caption=0`, `kb=1`
 (slow drift), `shuffle=0` (newest first). Keys: space pauses, arrows step,

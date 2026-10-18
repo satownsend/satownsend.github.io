@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Set up your photo frame · satownsend.com</title>
+<meta name="description" content="Choose collections and display options, preview your photo frame, and copy a link for any screen.">
+<link rel="stylesheet" href="/shared/styles.css">
+<script src="/shared/themes.js"></script>
+<script defer src="/shared/nav.js"></script>
+<link rel="stylesheet" href="/photo-frame/setup.css">
+<script defer src="/photo-frame/setup.js"></script>
+</head>
+<body>
+<main class="frame-setup">
+  <header><div id="siteNav"></div><span class="setup-label">Made for your spare screen</span></header>
+  <div class="setup-intro"><p class="eyebrow">Your collection, on display</p><h1>A window into your world.</h1><p>Pick the photos. Set the pace. Give them a screen of their own.</p></div>
+  <div class="setup-layout">
+    <form id="frameForm" class="setup-panel">
+      <fieldset class="collections"><legend>01 <span>Choose your collections</span></legend><p class="field-help">Mix a few favorites or show everything.</p>
+        <div class="collection-grid">
+          <label><input type="checkbox" name="src" value="plants" checked><span>🌱 Plants</span></label>
+          <label><input type="checkbox" name="src" value="beer" checked><span>🍺 Beer</span></label>
+          <label><input type="checkbox" name="src" value="instruments" checked><span>🎸 Instruments</span></label>
+          <label><input type="checkbox" name="src" value="wildlife" checked><span>🦉 Wildlife</span></label>
+          <label><input type="checkbox" name="src" value="photography" checked><span>📷 Photography</span></label>
+        </div>
+      </fieldset>
+      <fieldset><legend>02 <span>Find your rhythm</span></legend>
+        <div class="setting-grid"><label for="interval">Seconds per photo<input id="interval" name="interval" type="number" min="3" max="3600" step="1" value="20" required><small>3–3,600 seconds</small></label>
+        <label for="shuffle">Photo order<select id="shuffle" name="shuffle"><option value="1">Shuffled</option><option value="0">Newest first</option></select></label></div>
+      </fieldset>
+      <fieldset><legend>03 <span>Make it yours</span></legend>
+        <label for="fit">Image fit<select id="fit" name="fit"><option value="contain">Show the whole photo</option><option value="cover">Fill the screen · crop edges</option></select></label>
+        <div class="toggle-list">
+          <label><span>Clock<small>A quiet clock in the corner</small></span><input type="checkbox" id="clock" name="clock"></label>
+          <label><span>Captions<small>Name, collection, and photo date</small></span><input type="checkbox" id="caption" name="caption" checked></label>
+          <label><span>Slow drift<small>Gentle movement while photos play</small></span><input type="checkbox" id="kb" name="kb"></label>
+        </div>
+      </fieldset>
+      <button type="submit" class="update-preview">Update preview <span aria-hidden="true">↗</span></button>
+      <p id="formStatus" class="field-help" role="status" aria-live="polite"></p>
+    </form>
+    <section class="preview-panel" aria-labelledby="previewHeading">
+      <div class="preview-heading"><h2 id="previewHeading">On your screen</h2><span id="previewSummary"></span></div>
+      <div class="frame-bezel"><iframe id="framePreview" title="Live photo frame preview" allow="fullscreen" allowfullscreen></iframe></div>
+      <p class="preview-help">This is your actual slideshow. Click a photo to skip ahead; focus the preview and press Space to pause.</p>
+      <div class="launch-row"><a id="openFrame" class="launch-frame" href="/slideshow/" target="_blank" rel="noopener">Open photo frame <span aria-hidden="true">↗</span></a><span>Open it on a TV, tablet, or spare monitor.</span></div>
+      <div class="link-panel"><label for="frameLink">Your frame link</label><div class="copy-row"><input id="frameLink" type="url" readonly spellcheck="false"><button id="copyLink" type="button">Copy link</button></div><p id="copyStatus" class="field-help" role="status" aria-live="polite">Copy this link to the device you want to use.</p></div>
+      <p class="privacy-note">Shows the same public photos as the existing slideshows. Yard-wide and slideshow-hidden photos stay excluded.</p>
+    </section>
+  </div>
+  <noscript><p>Enable JavaScript to configure your frame, or <a href="/all-slideshow/">open all photos</a>.</p></noscript>
+</main>
+</body>
+</html>

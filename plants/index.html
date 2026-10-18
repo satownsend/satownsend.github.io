@@ -23,6 +23,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <link rel="stylesheet" href="/shared/styles.css?v=section-details-1">
 <script src="/shared/themes.js?v=section-details-1"></script>
 <script src="/shared/yard-photo-views.js?v=1"></script>
+<script src="/shared/forecast-history.js?v=1"></script>
 <script defer src="/shared/nav.js"></script>
 <script defer src="/shared/chat.js"></script>
 <style>
@@ -783,6 +784,20 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div id="rainfallChart"></div>
     </div>
     <div id="upcomingAlerts" class="upcoming-alerts"></div>
+    <details id="weatherHistoryPanel" style="margin-top:16px;border-top:1px solid var(--line2);padding-top:12px">
+      <summary style="cursor:pointer;font-weight:600">Weather history</summary>
+      <p class="small">Forecasts as they looked at the time, including predicted temperatures, rain, wind, and alerts. Recorded when this dashboard refreshes, at most once an hour unless official alerts change. No recording while the site is closed.</p>
+      <div class="small" id="weatherHistoryStatus" role="status" aria-live="polite"></div>
+      <div class="row" style="margin:12px 0;align-items:end;flex-wrap:wrap">
+        <label class="small">From<input id="weatherHistoryFrom" type="date"></label>
+        <label class="small">Through<input id="weatherHistoryThrough" type="date"></label>
+        <button type="button" class="tiny ghost" id="weatherHistoryReload">Reload history</button>
+        <button type="button" class="tiny ghost" id="weatherHistoryExport">Export JSON</button>
+      </div>
+      <label class="small" for="weatherHistorySnapshot">Saved snapshot</label>
+      <select id="weatherHistorySnapshot" style="width:100%;margin:6px 0 12px"></select>
+      <div id="weatherHistoryContent"></div>
+    </details>
   </div>
 
   <div class="panel">
@@ -2168,6 +2183,126 @@ $('#reloadBtn').onclick = async ()=>{
   catch(e){ st.textContent = 'Could not reload: ' + e.message; }
 };
 
+/* ---------- weather archive (append-only Google Sheet + local pending captures) ---------- */
+const WEATHER_HISTORY_KEY = 'yardDashboard.weatherHistory.v1';
+let weatherHistory = [], weatherPending = new Set(), weatherHistoryMessage = 'Loading saved history…';
+let weatherStorageError = '', weatherSyncing = false;
+try {
+  const cache = JSON.parse(localStorage.getItem(WEATHER_HISTORY_KEY) || '{}');
+  weatherHistory = ForecastHistory.merge(cache.snapshots || []);
+  weatherPending = new Set((cache.pending || []).filter(id => weatherHistory.some(s=>s.id===id)));
+} catch(e){ weatherHistoryMessage = 'Could not read this browser’s saved history.'; }
+function persistWeatherHistory(){
+  try {
+    // Keep all unsynced captures, plus 90 recent snapshots for offline viewing.
+    const snapshots = ForecastHistory.merge(weatherHistory.slice(0,90), weatherHistory.filter(s=>weatherPending.has(s.id)));
+    localStorage.setItem(WEATHER_HISTORY_KEY, JSON.stringify({snapshots,pending:[...weatherPending]}));
+    weatherStorageError = '';
+  } catch(e){ weatherStorageError = 'Browser storage is full or unavailable. New captures are only in memory until synced; export a backup before closing.'; }
+}
+function recordWeatherSnapshot(input){
+  const snapshot = ForecastHistory.capture(input);
+  if (!ForecastHistory.shouldCapture(weatherHistory,snapshot)) return;
+  weatherHistory = ForecastHistory.merge(weatherHistory,[snapshot]);
+  weatherPending.add(snapshot.id);
+  persistWeatherHistory(); renderWeatherHistory();
+}
+async function loadWeatherHistory(){
+  weatherHistoryMessage = 'Loading saved history…'; renderWeatherHistory();
+  try {
+    // Authenticated reads avoid stale CSV immediately after writes. Missing tab is normal on first use.
+    let rows;
+    if (isGsAuthed()){
+      const gid = await gsGidFor('weather_history');
+      rows = gid == null ? [] : (await gsApiFetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}/values/weather_history`)).values || [];
+    } else {
+      rows = await fetchSheetTabByName('weather_history');
+    }
+    if (rows.length && ForecastHistory.headers.some((h,i)=>h !== rows[0][i])) throw new Error('Unexpected history columns');
+    weatherHistory = ForecastHistory.merge(ForecastHistory.fromRows(rows), weatherHistory);
+    weatherHistoryMessage = rows.length ? 'Saved history loaded from Google Sheets.' : 'No shared history yet. The weather_history tab is created on the first signed-in sync.';
+    persistWeatherHistory();
+  } catch(e){
+    weatherHistoryMessage = 'Shared history unavailable (the weather_history tab may not exist yet). Showing this browser’s cached captures. Reload to retry.';
+  }
+  renderWeatherHistory();
+}
+async function syncWeatherHistory(){
+  if (!isGsAuthed() || !weatherPending.size || weatherSyncing) return;
+  weatherSyncing = true;
+  const pending = weatherHistory.filter(s=>weatherPending.has(s.id));
+  try {
+    await ensureTab('weather_history');
+    const base = `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}/values`;
+    const current = (await gsApiFetch(`${base}/weather_history`)).values || [];
+    if (current.length && ForecastHistory.headers.some((h,i)=>h !== current[0][i])) throw new Error('Unexpected weather_history columns; history left unchanged');
+    if (!current.length){
+      await gsApiFetch(`${base}/weather_history!A1?valueInputOption=RAW`, {
+        method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({values:[ForecastHistory.headers]}),
+      });
+    }
+    const rows = ForecastHistory.pendingRows(current,pending);
+    if (rows.length){
+      await gsApiFetch(`${base}/weather_history!A:D:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, {
+        method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({values:rows}),
+      });
+    }
+    // Never reconcile/delete archive rows: another browser can have captures we haven't seen.
+    weatherHistory = ForecastHistory.merge(ForecastHistory.fromRows(current), weatherHistory);
+    pending.forEach(s=>weatherPending.delete(s.id));
+    weatherHistoryMessage = 'Saved to Google Sheets.';
+    persistWeatherHistory();
+  } catch(e){
+    weatherHistoryMessage = 'History sync failed. Captures remain pending in this browser; reload history to retry.';
+    throw e;
+  } finally { weatherSyncing = false; renderWeatherHistory(); }
+}
+function filteredWeatherHistory(){
+  const from = $('#weatherHistoryFrom').value, through = $('#weatherHistoryThrough').value;
+  return weatherHistory.filter(s=>{
+    const d = new Date(s.capturedAt);
+    const date = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    return (!from || date >= from) && (!through || date <= through);
+  });
+}
+function renderWeatherHistory(){
+  const esc = v=>escapeHtml(String(v ?? ''));
+  $('#weatherHistoryStatus').textContent = weatherStorageError || `${weatherHistoryMessage} ${weatherPending.size ? `${weatherPending.size} pending capture(s). ${isGsAuthed() ? 'Waiting for sync.' : 'Sign in to save them to Google Sheets.'}` : ''}`;
+  const select = $('#weatherHistorySnapshot'), previous = select.value, snapshots = filteredWeatherHistory();
+  select.innerHTML = snapshots.map(s=>`<option value="${esc(s.id)}">${esc(new Date(s.capturedAt).toLocaleString())} · ${esc(s.location.name || `${s.location.lat}, ${s.location.lon}`)} · ${esc(s.source === 'nws' ? 'NWS' : s.source)} · °${esc(s.units)}</option>`).join('');
+  if (snapshots.some(s=>s.id===previous)) select.value = previous;
+  select.disabled = !snapshots.length;
+  $('#weatherHistoryExport').disabled = !snapshots.length;
+  const snapshot = snapshots.find(s=>s.id===select.value);
+  const content = $('#weatherHistoryContent');
+  if (!snapshot){
+    content.innerHTML = '<p class="small">No saved snapshots in this date range. History starts with successful weather refreshes after this feature is enabled; earlier forecasts cannot be reconstructed.</p>';
+    return;
+  }
+  const s=snapshot, pu=s.units==='C'?'mm':'in', u=`°${s.units}`;
+  const value=(n,suffix='',digits=0)=>n == null ? '—' : `${Number(n).toFixed(digits)}${suffix}`;
+  content.innerHTML = `<p class="small">Captured ${esc(new Date(s.capturedAt).toLocaleString())} for ${esc(s.location.name)} (${esc(s.location.lat)}, ${esc(s.location.lon)}). ${s.source==='nws'?'National Weather Service':'Open-Meteo'} forecast; these are predictions, not measured weather.</p>
+    <div style="overflow-x:auto"><table style="width:100%;font-size:12px"><caption style="text-align:left;margin-bottom:6px">Forecast at capture time</caption><thead><tr><th scope="col">Date</th><th scope="col">High / low</th><th scope="col">Rain chance</th><th scope="col">Precip. (${pu})</th><th scope="col">Wind (mph)</th></tr></thead><tbody>${s.days.map(d=>`<tr><th scope="row" style="white-space:nowrap">${esc(d.date)}</th><td>${value(d.hi,u)} / ${value(d.lo,u)}</td><td>${value(d.pop,'%')}</td><td>${value(d.pcp,'',2)}</td><td>${value(d.wind)}</td></tr>`).join('')}</tbody></table></div>
+    ${s.source==='nws'?'<p class="small">— precipitation amount: NWS does not provide it in this forecast.</p>':''}
+    <h3 style="font-size:14px">Official alerts at capture time</h3>
+    ${s.alertsAvailable ? s.alerts.length ? s.alerts.map(a=>`<details style="margin:8px 0"><summary>${esc(a.event)} · ${esc(a.headline)}</summary><p class="small">${esc(a.severity)} · ${esc(a.effective)} → ${esc(a.expires)}</p><p class="small" style="white-space:pre-wrap">${esc(a.description)}</p></details>`).join('') : '<p class="small">No active NWS alerts returned.</p>' : '<p class="small">NWS alerts unavailable when captured; this does not mean there were no alerts.</p>'}
+    <h3 style="font-size:14px">Forecast-based garden risks</h3>
+    <div class="small">${s.days.flatMap(d=>(d.risks||[]).map(r=>`<p><strong>${esc(d.date)} · ${esc(r.label)}</strong><br>${esc(r.detail)}</p>`)).join('') || 'No frost, heat, or wind risks detected by the dashboard thresholds.'}</div>
+    <details style="margin-top:12px"><summary>Past rainfall estimates saved with this snapshot</summary><p class="small">Open-Meteo archive model estimates, not a backyard rain gauge.${s.rainfall.fetchedAt ? ` Fetched ${esc(new Date(s.rainfall.fetchedAt).toLocaleString())}.` : ''}</p>
+    ${s.rainfall.days.length ? `<div style="max-height:220px;overflow:auto"><table style="width:100%;font-size:12px"><thead><tr><th scope="col">Date</th><th scope="col">Estimated precipitation (${pu})</th></tr></thead><tbody>${s.rainfall.days.map(r=>`<tr><th scope="row">${esc(r.date)}</th><td>${value(r.amount,'',2)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="small">Rainfall estimates were unavailable when captured.</p>'}</details>`;
+}
+['#weatherHistoryFrom','#weatherHistoryThrough','#weatherHistorySnapshot'].forEach(id=>$(id).addEventListener('change',renderWeatherHistory));
+$('#weatherHistoryReload').onclick = async ()=>{
+  const btn=$('#weatherHistoryReload'); btn.disabled=true;
+  try { await loadWeatherHistory(); await syncWeatherHistory(); } catch(e){ console.warn('[weather] history sync failed',e); }
+  finally { btn.disabled=false; }
+};
+$('#weatherHistoryExport').onclick = ()=>{
+  const blob=new Blob([JSON.stringify(filteredWeatherHistory(),null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob), a=document.createElement('a');
+  a.href=url; a.download='weather-history.json'; a.click(); setTimeout(()=>URL.revokeObjectURL(url),1000);
+};
+
 /* ---------- forecast ---------- */
 // ----- Weather backend -----
 // Primary: api.weather.gov (NWS) — source of truth for US locations, includes
@@ -2234,7 +2369,7 @@ function nwsPeriodsToDaily(periods, units){
       return m ? parseInt(m[2] || m[1], 10) : 0;
     });
     wind.push(winds.length ? Math.max(...winds) : 0);
-    // /forecast doesn't expose daily precip amount; leave as 0. Brief uses
+    // /forecast doesn't expose daily precip amount; leave as 0 for legacy rendering. Brief uses
     // pop (probability) as the primary signal, so this is acceptable.
     pcp.push(0);
     code.push(0);
@@ -2263,9 +2398,10 @@ async function fetchForecastNWS(s){
 async function fetchNWSAlerts(lat, lon){
   try {
     const r = await fetch(`https://api.weather.gov/alerts/active?point=${lat},${lon}`, { headers: { Accept: 'application/geo+json' } });
-    if (!r.ok) return [];
+    if (!r.ok) throw new Error(`NWS alerts ${r.status}`);
     const j = await r.json();
-    return (j.features || []).map(f => ({
+    if (!Array.isArray(j.features)) throw new Error('Invalid NWS alerts response');
+    return j.features.map(f => ({
       id: f.id,
       event: f.properties.event,
       headline: f.properties.headline,
@@ -2276,7 +2412,7 @@ async function fetchNWSAlerts(lat, lon){
     }));
   } catch (e) {
     console.warn('[weather] NWS alerts fetch failed', e);
-    return [];
+    return null;
   }
 }
 
@@ -2313,20 +2449,22 @@ async function fetchRainfallHistory(s){
 }
 
 async function fetchForecast(force=false){
-  const s = state.settings;
-  if (!s.lat || !s.lon){
+  const s = {...state.settings};
+  if (s.lat == null || s.lon == null || s.lat === '' || s.lon === ''){
     $('#forecast').innerHTML = '<div class="empty" style="grid-column:1/-1">Set location in Settings to see the forecast.</div>';
     $('#weatherNote').textContent = '';
     return;
   }
-  const stale = !state.forecast || (Date.now() - state.forecastFetched) > 1000*60*60;
-  const rainStale = !state.rainfall || (Date.now() - (state.rainfallFetched || 0)) > 1000*60*60*6;
+  const weatherKey = `${s.lat},${s.lon}|${s.units}`;
+  const stale = state.forecastLocation !== weatherKey || !state.forecast || (Date.now() - state.forecastFetched) > 1000*60*60;
+  const rainStale = state.rainfallLocation !== weatherKey || !state.rainfall || (Date.now() - (state.rainfallFetched || 0)) > 1000*60*60*6;
   if (!force && !stale){
     // Forecast is fresh, but rainfall might still need fetching (first load,
     // or >6 hours since last fetch). Kick it off in the background.
     if (rainStale){
       fetchRainfallHistory(s).then(r => {
-        state.rainfall = r; state.rainfallFetched = Date.now();
+        if (`${state.settings.lat},${state.settings.lon}|${state.settings.units}` !== weatherKey) return;
+        state.rainfall = r; state.rainfallFetched = Date.now(); state.rainfallLocation = weatherKey;
         save(); renderForecast();
       }).catch(e => console.warn('[weather] Rainfall fetch failed:', e.message));
     }
@@ -2348,20 +2486,28 @@ async function fetchForecast(force=false){
       return;
     }
   }
-  state.forecast = daily;
-  state.forecastFetched = Date.now();
-  state.forecastSource = source;
-  // Active NWS alerts (frost advisories, etc.) — only meaningful when NWS is
-  // reachable. Don't block the forecast render on this; fire and forget.
-  state.nwsAlerts = await fetchNWSAlerts(s.lat, s.lon);
-  // Historical rainfall — refresh every 6 hours. Separate from the forecast
-  // so a failure here doesn't block anything.
-  if (rainStale || !state.rainfall){
+  if (`${state.settings.lat},${state.settings.lon}|${state.settings.units}` !== weatherKey) return;
+  const capturedAt = Date.now();
+  const alerts = await fetchNWSAlerts(s.lat, s.lon);
+  let rainfall = state.rainfallLocation === weatherKey ? state.rainfall : [];
+  let rainfallFetched = state.rainfallLocation === weatherKey ? state.rainfallFetched : null;
+  if (rainStale || !rainfall?.length){
     try {
-      state.rainfall = await fetchRainfallHistory(s);
-      state.rainfallFetched = Date.now();
+      rainfall = await fetchRainfallHistory(s);
+      rainfallFetched = Date.now();
     } catch(e){ console.warn('[weather] Rainfall history fetch failed:', e.message); }
   }
+  if (`${state.settings.lat},${state.settings.lon}|${state.settings.units}` !== weatherKey) return;
+  state.forecastLocation = weatherKey;
+  state.forecast = daily;
+  state.forecastFetched = capturedAt;
+  state.forecastSource = source;
+  state.nwsAlerts = alerts || [];
+  state.rainfall = rainfall;
+  state.rainfallFetched = rainfallFetched;
+  state.rainfallLocation = weatherKey;
+  recordWeatherSnapshot({settings:s, daily, source, alerts, alertsAvailable:alerts !== null,
+    capturedAt, rainfall, rainfallFetched, dayAlerts});
   save();
   renderForecast();
 }
@@ -2373,15 +2519,15 @@ function dayAlerts(d, units){
   const heatT  = units==='C' ? 31 : 88;
   const windT  = 25;
   const alerts = [];
-  if (d.lo <= frostT){
+  if (d.lo != null && d.lo <= frostT){
     alerts.push({label:'Frost risk',
       detail:`Overnight low of ${Math.round(d.lo)}${u}. Cover tender or recently-planted trees with frost cloth, and bring potted plants in or against the house.`});
   }
-  if (d.hi >= heatT){
+  if (d.hi != null && d.hi >= heatT){
     alerts.push({label:'Extreme heat',
       detail:`High of ${Math.round(d.hi)}${u}. Deep-water established trees and check container plants twice. Variegated and spring-foliage maples (Shin Deshojo, Ukigumo, Asayake) burn fast — give afternoon shade.`});
   }
-  if (d.wind >= windT){
+  if (d.wind != null && d.wind >= windT){
     alerts.push({label:'High wind',
       detail:`Gusts up to ${Math.round(d.wind)} mph. Move hanging pots (Asayake, Rikuzen Shidare) to a sheltered spot. Check stake ties on young trees.`});
   }
@@ -4850,6 +4996,8 @@ async function pullFromSheets(){
     const remoteOvIds = new Set(remoteOv.map(o => o.plantId));
     state.overview = [...remoteOv, ...[...localOv.values()].filter(o => !remoteOvIds.has(o.plantId))];
     gsPulledOnce = true;
+    loadWeatherHistory();
+    if (weatherPending.size && isGsAuthed()) queueGsSync();
     gsSuspendSync = true; saveLocal(); gsSuspendSync = false;
     render();
     setStatus(`${state.plants.length} plants loaded at ${new Date().toLocaleTimeString()}`, 'ok');
@@ -5080,6 +5228,7 @@ async function gsPushNow(force){
       await ensureTab('plant_overview');
       await gsReconcileTab('plant_overview', overviewToSheetRows(), [0]);   // key: plant_id
     }
+    await syncWeatherHistory();
     setSyncStatus(`synced ${new Date().toLocaleTimeString()}`, 'ok');
   } catch(e){
     console.error('[sheets] sync failed:', e);
@@ -6469,6 +6618,7 @@ function render(slices){
   if (s.calendar){ if ($('#calendarView').style.display !== 'none') renderCareViews(); else renderCareStatus(); }
 }
 render();
+loadWeatherHistory();
 fetchForecast();
 refreshR2Input();
 GAuth.handleReturn();

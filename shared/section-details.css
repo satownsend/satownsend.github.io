@@ -1,0 +1,44 @@
+/* Presentation only. Removing data-section-details restores the standard view. */
+.section-detail-only{display:none}
+/* Plants: a botanical label with a quiet journal rhythm. */
+[data-section-details="on"][data-section="plants"] #recordCover{border-radius:4px;border-color:var(--line2)}
+[data-section-details="on"][data-section="plants"] .record-cover-copy{border-left:4px solid var(--accent);padding-left:26px}
+[data-section-details="on"][data-section="plants"] .record-cover-eyebrow{letter-spacing:.2em;display:flex;align-items:center;gap:10px}
+[data-section-details="on"][data-section="plants"] .record-cover-eyebrow::before{content:"";display:inline-block;width:16px;height:10px;border:1px solid var(--accent);border-radius:100% 0 100% 0;transform:rotate(-25deg)}
+[data-section-details="on"][data-section="plants"] #infoType{font-style:italic;font-size:17px;color:var(--ink-soft)}
+[data-section-details="on"][data-section="plants"] #infoKV{padding:18px 0;border-top:1px solid var(--line2);border-bottom:1px solid var(--line2);row-gap:10px}
+[data-section-details="on"][data-section="plants"] #infoHistory td{padding-top:12px;padding-bottom:12px;line-height:1.6}
+[data-section-details="on"][data-section="plants"] #infoHistory .when{font-variant-numeric:tabular-nums;color:var(--accent)}
+/* Beer: restrained recipe-card sections; all forms and controls retain their styles. */
+[data-section-details="on"][data-section="beer"] #infoOverlay .info-card{border-radius:5px}
+[data-section-details="on"][data-section="beer"] #recordCover{border-radius:3px;background:var(--bg2);border-bottom:3px double var(--accent)}
+[data-section-details="on"][data-section="beer"] .record-cover-eyebrow{letter-spacing:.22em}
+[data-section-details="on"][data-section="beer"] .record-cover-facts dd{font-variant-numeric:tabular-nums}
+[data-section-details="on"][data-section="beer"] #infoOverlay .info-section{padding:20px;border:1px solid var(--line2);border-radius:3px;background:var(--bg2);margin-top:18px}
+[data-section-details="on"][data-section="beer"] #infoOverlay .info-section h3{color:var(--accent);font-size:11px;letter-spacing:.13em;border-bottom:1px solid var(--line2);padding-bottom:12px;margin-bottom:14px}
+[data-section-details="on"][data-section="beer"] #infoGrains,[data-section-details="on"][data-section="beer"] #infoHops .ingredient-list{display:block;list-style:none;padding:0;margin:0}
+[data-section-details="on"][data-section="beer"] .ingredient-list li{display:flex;align-items:baseline;justify-content:space-between;gap:12px;background:transparent;border:0;border-radius:0;padding:10px 0;border-bottom:1px dotted var(--line2);line-height:1.55}
+[data-section-details="on"][data-section="beer"] .ingredient-list li:last-child{border-bottom:0}
+[data-section-details="on"][data-section="beer"] .hop-stage{flex-shrink:0;float:none;margin:0;background:transparent;border:0;padding:0;font-size:10px;letter-spacing:.06em;text-transform:uppercase}
+[data-section-details="on"][data-section="beer"] #infoOverlay .info-grid{row-gap:10px}
+/* Wildlife: specimen labels, with captions kept in normal document flow. */
+[data-section-details="on"][data-section="wildlife"] #infoPhotos{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+[data-section-details="on"][data-section="wildlife"] .section-detail-only{display:block}
+[data-section-details="on"][data-section="wildlife"] .specimen-kicker{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:10px}
+[data-section-details="on"][data-section="wildlife"] #infoSpecies{font-size:32px;line-height:1.15;letter-spacing:-.02em}
+[data-section-details="on"][data-section="wildlife"] #infoCategory{margin-top:8px;font-size:12px!important;letter-spacing:.08em}
+[data-section-details="on"][data-section="wildlife"] #infoSummaryDetails{border-top:3px double var(--line2);border-bottom:1px solid var(--line2);padding:18px 0;row-gap:10px}
+[data-section-details="on"][data-section="wildlife"] .sighting-entry{border-left:2px solid var(--accent);padding-left:14px;margin:12px 0}
+[data-section-details="on"][data-section="wildlife"] #infoPhotos .ph{aspect-ratio:auto;border-radius:3px;background:var(--panel)}
+[data-section-details="on"][data-section="wildlife"] #infoPhotos .ph img,[data-section-details="on"][data-section="wildlife"] #infoPhotos .ph video{height:auto;aspect-ratio:1;object-fit:cover}
+[data-section-details="on"][data-section="wildlife"] #infoPhotos .ph>.date{display:none}
+[data-section-details="on"][data-section="wildlife"] .specimen-caption{padding:12px 10px;border-top:1px solid var(--line2);font-size:11px;line-height:1.55;overflow-wrap:anywhere}
+[data-section-details="on"][data-section="wildlife"] .specimen-caption strong{display:block;font-size:12px;color:var(--ink);margin-bottom:4px}
+[data-section-details="on"][data-section="wildlife"] .specimen-caption span{display:block;color:var(--muted);font-variant-numeric:tabular-nums}
+[data-section-details="on"][data-section="wildlife"] #lightboxDate{display:none}
+[data-section-details="on"][data-section="wildlife"] .specimen-lightbox{flex:none;color:#fff;font-size:13px;line-height:1.6;max-width:90vw;text-align:center;border-top:1px solid rgba(255,255,255,.3);padding:10px 4px;overflow-wrap:anywhere}
+@media(max-width:600px){
+ [data-section-details="on"][data-section="beer"] #infoOverlay .info-section{padding:16px}
+ [data-section-details="on"][data-section="wildlife"] #infoSpecies{font-size:26px}
+ [data-section-details="on"][data-section="plants"] .record-cover-copy{padding-left:18px}
+}

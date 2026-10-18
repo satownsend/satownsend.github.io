@@ -679,6 +679,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     #printSheet .ps-rip{color:#888;font-weight:400;font-size:9pt}
   }
 </style>
+<link rel="stylesheet" href="/shared/record-cover.css">
+<script src="/shared/record-cover.js"></script>
 </head>
 <body>
 <!-- Google Tag Manager (noscript) -->
@@ -1155,8 +1157,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <div class="modal-back" id="infoModal">
   <div class="modal" role="dialog" aria-modal="true">
     <button class="close" id="infoClose" aria-label="Close">×</button>
-    <h3 id="infoName"></h3>
-    <p class="lat" id="infoType"></p>
+    <section class="record-cover" id="recordCover" aria-labelledby="infoName">
+      <div class="record-cover-media" hidden></div>
+      <div class="record-cover-copy">
+        <div class="record-cover-eyebrow">Plant journal</div>
+        <h2 id="infoName"></h2>
+        <p id="infoType" class="record-cover-subtitle"></p>
+        <dl class="record-cover-facts"></dl>
+      </div>
+    </section>
+    <h3 class="record-details-heading">Plant details</h3>
     <dl class="kv" id="infoKV"></dl>
     <div id="infoNotes" style="font-size:14px;line-height:1.55;margin-top:6px"></div>
 
@@ -3047,6 +3057,7 @@ function openInfo(id){
   renderPhotos(p);
   currentInfoPlantId = p.id;
   $('#infoModal').classList.add('show');
+  $('#infoModal .modal').scrollTop = 0;
 }
 
 let currentInfoPlantId = null;
@@ -3090,6 +3101,10 @@ function getPhotosForPlant(p){
 }
 
 function renderPhotos(p){
+  RecordCover.render(document.getElementById('recordCover'), {
+    photos: p.photos || [], preferredKey: p.thumbKey, url: r2PublicUrl, name: p.name,
+    facts: [['Location', p.spot], ['Growing', (p.container===true || p.container==='true') ? 'In a container' : 'In the ground'], ['Planted for', plantedDate(p) ? plantedDuration(plantedDate(p)) : ''], ['Status', p.dead ? 'Departed' : 'Living']]
+  });
   const grid = $('#infoPhotos');
   const photos = getPhotosForPlant(p);
   // Timeline: only show when there are 2+ photos (single photo doesn't need a slider)

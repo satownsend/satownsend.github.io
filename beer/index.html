@@ -84,6 +84,8 @@ body.view-only #lightboxCaption{display:none!important}
 .thumb-wrap:hover .thumb-preview{display:block}
 #brewTable th[data-col="thumb"],#brewTable td[data-col="thumb"]{width:46px}
 </style>
+<link rel="stylesheet" href="/shared/record-cover.css">
+<script src="/shared/record-cover.js"></script>
 </head>
 <body>
 <!-- Google Tag Manager (noscript) -->
@@ -205,8 +207,15 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <div class="info-overlay" id="infoOverlay">
   <div class="info-card">
     <button class="info-close" id="infoClose">&times;</button>
-    <h2 id="infoName"></h2>
-    <div id="infoStyle" class="info-style"></div>
+    <section class="record-cover" id="recordCover" aria-labelledby="infoName">
+      <div class="record-cover-media" hidden></div>
+      <div class="record-cover-copy">
+        <div class="record-cover-eyebrow">Brew journal</div>
+        <h2 id="infoName"></h2>
+        <p id="infoStyle" class="record-cover-subtitle"></p>
+        <dl class="record-cover-facts"></dl>
+      </div>
+    </section>
 
     <div class="info-section">
       <h3>Brew Details</h3>
@@ -793,10 +802,16 @@ function openInfo(id){
   state._currentBrewId = id;
 
   $('#infoOverlay').classList.add('open');
+  $('#infoOverlay').scrollTop = 0;
   document.body.style.overflow = 'hidden';
 }
 
 function renderBrewPhotos(brewId){
+  const brew = state.brews.find(b => b.id === brewId);
+  if (brew) RecordCover.render(document.getElementById('recordCover'), {
+    photos: photosFor(brewId), preferredKey: (state.labelKeys || {})[brewId], url: r2PublicUrl, name: brew.name,
+    facts: [['Brewed', brew.brewDate], ['Batch', brew.batchSizeGal ? brew.batchSizeGal + ' gal' : ''], ['ABV', brew.abv && brew.abv !== '-' ? String(brew.abv).replace(/%$/, '') + '%' : ''], ['Original gravity', brew.sg]]
+  });
   const photos = photosFor(brewId).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
   const grid = $('#infoPhotos');
   if(!photos.length){

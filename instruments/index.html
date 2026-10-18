@@ -114,6 +114,8 @@ body.view-only #addMaintenanceBtn{display:none!important}
   tbody td[data-col]:not([data-col="name"]):not([data-col="category"]):not([data-col="type"]):not([data-col="year"]):not([data-col="datePurchased"]){display:none}
 }
 </style>
+<link rel="stylesheet" href="/shared/record-cover.css">
+<script src="/shared/record-cover.js"></script>
 </head>
 <body>
 <!-- Google Tag Manager (noscript) -->
@@ -234,10 +236,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <div class="info-overlay" id="infoOverlay">
   <div class="info-card">
     <button class="info-close" id="infoClose">&times;</button>
-    <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding-right:28px">
-      <div><h2 id="infoName" style="margin:0"></h2><div id="infoType" class="info-type"></div></div>
-      <button class="ghost tiny edit-row" id="editBtn">Edit</button>
-    </div>
+    <section class="record-cover" id="recordCover" aria-labelledby="infoName">
+      <div class="record-cover-media" hidden></div>
+      <div class="record-cover-copy">
+        <div class="record-cover-eyebrow">Instrument collection</div>
+        <h2 id="infoName"></h2>
+        <p id="infoType" class="record-cover-subtitle"></p>
+        <dl class="record-cover-facts"></dl>
+      </div>
+    </section>
+    <div class="record-cover-actions"><button class="ghost tiny edit-row" id="editBtn">Edit instrument</button></div>
 
     <!-- Read-only view -->
     <div id="infoReadView">
@@ -869,6 +877,7 @@ function openInfo(id){
   $('#editBtn').style.display = '';
 
   $('#infoOverlay').classList.add('open');
+  $('#infoOverlay').scrollTop = 0;
   document.body.style.overflow = 'hidden';
 }
 
@@ -1125,6 +1134,11 @@ async function updateMaintenance(m, updated){
 }
 
 function renderInstrumentPhotos(instrumentId){
+  const instrument = state.instruments.find(i => i.id === instrumentId);
+  if (instrument) RecordCover.render(document.getElementById('recordCover'), {
+    photos: photosFor(instrumentId), preferredKey: photosFor(instrumentId).find(p => p.key === state._featuredKey)?.key || photosFor(instrumentId).find(p => p.key && !/\.(mp4|mov|webm)$/i.test(p.key))?.key, url: r2PublicUrl, name: instrumentName(instrument),
+    facts: [['Make', instrument.make], ['Year', instrument.year], ['Category', instrument.category], ['Status', instrument.status]]
+  });
   const photos = photosFor(instrumentId).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
   const grid = $('#infoPhotos');
   if(!photos.length){

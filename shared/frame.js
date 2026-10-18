@@ -14,6 +14,7 @@
  *   interval=20                    seconds per photo
  *   fit=contain|cover              letterbox (default) or fill the screen
  *   caption=0  clock=1  kb=1       hide caption / show clock / slow drift
+ *   landscape=1                  skip portrait photos (keep square and landscape)
  *   shuffle=0                      newest-first instead of random
  * Keys: space pause · ←/→ · c caption · k clock · f fullscreen. Click/tap = next.
  */
@@ -41,6 +42,8 @@
   if(!srcs.length) srcs = ALL.slice();
   const interval = Math.max(3, parseFloat(q.get('interval')) || 20) * 1000;
   const shuffle = q.get('shuffle') !== '0';
+  const skipPortrait = q.get('landscape') === '1';
+  const portraitKeys = new Set(); // Measured once per session, using browser-oriented dimensions.
   const body = document.body;
   if(q.get('fit') === 'cover') body.classList.add('fit-cover');
   if(q.get('caption') === '0') body.classList.add('no-caption');
@@ -127,13 +130,35 @@
   }
   function msg(text){ const el = $('#msg'); el.textContent = text || ''; el.classList.toggle('on', !!text); }
 
-  function show(i){
+  function show(i, direction = 1){
     if(!st.pool.length) return;
-    st.idx = (i + st.pool.length) % st.pool.length;
+    let index = (i + st.pool.length) % st.pool.length;
+    let checked = 0;
+    while(skipPortrait && portraitKeys.has(st.pool[index].key) && checked < st.pool.length){
+      index = (index + direction + st.pool.length) % st.pool.length;
+      checked++;
+    }
+    if(checked === st.pool.length){
+      clearTimeout(st.timer);
+      st.filteredEmpty = true;
+      $('#imgA').classList.remove('is-current');
+      $('#imgB').classList.remove('is-current');
+      $('#caption').textContent = '';
+      msg('No landscape or square photos to show. Turn off “Skip portrait photos” or choose another collection.');
+      return;
+    }
+    st.idx = index;
     const item = st.pool[st.idx];
     const a = $('#imgA'), b = $('#imgB');
     const incoming = st.current === 'A' ? b : a, outgoing = st.current === 'A' ? a : b;
     incoming.onload = ()=>{
+      if(skipPortrait && incoming.naturalHeight > incoming.naturalWidth){
+        portraitKeys.add(item.key);
+        show(st.idx + direction, direction);
+        return;
+      }
+      st.filteredEmpty = false;
+      msg('');
       incoming.classList.add('is-current'); outgoing.classList.remove('is-current');
       st.current = st.current === 'A' ? 'B' : 'A'; st.errors = 0;
       $('#caption').innerHTML =
@@ -143,13 +168,13 @@
       preload(st.idx + 1);
       schedule();
     };
-    incoming.onerror = ()=>{ st.errors++; if(st.errors < st.pool.length) show(st.idx + 1); else msg('Photos are not loading right now — retrying.'); };
+    incoming.onerror = ()=>{ st.errors++; if(st.errors < st.pool.length) show(st.idx + direction, direction); else msg('Photos are not loading right now — retrying.'); };
     incoming.src = `${R2_PUBLIC}/${item.key}`;
   }
   function preload(i){ if(!st.pool.length) return; const im = new Image(); im.src = `${R2_PUBLIC}/${st.pool[(i + st.pool.length) % st.pool.length].key}`; }
   function schedule(){ clearTimeout(st.timer); if(!st.paused) st.timer = setTimeout(()=> show(st.idx + 1), interval); }
   function next(){ clearTimeout(st.timer); show(st.idx + 1); }
-  function prev(){ clearTimeout(st.timer); show(st.idx - 1); }
+  function prev(){ clearTimeout(st.timer); show(st.idx - 1, -1); }
   function togglePause(){ st.paused = !st.paused; body.classList.toggle('paused', st.paused); schedule(); }
 
   async function start(first){
@@ -157,7 +182,7 @@
       const pool = await loadAll();
       if(!pool.length){ msg('No photos to show yet.'); setTimeout(()=> start(true), 60 * 1000); return; }
       msg('');
-      if(first || !st.pool.length){ st.pool = pool; show(0); }
+      if(first || !st.pool.length || st.filteredEmpty){ st.pool = pool; show(0); }
       else {
         // Hourly refresh: keep our place, pick up anything new, drop anything deleted.
         const cur = st.pool[st.idx] && st.pool[st.idx].key;

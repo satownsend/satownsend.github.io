@@ -26,6 +26,7 @@
   form.elements.clock.checked = q.get('clock') === '1';
   form.elements.caption.checked = q.get('caption') !== '0';
   form.elements.kb.checked = q.get('kb') === '1';
+  form.elements.landscape.checked = q.get('landscape') === '1';
 
   function parameters() {
     const chosen = checks.filter(input => input.checked).map(input => input.value);
@@ -38,6 +39,7 @@
       clock: form.elements.clock.checked ? '1' : '0',
       caption: form.elements.caption.checked ? '1' : '0',
       kb: form.elements.kb.checked ? '1' : '0',
+      landscape: form.elements.landscape.checked ? '1' : '0',
       shuffle: form.elements.shuffle.value
     });
   }

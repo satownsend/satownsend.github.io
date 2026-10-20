@@ -364,3 +364,12 @@ The Instruments collection shows an uncropped thumbnail beside each name. The Th
 The preferred key is stored in a `thumbKey` column added to the instruments sheet on first use. Only the new header and selected instrument's cell are written; ordinary instrument edits preserve the preference and other unedited columns. Legacy rows use their first available image, videos are skipped, missing thumbnail files fall back to originals, and a deleted/missing preferred key falls back to a remaining photo. Uploading or deleting photos refreshes the collection thumbnails immediately.
 
 Validation: `node tests/instrument-thumbnails.cjs` checks selection, fallbacks, failed saves, signed-out guards, additive column creation, and preservation of existing data using simulated services.
+
+
+### Yard photo view pins
+
+Signed-in Plants → Yard map offers separate **Plant pins** and **Photo views** toggles; turn both off for a clean map. **Edit photo views** places one camera position per existing yard-photo view tag. Choose a view, click the map (or enter percentages), adjust direction and cone width, then save. Direction is relative to the map image (0° up, 90° right), and the cone is illustrative rather than a calibrated camera field of view. Edits remain a preview until saved; Cancel discards them. Click a saved camera pin to filter and jump to that view's yard photos.
+
+Pins sync in a `yard_view_pins` tab, created on first save, with columns `view,x,y,angle,fov`. Positions are normalized to the image; a changed map image may require repositioning. View keys use the existing normalized photo-view tags. Retagging all photos does not silently move a pin to a different view: an orphaned pin remains editable/removable and opens an empty filtered gallery. Save/remove writes only that view's row (removal leaves an empty position), preserves other views, and checks the loaded row against the editor's starting state before writing. Simultaneous writes are not an atomic transaction; duplicate rows cause a visible error rather than being silently overwritten. Failed saves retain the draft. The map and yard gallery keep their existing signed-in-only display.
+
+Validation for #129: inline-script syntax and whitespace checks; signed-out page load. Authenticated editing and Google Sheets writes require a signed-in browser and were not exercised in this session. No tests written or run, per user preference.

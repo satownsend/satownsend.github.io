@@ -23,8 +23,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <link rel="stylesheet" href="/shared/styles.css?v=section-details-1">
 <script src="/shared/themes.js?v=section-details-1"></script>
 <script src="/shared/yard-photo-views.js?v=1"></script>
-<script src="/shared/forecast-history.js?v=hourly-1"></script>
+<script src="/shared/forecast-history.js?v=protection-1"></script>
 <script src="/shared/weather-forecast.js?v=1"></script>
+<script src="/shared/plant-protection.js?v=1"></script>
 <script defer src="/shared/nav.js"></script>
 <script defer src="/shared/chat.js"></script>
 <style>
@@ -704,6 +705,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     #printSheet .ps-card-kv dd{margin:0;font-size:8.5pt}
     #printSheet .ps-rip{color:#888;font-weight:400;font-size:9pt}
   }
+
+.protection-panel { margin:18px 0; padding:14px; border:1px solid var(--line2); border-radius:10px; background:var(--bg2); }
+.protection-panel h4 { margin-top:0; }
+.protection-night { padding:10px 0; border-top:1px solid var(--line2); }
+.protection-night p { font-size:13px; line-height:1.6; }
+.protection-panel li { margin:6px 0; }
 </style>
 <link rel="stylesheet" href="/shared/record-cover.css">
 <script src="/shared/record-cover.js"></script>
@@ -1232,6 +1239,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <h3 id="weatherDay"></h3>
     <p class="lat" id="weatherSummary"></p>
     <div id="weatherAlerts"></div>
+    <div id="weatherProtection"></div>
     <div id="weatherHourly"></div>
   </div>
 </div>
@@ -2321,6 +2329,7 @@ function renderWeatherHistory(){
   content.innerHTML = `<p class="small">Captured ${esc(new Date(s.capturedAt).toLocaleString())} for ${esc(s.location.name)} (${esc(s.location.lat)}, ${esc(s.location.lon)}). ${esc(WeatherForecast.provider(s.source))} forecast; these are predictions, not measured weather.</p>
     <div style="overflow-x:auto"><table style="width:100%;font-size:12px"><caption style="text-align:left;margin-bottom:6px">Forecast at capture time</caption><thead><tr><th scope="col">Date</th><th scope="col">High / low</th><th scope="col">Rain chance</th><th scope="col">Precip. (${pu})</th><th scope="col">Sustained wind (mph)</th><th scope="col">Gusts (mph)</th></tr></thead><tbody>${s.days.map(d=>`<tr><th scope="row" style="white-space:nowrap">${esc(d.date)}</th><td>${value(d.hi,u)} / ${value(d.lo,u)}</td><td>${value(d.pop,'%')}</td><td>${value(d.pcp,'',2)}</td><td>${value(d.wind)}</td><td>${value(d.gust)}</td></tr>`).join('')}</tbody></table></div>
     ${s.source==='nws'?'<p class="small">— precipitation amount: NWS does not provide it in this forecast.</p>':''}
+    ${s.protection ? `<details><summary>Saved overnight protection context</summary><p class="small">Inventory and predictions as recorded at capture time.</p>${protectionMarkup(s.protection,s.units)}</details>` : ''}
     ${Array.isArray(s.hourly) && s.hourly.length ? `<details style="margin:12px 0"><summary>Saved hourly detail</summary>${s.days.map(d=>`<details><summary>${esc(d.date)}</summary>${weatherHourlyMarkup(d.date,s.hourly,s.timezone||'UTC',s.units,d.sources)}</details>`).join('')}</details>` : '<p class="small">Hourly detail was not recorded in this snapshot.</p>'}
     <h3 style="font-size:14px">Official alerts at capture time</h3>
     ${s.alertsAvailable ? s.alerts.length ? s.alerts.map(a=>`<details style="margin:8px 0"><summary>${esc(a.event)} · ${esc(a.headline)}</summary><p class="small">${esc(a.severity)} · ${esc(a.effective)} → ${esc(a.expires)}</p><p class="small" style="white-space:pre-wrap">${esc(a.description)}</p></details>`).join('') : '<p class="small">No active NWS alerts returned.</p>' : '<p class="small">NWS alerts unavailable when captured; this does not mean there were no alerts.</p>'}
@@ -2440,8 +2449,8 @@ async function fetchForecast(force=false){
     $('#forecast').innerHTML = '<div class="empty" style="grid-column:1/-1">Set location in Settings to see the forecast.</div>';
     return;
   }
-  const stale = state.forecastVersion !== 2 || state.forecastLocation !== weatherKey || !state.forecast || Date.now()-state.forecastFetched > 3600000;
-  const rainStale = state.forecastVersion !== 2 || state.rainfallLocation !== weatherKey || !state.rainfall || Date.now()-(state.rainfallFetched||0) > 6*3600000;
+  const stale = state.forecastVersion !== 3 || state.forecastLocation !== weatherKey || !state.forecast || Date.now()-state.forecastFetched > 3600000;
+  const rainStale = state.forecastVersion !== 3 || state.rainfallLocation !== weatherKey || !state.rainfall || Date.now()-(state.rainfallFetched||0) > 6*3600000;
   if (!force && !stale){
     if (rainStale) fetchRainfallHistory(s).then(r=>{
       if (!current()) return;
@@ -2471,12 +2480,13 @@ async function fetchForecast(force=false){
   }
   const capturedAt = Date.now();
   state.forecast=bundle.daily;state.forecastHourly=bundle.hourly;state.forecastTimezone=bundle.timezone;
-  state.forecastSource=bundle.source;state.forecastLocation=weatherKey;state.forecastVersion=2;state.forecastFetched=capturedAt;
+  state.forecastSource=bundle.source;state.forecastLocation=weatherKey;state.forecastVersion=3;state.forecastFetched=capturedAt;
   if (rain.status==='fulfilled'){
     state.rainfall=rain.value;state.rainfallLocation=weatherKey;
     if (rainStale) state.rainfallFetched=capturedAt;
   } else if (state.rainfallLocation !== weatherKey){state.rainfall=[];state.rainfallFetched=null;}
   recordWeatherSnapshot({settings:s,daily:bundle.daily,hourly:bundle.hourly,timezone:bundle.timezone,source:bundle.source,
+    protection:PlantProtection.context(bundle.hourly,s.units,bundle.timezone,state.plants,capturedAt),
     alerts:alertList,alertsAvailable:alertList!==null,capturedAt,
     rainfall:state.rainfallLocation===weatherKey?state.rainfall:[],rainfallFetched:state.rainfallLocation===weatherKey?state.rainfallFetched:null,dayAlerts});
   save();renderForecast();
@@ -2493,13 +2503,13 @@ function renderOfficialAlertsOnly(){
 function dayAlerts(d, units){
   const u = units==='C' ? '°C' : '°F';
   const pu = units==='C' ? 'mm' : 'in';
-  const frostT = units==='C' ? 2 : 36;
+  const frostT = units==='C' ? 20/9 : 36;
   const heatT  = units==='C' ? 31 : 88;
   const windT  = 25;
   const alerts = [];
   if (d.lo != null && d.lo <= frostT){
     alerts.push({label:'Frost risk',
-      detail:`Overnight low of ${Math.round(d.lo)}${u}. Cover tender or recently-planted trees with frost cloth, and bring potted plants in or against the house.`});
+      detail:`Daily low of ${Math.round(d.lo)}${u}. This is a temperature-based risk estimate, not a prediction that frost will occur. Review hourly overnight timing and inventory matches below.`});
   }
   if (d.hi != null && d.hi >= heatT){
     alerts.push({label:'Extreme heat',
@@ -2520,7 +2530,7 @@ function renderForecast(){
   const units = state.settings.units;
   const u = units==='C' ? '°C' : '°F';
   const pu = units==='C' ? 'mm' : 'in';
-  const frostThresh = units==='C' ? 2 : 36;
+  const frostThresh = units==='C' ? 20/9 : 36;
   const warmThresh  = units==='C' ? 27 : 80;
   const days = WeatherForecast.days(f);
   state._forecastDays = days;
@@ -2656,17 +2666,16 @@ function buildBrief(){
 
   const livePlants = state.plants.filter(p => !p.dead && !p.wishlist);
 
-  // Frost / cold protection
-  const coldDays = days.slice(0,5).filter(d=>d.lo != null && d.lo <= frostT);
-  if (coldDays.length){
-    const tender = livePlants.filter(p=>/tender|tropical|citrus/i.test(p.tags||''));
-    const containers = livePlants.filter(p=>p.container===true || p.container==='true');
-    const targets = Array.from(new Set([...tender, ...containers].map(p=>p.name)));
-    tasks.push({
-      tag:'protect',
-      title:`Cold ahead — lows to ${Math.round(Math.min(...coldDays.map(d=>d.lo)))}${u} on ${prettyDate(coldDays[0].date)}`,
-      why: targets.length ? `Cover or move: ${targets.slice(0,6).join(', ')}` : 'No tender plants tagged — add tags like "tender" to flag at-risk plants.',
-    });
+  // Hourly overnight predictions; plant matches explain inventory facts, not hardiness.
+  const protection = currentProtection();
+  const coldNight = protection.nights.find(n=>n.frost.length);
+  if (coldNight){
+    tasks.push({tag:'protect',title:`${coldNight.freeze.length?'Freezing temperatures':'Frost risk'} overnight · around ${PlantProtection.time(coldNight.frost[0].start,protection.timezone)}`,
+      why:`${coldNight.coldest.temp.toFixed(1)}${u} at ${PlantProtection.time(coldNight.coldest.time,protection.timezone)}. ${coldNight.complete?'':'Partial hourly coverage. '}Review ${protection.targets.length} inventory matches in the weather details. Plan protection before ${PlantProtection.time(coldNight.frost[0].entry?.from||coldNight.frost[0].start,protection.timezone)}, allowing extra time where onset is unknown; secure covers against wind. Hourly predictions are not official warnings.`});
+  } else {
+    const coldDays=days.slice(0,5).filter(d=>d.lo!=null && d.lo<=frostT);
+    if(coldDays.length)tasks.push({tag:'protect',title:`Daily forecast: cold ahead on ${prettyDate(coldDays[0].date)}`,
+      why:'Daily low suggests cold risk; hourly timing is unavailable or does not confirm an overnight window. '+protectionAdvice(protection)});
   }
 
   // Heat/wind warning
@@ -3838,6 +3847,21 @@ document.addEventListener('keydown', e=>{
   }
 });
 
+function currentProtection(){
+  return PlantProtection.context(state.forecastHourly||[],state.settings.units,state.forecastTimezone||state.settings.timezone||'UTC',state.plants);
+}
+function protectionAdvice(context){
+  const names=context.targets.slice(0,6).map(p=>`${p.name} (${p.reasons.join('; ')})`);
+  return (names.length ? `Review: ${names.join(', ')}${context.targets.length>6?`; +${context.targets.length-6} more in weather details`:''}. ` : 'No matching inventory facts found; this does not mean every plant is safe. ') +
+    'For cold-sensitive plants, consider frost cloth or moving suitable containers to a protected location ahead of the cold window, allowing extra time for uncertain onset. Secure covers against wind. A container, maple name, or recent planting alone does not establish frost sensitivity; check new growth, acclimation, and plant-specific care.';
+}
+function protectionMarkup(context,units,date){
+  const esc=v=>escapeHtml(String(v??''));
+  const nights=context.nights.filter(n=>!date || n.night===date || n.morning===date);
+  return `<section class="protection-panel"><h4>Overnight protection planning</h4><p class="small">Model temperature estimates · ${esc(context.timezone)} · evenings 6 PM to mornings 10 AM. Threshold crossings are bracketed by hourly samples, not exact times. Frost can occur above freezing; these are not official NWS warnings.</p>${nights.length?nights.map(n=>`<div class="protection-night"><strong>${esc(prettyDate(n.night))} → ${esc(prettyDate(n.morning))}${n.freeze.length?' · Freezing temperatures':n.frost.length?' · Frost risk':''}</strong><p>${esc(PlantProtection.describe(n,units,context.timezone))}</p>${!n.frost.length?`<p class="small">${n.complete?'No hours at or below the frost-risk threshold in this overnight forecast.':'No cold hours found in available samples; incomplete coverage cannot rule out risk.'}</p>`:''}</div>`).join(''):'<p>Hourly overnight timing unavailable. Use the daily forecast and current official alerts.</p>'}
+    ${nights.some(n=>n.frost.length)?`<details><summary>Inventory to review (${context.targets.length})</summary><p class="small">Matches describe recorded facts, not a diagnosis of cold sensitivity. Plants already indoors may still appear because their current exposure is not reliably recorded.</p>${context.targets.length?`<ul>${context.targets.map(p=>`<li><strong>${esc(p.name)}</strong> — ${esc(p.reasons.join('; '))}</li>`).join('')}</ul>`:'<p>No eligible inventory matches. Unrecorded sensitivities may still matter.</p>'}<p>${esc(protectionAdvice({...context,targets:[]} ).replace('No matching inventory facts found; this does not mean every plant is safe. ',''))}</p><p class="small">Guidance: <a href="https://extension.umn.edu/garden-and-home/yard-and-garden/gardening-in-minnesota/extending-the-growing-season" target="_blank" rel="noopener">UMN Extension: cold protection</a> · <a href="https://extension.umn.edu/garden-and-home/yard-and-garden/lawns-and-landscapes-in-minnesota/protecting-trees-and-shrubs-in-winter" target="_blank" rel="noopener">Trees, acclimation and winter injury</a></p></details>`:''}</section>`;
+}
+
 function weatherHourlyMarkup(date,hourly,timezone,units,sources={}){
   const esc=value=>escapeHtml(String(value ?? ''));
   const u=`°${units}`,pu=units==='C'?'mm':'in';
@@ -3874,6 +3898,7 @@ function openWeather(idx){
   const dt = new Date(d.date+'T12:00:00');
   $('#weatherDay').textContent = dt.toLocaleDateString(undefined,{weekday:'long', month:'long', day:'numeric'});
   $('#weatherSummary').textContent = WeatherForecast.summary(d,units);
+  $('#weatherProtection').innerHTML = protectionMarkup(currentProtection(),units,d.date);
   $('#weatherHourly').innerHTML = weatherHourlyMarkup(d.date,state.forecastHourly||[],state.forecastTimezone||'UTC',units,d.sources);
   const alerts = dayAlerts(d, units);
   if (!alerts.length){

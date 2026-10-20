@@ -714,7 +714,6 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 .protection-panel li { margin:6px 0; }
 
 .watering-guidance { margin-top:16px; padding:14px; border:1px solid var(--line2); border-radius:12px; }
-.watering-guidance h3 { margin:0 0 8px; }
 .watering-evidence { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; }
 .watering-evidence > div { padding:12px; background:var(--bg2); border-radius:8px; }
 .watering-guidance p { line-height:1.5; margin:8px 0; }
@@ -814,7 +813,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div id="rainfallChart"></div>
       <p class="small" style="color:var(--muted)">Open-Meteo model estimates; not a backyard rain gauge.</p>
     </div>
-    <section id="wateringGuidance" class="watering-guidance" aria-label="Watering guidance"></section>
+    <details class="watering-guidance"><summary>Before you water</summary><div id="wateringGuidance"></div></details>
     <div id="upcomingAlerts" class="upcoming-alerts"></div>
     <details id="weatherHistoryPanel" style="margin-top:16px;border-top:1px solid var(--line2);padding-top:12px">
       <summary style="cursor:pointer;font-weight:600">Weather history</summary>
@@ -3796,7 +3795,7 @@ function renderWateringGuidance(context){
   const esc=v=>escapeHtml(String(v??'')),pu=state.settings.units==='C'?'mm':'in';
   const amount=n=>n==null?'Unavailable':`${n.toFixed(2)} ${pu}`;
   const coverage=context.recent.filter(r=>r.amount!=null).length;
-  el.innerHTML=`<h3>Before you water</h3><p class="small">Soil checks, not watering orders. Weather estimates cannot measure moisture in your pots or root zones.</p>
+  el.innerHTML=`<p class="small">Soil checks, not watering orders. Weather estimates cannot measure moisture in your pots or root zones.</p>
     <div class="watering-evidence"><div><strong>Previous 3 complete days</strong><p>${esc(amount(context.total))} modeled precipitation</p><span class="small">${coverage}/3 days available · ${esc(context.recent[0].date)}–${esc(context.recent[2].date)}${context.total===0?' · Complete estimate of zero; not missing data.':''}</span></div>
     ${context.upcoming.map(d=>`<div><strong>${esc(prettyDate(d.date))}</strong><p>${esc(amount(d.amount))} forecast</p><span class="small">Chance: ${d.probability==null?'unavailable':esc(d.probability)+'%'} · Full calendar day</span></div>`).join('')}</div>
     <p class="small">${context.lowRain===true?'Low modeled rainfall across the recent and upcoming windows.':context.lowRain===null?'Rainfall coverage is incomplete or stale; a dry spell cannot be inferred.':'Rain is present in the estimates; actual soil moisture still needs checking.'} ${context.wet.length?'Meaningful precipitation is forecast with ≥60% chance: consider rechecking after it arrives if the soil is already moist. Do not defer water for a dry or stressed plant.':''}</p>

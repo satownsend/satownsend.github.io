@@ -11,7 +11,7 @@
     return [...new Map(lists.flat().filter(s => s && s.id && Number.isFinite(Date.parse(s.capturedAt)) && s.location && ['C','F'].includes(s.units) && Array.isArray(s.days) && Array.isArray(s.alerts) && s.rainfall && Array.isArray(s.rainfall.days)).map(s => [s.id,s])).values()]
       .sort((a,b) => b.capturedAt.localeCompare(a.capturedAt));
   }
-  function capture({settings, daily, source, alerts, alertsAvailable, rainfall, rainfallFetched, capturedAt, dayAlerts}){
+  function capture({settings, daily, source, alerts, alertsAvailable, rainfall, rainfallFetched, capturedAt, dayAlerts, hourly, timezone}){
     if (!daily || !Array.isArray(daily.time) || !daily.time.length || !Number.isFinite(capturedAt)) return null;
     const location = {name:settings.city || '', lat:number(settings.lat), lon:number(settings.lon)};
     if (location.lat == null || location.lon == null) return null;
@@ -19,6 +19,8 @@
     const days = daily.time.map((date,i) => {
       const d = {date, hi:number(daily.temperature_2m_max?.[i]), lo:number(daily.temperature_2m_min?.[i]),
         pop:number(daily.precipitation_probability_max?.[i]), wind:number(daily.wind_speed_10m_max?.[i]),
+        ...(daily.wind_gusts_10m_max ? {gust:number(daily.wind_gusts_10m_max[i])} : {}),
+        ...(daily.sources?.[i] ? {sources:daily.sources[i]} : {}),
         // NWS /forecast does not supply precipitation amounts; its legacy zero is not a measurement.
         pcp:source === 'nws' ? null : number(daily.precipitation_sum?.[i])};
       d.risks = dayAlerts ? dayAlerts(d,units) : [];
@@ -27,7 +29,8 @@
     if (!days.length) return null;
     const time = new Date(capturedAt).toISOString();
     return {id:`${location.lat},${location.lon}|${units}|${time}`, capturedAt:time,
-      kind:'forecast', version:1, location, units, source, days,
+      kind:'forecast', version:Array.isArray(hourly)?2:1, location, units, source, days,
+      ...(Array.isArray(hourly) ? {timezone:timezone||'UTC',hourly:hourly.map(h=>({time:h.time,date:h.date,temp:number(h.temp),pop:number(h.pop),pcp:number(h.pcp),wind:number(h.wind),gust:number(h.gust)}))} : {}),
       alertsAvailable:!!alertsAvailable, alerts:Array.isArray(alerts) ? alerts : [],
       rainfall: {source:'open-meteo-archive', kind:'model-estimate',
         fetchedAt:rainfallFetched ? new Date(rainfallFetched).toISOString() : null,
@@ -37,7 +40,7 @@
     if (!next) return false;
     const last = merge(history).find(s => s.location.lat === next.location.lat && s.location.lon === next.location.lon && s.units === next.units);
     // Keep alert changes immediately, even within the usual one-hour interval.
-    return !last || Date.parse(next.capturedAt) - Date.parse(last.capturedAt) >= 3600000 ||
+    return !last || (next.version||1) > (last.version||1) || Date.parse(next.capturedAt) - Date.parse(last.capturedAt) >= 3600000 ||
       JSON.stringify([last.alertsAvailable,last.alerts]) !== JSON.stringify([next.alertsAvailable,next.alerts]);
   }
   function toRows(snapshots){

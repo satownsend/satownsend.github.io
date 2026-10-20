@@ -27,7 +27,7 @@
   function chapterMarkup(chapter,index){
     const limit=visible[index]||6, lead=Model.highlights(chapter.photos);
     const ordered=[...lead,...chapter.photos.filter(photo=>!lead.includes(photo))],photos=ordered.slice(0,limit);
-    const milestones=chapter.events.filter(e=>['planted','repotted','moved','trunk measurement','frost damage'].includes(e.action)).slice(0,4);
+    const milestones=chapter.events.filter(e=>(['planted','repotted','moved','trunk measurement'].includes(e.action) || / damage$/i.test(e.action || ''))).slice(0,4);
     return `<section class="recap-section" id="season-${index}"><div class="section-heading"><div><span class="chapter-number">0${index+1} / ${esc(chapter.range)}</span><h2>${esc(chapter.name)}</h2><p>${esc(chapter.blurb)}</p></div><p>${chapter.photos.length} photos · ${chapter.sightings.length} sighting${chapter.sightings.length===1?'':'s'}</p></div>${photos.length?`<div class="photo-grid-year">${photos.map(photoCard).join('')}</div>`:'<p class="season-note">No dated photos recorded for this season.</p>'}${chapter.photos.length>limit?`<button type="button" class="ghost show-more" data-more="${index}">More ${esc(chapter.name.toLowerCase())} photos (${chapter.photos.length-limit} remaining)</button>`:''}${milestones.length?`<ul class="season-milestones">${milestones.map(e=>`<li><time datetime="${esc(e.date)}">${esc(fmt(e.date))}</time>${esc(e.plant.name)} · ${esc(e.action)}</li>`).join('')}</ul>`:''}</section>`;
   }
   function render(){

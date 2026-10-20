@@ -721,6 +721,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 .watering-guidance summary { cursor:pointer; font-weight:600; padding:6px 0; }
 .watering-plants { padding:0; list-style:none; display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:10px; }
 .watering-plants li { padding:12px; border:1px solid var(--line2); border-radius:8px; font-size:13px; }
+
+.rainfall-controls label { display:flex; align-items:center; gap:8px; font-size:13px; }
+.rainfall-controls select { width:auto; min-width:110px; }
+.rainfall-chart-scroll { overflow-x:auto; margin:8px 0; }
+.rainfall-chart-scroll svg { display:block; width:100%; min-width:520px; }
+.rainfall-chart-scroll:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
 </style>
 <link rel="stylesheet" href="/shared/record-cover.css">
 <script src="/shared/record-cover.js"></script>
@@ -810,7 +816,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="small" style="margin-top:8px" id="weatherNote">—</div>
     <div id="rainfallSummary" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--line2)">
       <div class="small" style="color:var(--muted);margin-bottom:6px"><strong style="color:var(--ink-soft)">Estimated rainfall</strong> <span id="rainfallNote"></span></div>
-      <div id="rainfallChart"></div>
+      <div class="row rainfall-controls" style="flex-wrap:wrap;margin:12px 0">
+        <label>View <select id="rainfallView"><option value="bars">Daily bars</option><option value="line">Daily line</option><option value="cumulative">Cumulative total</option></select></label>
+        <label>Range <select id="rainfallRange"><option value="7">7 days</option><option value="14">14 days</option><option value="30" selected>30 days</option></select></label>
+      </div>
+      <p class="small" id="rainfallChartCaption" role="status"></p>
+      <div id="rainfallChart" class="rainfall-chart-scroll" tabindex="0" role="region" aria-label="Rainfall chart; scroll horizontally on small screens"></div>
+      <details><summary>Rainfall data</summary><div id="rainfallData" class="table-scroll"></div></details>
       <p class="small" style="color:var(--muted)">Open-Meteo model estimates; not a backyard rain gauge.</p>
     </div>
     <details class="watering-guidance"><summary>Before you water</summary><div id="wateringGuidance"></div></details>
@@ -2626,45 +2638,56 @@ function renderForecast(){
   buildBrief();
 }
 
+let rainfallChartPreferences={view:'bars',range:30};
+try {
+  const saved=JSON.parse(localStorage.getItem('yardDashboard.rainfallChart')||'null');
+  if(['bars','line','cumulative'].includes(saved?.view))rainfallChartPreferences.view=saved.view;
+  if([7,14,30].includes(saved?.range))rainfallChartPreferences.range=saved.range;
+} catch(_) { /* Chart controls still work when storage is unavailable. */ }
+for(const id of ['rainfallView','rainfallRange'])$('#'+id).addEventListener('change',()=>{
+  rainfallChartPreferences={view:$('#rainfallView').value,range:Number($('#rainfallRange').value)};
+  try {localStorage.setItem('yardDashboard.rainfallChart',JSON.stringify(rainfallChartPreferences));}catch(_){}
+  renderRainfall(state.settings.units==='C'?'mm':'in');
+});
 function renderRainfall(pu){
-  const panel = $('#rainfallSummary');
-  if (!panel) return;
-  const rain = state.rainfall;
-  if (!rain || !rain.length){ panel.style.display = 'none'; return; }
-  panel.style.display = '';
+  const panel=$('#rainfallSummary');if(!panel)return;
+  const rain=state.rainfall;if(!rain?.length){panel.style.display='none';return;}panel.style.display='';
   const today=WeatherForecast.dateKey(Date.now(),state.forecastTimezone||state.settings.timezone||'UTC');
-  const daysAgo=n=>WeatherForecast.shiftDate(today,-n);
-  const sum = n => { const selected=rain.filter(r=>r.date>=daysAgo(n) && r.date<today);return selected.length===n ? WeatherForecast.total(selected.map(r=>r.amount)) : null; };
-  const r7 = sum(7), r14 = sum(14), r30 = sum(30);
-  $('#rainfallNote').textContent = `last 7d: ${WeatherForecast.format(r7,' '+pu,2)} · 14d: ${WeatherForecast.format(r14,' '+pu,2)} · 30d: ${WeatherForecast.format(r30,' '+pu,2)}`;
-
-  // Compact bar chart — one bar per day, last 30 days
-  const sorted = rain.slice().sort((a, b) => a.date.localeCompare(b.date));
-  const max = Math.max(0.1, ...sorted.map(r => r.amount || 0));
-  const w = 360, h = 60, padB = 14, padT = 4;
-  const bw = w / sorted.length;
-  const fmtDate = d => new Date(d + 'T12:00:00').toLocaleDateString(undefined, { weekday:'short', month:'short', day:'numeric' });
-  const bars = sorted.map((r, i) => {
-    const amt = r.amount || 0;
-    const x = i * bw;
-    const label = `${fmtDate(r.date)}: ${r.amount == null ? 'unavailable' : amt > 0 ? amt.toFixed(2) + ' ' + pu : 'dry'}`;
-    // Invisible full-height hit area for hover on every day
-    const hit = `<rect x="${x.toFixed(1)}" y="0" width="${bw.toFixed(1)}" height="${(h - padB).toFixed(1)}" fill="transparent"><title>${label}</title></rect>`;
-    if (amt < 0.005) return hit;
-    const bh = (h - padT - padB) * (amt / max);
-    const bx = x + bw * 0.1;
-    const by = h - padB - bh;
-    return `${hit}<rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${(bw * 0.8).toFixed(1)}" height="${bh.toFixed(1)}" fill="var(--cool)" opacity="0.7" rx="1" style="pointer-events:none"/>`;
+  const rows=n=>Array.from({length:n},(_,i)=>{
+    const date=WeatherForecast.shiftDate(today,i-n),matches=rain.filter(r=>r.date===date);
+    const amount=matches.length===1?WeatherForecast.number(matches[0].amount):null;
+    return {date,amount:amount!=null&&amount>=0?amount:null};
+  });
+  const sum=n=>WeatherForecast.total(rows(n).map(r=>r.amount));
+  $('#rainfallNote').textContent=`last 7d: ${WeatherForecast.format(sum(7),' '+pu,2)} · 14d: ${WeatherForecast.format(sum(14),' '+pu,2)} · 30d: ${WeatherForecast.format(sum(30),' '+pu,2)}`;
+  const {view,range}=rainfallChartPreferences;
+  $('#rainfallView').value=view;$('#rainfallRange').value=String(range);
+  const sorted=rows(range);let accumulated=0,complete=true;
+  const samples=sorted.map(r=>{if(r.amount==null)complete=false;else accumulated+=r.amount;return {...r,value:view==='cumulative'?(complete?accumulated:null):r.amount};});
+  const known=sorted.filter(r=>r.amount!=null).length;
+  const mode=view==='cumulative'?'Cumulative precipitation':view==='line'?'Daily precipitation · line':'Daily precipitation · bars';
+  $('#rainfallChartCaption').textContent=`${mode} · ${range} days ending yesterday · ${pu}. ${known}/${range} days available.`+(view==='cumulative'?' Starts at zero for this range; stops at the first missing day.':' Gaps / × mark unavailable days; zero is shown on the baseline.');
+  const esc=v=>escapeHtml(String(v));
+  const label=date=>new Date(date+'T12:00:00Z').toLocaleDateString(undefined,{timeZone:'UTC',month:'short',day:'numeric'});
+  const w=760,h=180,left=52,right=18,top=14,bottom=36,base=h-bottom,plot=w-left-right;
+  const maximum=Math.max(pu==='mm'?2.54:0.1,...samples.map(r=>r.value??0));
+  const ceiling=Number((maximum*1.1).toPrecision(2)),step=plot/range;
+  const x=i=>left+step*(i+0.5),y=v=>base-v/ceiling*(base-top);
+  const grid=[0,0.5,1].map(f=>`<line x1="${left}" x2="${w-right}" y1="${y(ceiling*f)}" y2="${y(ceiling*f)}" stroke="var(--line2)"/><text x="${left-8}" y="${y(ceiling*f)+4}" text-anchor="end" fill="var(--muted)" font-size="11">${(ceiling*f).toFixed(pu==='mm'?1:2)}</text>`).join('');
+  const indices=[0,Math.round((range-1)/3),Math.round(2*(range-1)/3),range-1];
+  const dates=indices.map((i,j)=>`<text x="${j===0?left:j===3?w-right:x(i)}" y="${h-12}" text-anchor="${j===0?'start':j===3?'end':'middle'}" fill="var(--muted)" font-size="11">${esc(label(samples[i].date))}</text>`).join('');
+  let path='',connected=false;
+  samples.forEach((r,i)=>{if(r.value==null){connected=false;return;}path+=`${connected?'L':'M'}${x(i)},${y(r.value)} `;connected=true;});
+  const line=view==='bars'?'':`<path d="${path}" fill="none" stroke="var(--cool)" stroke-width="2.5"/>`;
+  const marks=samples.map((r,i)=>{
+    const title=`${label(r.date)}: ${r.amount==null?'unavailable':r.amount.toFixed(3)+' '+pu+' daily'}${view==='cumulative'?`; cumulative ${r.value==null?'unavailable':r.value.toFixed(3)+' '+pu}`:''}`;
+    const mark=r.value==null?`<text x="${x(i)}" y="${base-5}" text-anchor="middle" fill="var(--muted)" font-size="12">×</text>`:
+      view==='bars'&&r.value>0?`<rect x="${x(i)-step*0.35}" y="${base-Math.max(1,base-y(r.value))}" width="${step*0.7}" height="${Math.max(1,base-y(r.value))}" rx="2" fill="var(--cool)" opacity="0.85"/>`:
+      `<circle cx="${x(i)}" cy="${y(r.value)}" r="${view==='bars'?2:3}" fill="var(--cool)"/>`;
+    return `<g><title>${esc(title)}</title>${mark}<rect x="${left+i*step}" y="${top}" width="${step}" height="${base-top}" fill="transparent"><title>${esc(title)}</title></rect></g>`;
   }).join('');
-  // Week markers
-  const marks = sorted.map((r, i) => {
-    const d = new Date(r.date + 'T12:00:00');
-    if (d.getDay() !== 0) return ''; // Sunday marks
-    const x = i * bw + bw / 2;
-    return `<text x="${x.toFixed(1)}" y="${h}" text-anchor="middle" font-size="8" fill="var(--muted)">${d.toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' })}</text>`;
-  }).join('');
-  const axis = `<line x1="0" y1="${h - padB}" x2="${w}" y2="${h - padB}" stroke="var(--line2)" stroke-width="0.5"/>`;
-  $('#rainfallChart').innerHTML = `<svg viewBox="0 0 ${w} ${h}" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block" aria-label="Daily rainfall, last 30 days">${axis}${bars}${marks}</svg>`;
+  $('#rainfallChart').innerHTML=`<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(mode)}, last ${range} days, ${esc(pu)}; exact values in Rainfall data"><title>${esc(mode)} (${pu})</title>${grid}${line}${marks}${dates}</svg>`;
+  $('#rainfallData').innerHTML=`<table><thead><tr><th scope="col">Date</th><th scope="col">Daily (${pu})</th>${view==='cumulative'?`<th scope="col">Cumulative (${pu})</th>`:''}</tr></thead><tbody>${samples.map(r=>`<tr><th scope="row">${esc(r.date)}</th><td>${r.amount==null?'Unavailable':r.amount.toFixed(3)}</td>${view==='cumulative'?`<td>${r.value==null?'Unavailable':r.value.toFixed(3)}</td>`:''}</tr>`).join('')}</tbody></table>`;
 }
 
 /* ---------- brief / tasks ---------- */

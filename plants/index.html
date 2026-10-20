@@ -727,6 +727,18 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 .rainfall-chart-scroll { overflow-x:auto; margin:8px 0; }
 .rainfall-chart-scroll svg { display:block; width:100%; min-width:520px; }
 .rainfall-chart-scroll:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+
+.view-pin-editor { padding:14px; margin:12px 0; border:1px solid var(--line2); border-radius:10px; }
+.view-pin-editor[hidden] { display:none; }
+.view-pin-editor label { display:inline-flex; flex-wrap:wrap; align-items:center; gap:6px; margin:6px 12px 6px 0; font-size:13px; }
+.view-pin-editor input[type=number] { width:85px; }
+.view-pin-editor input[type=range] { width:150px; }
+.view-pin-editor select { width:auto; max-width:230px; }
+#yardMapPanel .ymp-view-pin { position:absolute; transform:translate(-50%,-50%); width:30px; height:30px; padding:0; border:2px solid white; border-radius:50%; background:var(--panel); z-index:4; line-height:1; overflow:visible; }
+.ymp-view-pin svg { position:absolute; left:-57px; top:-57px; width:140px; height:140px; pointer-events:none; transform-origin:center; }
+.ymp-view-pin span { position:relative; z-index:1; }
+.ymp-view-pin.is-draft { outline:3px dashed var(--cool); outline-offset:3px; }
+.ymp-view-pin:focus-visible { outline:3px solid var(--cool); outline-offset:4px; }
 </style>
 <link rel="stylesheet" href="/shared/record-cover.css">
 <script src="/shared/record-cover.js"></script>
@@ -960,8 +972,21 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="ymp-toolbar">
       <button id="ympEditBtn" class="ghost">Edit pins</button>
       <select id="ympPlantPick" style="display:none"><option value="">— pick a plant to place —</option></select>
+      <label><input type="checkbox" id="ympShowPlants" checked> Plant pins</label>
+      <label><input type="checkbox" id="ympShowViews" checked> Photo views</label>
+      <button id="ympViewEdit" class="ghost" type="button">Edit photo views</button>
       <span class="ymp-hint" id="ympHint"></span>
     </div>
+    <form id="ympViewForm" hidden class="view-pin-editor">
+      <label>Photo view <select id="ympViewPick" required></select></label>
+      <label>Across (%) <input id="ympViewX" type="number" min="0" max="100" step="0.1" required></label>
+      <label>Down (%) <input id="ympViewY" type="number" min="0" max="100" step="0.1" required></label>
+      <label>Direction <input id="ympViewAngle" type="range" min="0" max="359" value="0"><output id="ympViewAngleLabel">0°</output></label>
+      <label>View width <select id="ympViewFov"><option value="30">Narrow · 30°</option><option value="60" selected>Medium · 60°</option><option value="100">Wide · 100°</option></select></label>
+      <div class="row"><button type="submit" id="ympViewSave">Save view pin</button><button type="button" class="ghost" id="ympViewRemove">Remove pin</button><button type="button" class="ghost" id="ympViewCancel">Cancel</button></div>
+      <p class="small">Choose an existing photo view, then click the map or enter its position. Direction is relative to the image: 0° up, 90° right. The cone is an approximate viewing angle, not a measured field of view. Changes are a preview until saved.</p>
+    </form>
+    <p class="small" id="ympViewStatus" role="status"></p>
     <div class="ymp-wrap" id="ympWrap"></div>
   </div>
 
@@ -5016,6 +5041,7 @@ async function pullFromSheets(){
     state.overview = [...remoteOv, ...[...localOv.values()].filter(o => !remoteOvIds.has(o.plantId))];
     gsPulledOnce = true;
     loadWeatherHistory();
+    loadYardViewPins();
     if (weatherPending.size && isGsAuthed()) queueGsSync();
     gsSuspendSync = true; saveLocal(); gsSuspendSync = false;
     render();
@@ -5711,6 +5737,77 @@ $('#damageFilter').addEventListener('change',renderFrostLog);
 let ympEditing = false;
 let ympSelectedId = null;
 let ympSuppressClick = false;
+let ympViewEditing=false,ympViewDraft=null,ympViewSaving=false,ympViewRevision=0,ympViewOriginal=null;
+let ympPinVisibility={plants:true,views:true};
+try {const p=JSON.parse(localStorage.getItem('yardDashboard.mapPins')||'null');if(p)ympPinVisibility={plants:p.plants!==false,views:p.views!==false};}catch(_){}
+function viewPinValid(p){return p&&typeof p.view==='string'&&p.view.startsWith('view:')&&['x','y','angle','fov'].every(k=>Number.isFinite(p[k]))&&p.x>=0&&p.x<=1&&p.y>=0&&p.y<=1&&p.angle>=0&&p.angle<360&&p.fov>=10&&p.fov<=120;}
+function viewPins(){return (Array.isArray(state.yardViewPins)?state.yardViewPins:[]).filter(viewPinValid);}
+function viewPinRows(rows){
+  if(!rows.length)return [];
+  if(['view','x','y','angle','fov'].some((h,i)=>rows[0][i]!==h))throw new Error('Unrecognized yard_view_pins columns.');
+  return rows.slice(1).filter(r=>r[0]&&r[1]!==''&&r[1]!=null&&r[2]!==''&&r[2]!=null).map(r=>({view:r[0],x:Number(r[1]),y:Number(r[2]),angle:Number(r[3]),fov:Number(r[4])})).filter(viewPinValid);
+}
+async function loadYardViewPins(){
+  const revision=ympViewRevision;
+  try {
+    const rows=isGsAuthed()?(await gsApiFetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}/values/yard_view_pins`)).values||[]:await fetchSheetTabByName('yard_view_pins');
+    const pins=viewPinRows(rows);
+    if(revision!==ympViewRevision||ympViewSaving)return;
+    state.yardViewPins=pins;saveLocal();renderYardMap();
+  }catch(e){$('#ympViewStatus').textContent='Photo view pins could not be loaded (the sheet may not exist yet). Saved browser data is retained; saving will retry.';}
+}
+function viewPinLabel(view){return YardPhotoViews.choices(state.yardPhotos||[]).find(v=>v.value===view)?.label||view.slice(5);}
+function viewPinMarkup(p,draft=false){
+  const label=viewPinLabel(p.view),a=p.fov*Math.PI/360,r=65;
+  const path=`M 0 0 L ${-Math.sin(a)*r} ${-Math.cos(a)*r} A ${r} ${r} 0 0 1 ${Math.sin(a)*r} ${-Math.cos(a)*r} Z`;
+  return `<button type="button" class="ymp-view-pin${draft?' is-draft':''}" data-view="${escapeHtml(p.view)}" aria-label="${escapeHtml((draft?'Preview: ':'Photos from ')+label)}" title="${escapeHtml(label)} · ${Math.round(p.angle)}°" style="left:${p.x*100}%;top:${p.y*100}%"><svg viewBox="-70 -70 140 140" aria-hidden="true" style="transform:rotate(${p.angle}deg)"><path d="${path}" fill="var(--cool)" fill-opacity=".24" stroke="var(--cool)" stroke-width="1.5"/><path d="M 0 -8 L 0 -45 M -5 -38 L 0 -45 L 5 -38" fill="none" stroke="var(--cool)" stroke-width="2"/></svg><span aria-hidden="true">📷</span></button>`;
+}
+function openViewPinEditor(view){
+  if(!isGsAuthed()||ympViewSaving)return;
+  const choices=YardPhotoViews.choices(state.yardPhotos||[]),pins=viewPins();
+  const keys=new Set(choices.map(v=>v.value));
+  pins.forEach(p=>{if(!keys.has(p.view))choices.push({value:p.view,label:viewPinLabel(p.view)+' (no tagged photos)'});});
+  if(!choices.length){$('#ympViewStatus').textContent='Tag a yard photo with a view first, then place that view on the map.';return;}
+  ympEditing=false;ympViewEditing=true;
+  const selected=view||choices[0].value;
+  $('#ympViewPick').innerHTML=choices.map(v=>`<option value="${escapeHtml(v.value)}">${escapeHtml(v.label)}</option>`).join('');
+  $('#ympViewPick').value=selected;
+  ympViewOriginal=pins.find(p=>p.view===selected)||null;
+  ympViewDraft={...(ympViewOriginal||{view:selected,x:.5,y:.5,angle:0,fov:60})};
+  $('#ympViewX').value=(ympViewDraft.x*100).toFixed(1);$('#ympViewY').value=(ympViewDraft.y*100).toFixed(1);
+  $('#ympViewAngle').value=ympViewDraft.angle;$('#ympViewFov').value=[30,60,100].includes(ympViewDraft.fov)?ympViewDraft.fov:60;
+  $('#ympViewForm').hidden=false;$('#ympShowViews').checked=true;ympPinVisibility.views=true;
+  updateViewPinDraft();
+}
+function updateViewPinDraft(){
+  if(!ympViewEditing||ympViewSaving)return;
+  ympViewDraft={view:$('#ympViewPick').value,x:Number($('#ympViewX').value)/100,y:Number($('#ympViewY').value)/100,angle:Number($('#ympViewAngle').value),fov:Number($('#ympViewFov').value)};
+  $('#ympViewAngleLabel').textContent=ympViewDraft.angle+'°';renderYardMap();
+}
+function closeViewPinEditor(){if(ympViewSaving)return;ympViewEditing=false;ympViewDraft=null;$('#ympViewForm').hidden=true;renderYardMap();}
+async function saveViewPin(remove=false){
+  if(!isGsAuthed()||ympViewSaving||!viewPinValid(ympViewDraft))return;
+  const draft={...ympViewDraft},previous=ympViewOriginal;
+  ympViewSaving=true;ympViewRevision++;$('#ympViewSave').disabled=true;$('#ympViewRemove').disabled=true;
+  $('#ympViewStatus').textContent='Saving photo view pin…';
+  try {
+    await ensureTab('yard_view_pins');
+    const base=`https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}/values`;
+    let rows=(await gsApiFetch(base+'/yard_view_pins')).values||[];
+    if(!rows.length){await gsApiFetch(base+'/yard_view_pins!A1:E1?valueInputOption=RAW',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:[['view','x','y','angle','fov']]})});rows=[['view','x','y','angle','fov']];}
+    const remote=viewPinRows(rows),matches=rows.map((r,i)=>r[0]===draft.view?i:-1).filter(i=>i>0);
+    if(matches.length>1)throw new Error('Duplicate rows for this view; resolve them in yard_view_pins before saving.');
+    if(JSON.stringify(remote.find(p=>p.view===draft.view)||null)!==JSON.stringify(previous))throw new Error('This view changed on another device. Reload from Sheets before editing it again.');
+    const values=[[draft.view,...(remove?['','','','']:[draft.x,draft.y,draft.angle,draft.fov])]];
+    if(matches.length)await gsApiFetch(base+`/yard_view_pins!A${matches[0]+1}:E${matches[0]+1}?valueInputOption=RAW`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({values})});
+    else if(!remove)await gsApiFetch(base+'/yard_view_pins!A:E:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({values})});
+    state.yardViewPins=[...remote.filter(p=>p.view!==draft.view),...(remove?[]:[draft])];save();
+    $('#ympViewStatus').textContent=remove?'Photo view pin removed.':'Photo view pin saved to Google Sheets.';
+    ympViewSaving=false;closeViewPinEditor();
+  }catch(e){$('#ympViewStatus').textContent='Pin not saved: '+e.message;}
+  finally{ympViewSaving=false;$('#ympViewSave').disabled=false;$('#ympViewRemove').disabled=false;}
+}
+
 
 function getYardMapUrl(){
   return (state.settings && state.settings.yardMap) || null;
@@ -5731,12 +5828,19 @@ function renderYardMap(){
   }
 
   let html = `<img class="ymp-img" src="${escapeHtml(url)}" alt="Yard map" loading="lazy" decoding="async">`;
-  for (const p of placed){
+  for (const p of ympPinVisibility.plants?placed:[]){
     const x = (p.mapPos.x*100).toFixed(2), y = (p.mapPos.y*100).toFixed(2);
     const sel = ympSelectedId === p.id ? ' selected' : '';
     html += `<div class="ymp-pin${sel}" data-id="${p.id}" data-cat="${escapeHtml(p.category||'')}" title="${escapeHtml(p.name + (p.type ? ' · ' + p.type : ''))}" style="left:${x}%;top:${y}%"></div>`;
   }
+  if(ympPinVisibility.views){
+    for(const pin of viewPins().filter(p=>!ympViewEditing||p.view!==ympViewDraft?.view))html+=viewPinMarkup(pin);
+    if(ympViewEditing&&viewPinValid(ympViewDraft))html+=viewPinMarkup(ympViewDraft,true);
+  }
   wrap.innerHTML = html;
+  $('#ympShowPlants').checked=ympPinVisibility.plants;$('#ympShowViews').checked=ympPinVisibility.views;
+  $('#ympViewForm').hidden=!ympViewEditing;
+  $('#yardMapCount').textContent+=` · ${viewPins().length} photo view${viewPins().length===1?'':'s'}`;
 
   const pick = $('#ympPlantPick');
   const live = (state.plants||[]).filter(p => !p.dead && !p.wishlist).slice().sort((a,b)=>(a.name||'').localeCompare(b.name||''));
@@ -5752,11 +5856,29 @@ function renderYardMap(){
 
 (function wireYardMap(){
   const wrap = $('#ympWrap'); if (!wrap) return;
-  $('#ympEditBtn').onclick = () => { ympEditing = !ympEditing; ympSelectedId = null; renderYardMap(); };
+  $('#ympEditBtn').onclick = () => { if(!isGsAuthed()||ympViewSaving)return;closeViewPinEditor(); ympEditing = !ympEditing; ympSelectedId = null; renderYardMap(); };
+  $('#ympViewEdit').onclick=()=>openViewPinEditor();
+  $('#ympViewPick').onchange=()=>openViewPinEditor($('#ympViewPick').value);
+  for(const id of ['ympViewX','ympViewY','ympViewAngle','ympViewFov'])$('#'+id).addEventListener('input',updateViewPinDraft);
+  $('#ympViewForm').onsubmit=e=>{e.preventDefault();if($('#ympViewForm').reportValidity())saveViewPin();};
+  $('#ympViewRemove').onclick=()=>saveViewPin(true);$('#ympViewCancel').onclick=closeViewPinEditor;
+  for(const [id,key] of [['ympShowPlants','plants'],['ympShowViews','views']])$('#'+id).onchange=e=>{ympPinVisibility[key]=e.target.checked;try{localStorage.setItem('yardDashboard.mapPins',JSON.stringify(ympPinVisibility));}catch(_){}renderYardMap();};
   $('#ympPlantPick').onchange = (e) => { ympSelectedId = e.target.value || null; renderYardMap(); };
 
   wrap.addEventListener('click', e => {
     if (ympSuppressClick){ ympSuppressClick = false; return; }
+    const viewPin=e.target.closest('.ymp-view-pin');
+    if(viewPin){
+      if(ympViewEditing){if(!ympViewSaving)openViewPinEditor(viewPin.dataset.view);}
+      else {yardViewFilter=viewPin.dataset.view;try{localStorage.setItem(YARD_VIEW_FILTER_KEY,yardViewFilter);}catch(_){}renderYardPhotos();$('#yardPhotosPanel').scrollIntoView({behavior:'smooth',block:'start'});$('#ypViewFilter').focus({preventScroll:true});}
+      return;
+    }
+    if(ympViewEditing){
+      if(!isGsAuthed()||ympViewSaving||!e.target.classList.contains('ymp-img'))return;
+      const rect=wrap.getBoundingClientRect();
+      $('#ympViewX').value=Math.max(0,Math.min(100,(e.clientX-rect.left)/rect.width*100)).toFixed(1);
+      $('#ympViewY').value=Math.max(0,Math.min(100,(e.clientY-rect.top)/rect.height*100)).toFixed(1);updateViewPinDraft();return;
+    }
     const pin = e.target.closest('.ymp-pin');
     if (!ympEditing){
       if (pin) openInfo(pin.dataset.id);
@@ -5776,7 +5898,7 @@ function renderYardMap(){
   });
 
   wrap.addEventListener('contextmenu', e => {
-    if (!ympEditing) return;
+    if (!ympEditing || !isGsAuthed()) return;
     const pin = e.target.closest('.ymp-pin');
     if (!pin) return;
     e.preventDefault();
@@ -5786,7 +5908,7 @@ function renderYardMap(){
   });
 
   wrap.addEventListener('pointerdown', e => {
-    if (!ympEditing) return;
+    if (!ympEditing || !isGsAuthed()) return;
     const pin = e.target.closest('.ymp-pin');
     if (!pin) return;
     e.preventDefault();
@@ -6525,7 +6647,7 @@ function saveYardViewTags(){
   if (tags.length) target.viewTags = tags;
   else delete target.viewTags;
   photo.viewTags = target.viewTags;
-  save(); renderYardPhotos();
+  save(); renderYardPhotos(); renderYardMap();
   $('#lightboxViewTags').value = tags.join(', ');
   $('#lightboxViewTagsStatus').textContent = 'View tags updated.';
 }

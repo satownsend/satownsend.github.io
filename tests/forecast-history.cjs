@@ -45,13 +45,13 @@ const integrationSource=page.slice(page.indexOf('const WEATHER_HISTORY_KEY ='),p
 // Weather-fetch integration: fallback, unavailable alerts/rain, failed requests,
 // fresh-cache behavior, and a location change while requests are in flight.
 (async()=>{
-  const source=page.slice(page.indexOf('async function fetchForecast(force=false){'),page.indexOf('function dayAlerts('));
+  const source=page.slice(page.indexOf('let weatherRequest = 0;'),page.indexOf('function dayAlerts('));
   const snapshots=[];let mode='fallback', rainCalls=0;
-  const context={Date,console:{warn(){}},state:{settings:input.settings},$(){return{textContent:'',innerHTML:''}},
+  const context={WeatherForecast:require('../shared/weather-forecast.js'),Date,console:{warn(){}},state:{settings:input.settings},$(){return{textContent:'',innerHTML:'',style:{},addEventListener(){}}},
     save(){}, renderForecast(){},dayAlerts:ctx.dayAlerts,
     recordWeatherSnapshot(x){snapshots.push(H.capture(x));},
     fetchForecastNWS:async()=>{if(mode==='fallback'||mode==='failed')throw Error('NWS offline');if(mode==='move')context.state.settings={...input.settings,lat:42};return input.daily;},
-    fetchForecastOpenMeteo:async()=>{if(mode==='failed')throw Error('offline');return input.daily;},
+    fetchForecastOpenMeteo:async()=>{if(mode==='failed')throw Error('offline');return {daily:input.daily,hourly:[],timezone:'UTC'};},
     fetchNWSAlerts:async()=>null,
     fetchRainfallHistory:async()=>{rainCalls++;throw Error('archive offline');}};
   vm.createContext(context);vm.runInContext(source,context);

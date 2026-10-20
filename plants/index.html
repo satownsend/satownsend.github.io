@@ -23,7 +23,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <link rel="stylesheet" href="/shared/styles.css?v=section-details-1">
 <script src="/shared/themes.js?v=section-details-1"></script>
 <script src="/shared/yard-photo-views.js?v=1"></script>
-<script src="/shared/forecast-history.js?v=1"></script>
+<script src="/shared/forecast-history.js?v=hourly-1"></script>
+<script src="/shared/weather-forecast.js?v=1"></script>
 <script defer src="/shared/nav.js"></script>
 <script defer src="/shared/chat.js"></script>
 <style>
@@ -99,7 +100,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .tasks .tag.move{background:#3a2424;color:#d48a8a}
   .tasks .tag.care{background:#1f2f24;color:#8fc06a}
   .forecast{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
-  .forecast .day{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px;text-align:center;font-size:12px}
+  .forecast .day{cursor:pointer;color:var(--ink);font:inherit;min-width:0;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px;text-align:center;font-size:12px}
   .forecast .day .d{color:var(--muted);font-size:11px}
   .forecast .day .hi{font-weight:600;font-size:14px;color:var(--ink)}
   .forecast .day .lo{color:var(--muted)}
@@ -117,6 +118,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   [data-theme="light"] .forecast .day.alert::after{color:#9a3020}
   [data-theme="light"] .forecast .day.alert:hover{background:#f5c8c0}
   .forecast .day.rain{position:relative}
+  .forecast .day:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  #weatherModal .modal{max-width:900px;width:calc(100vw - 32px)}
+  .hourly-scroll{overflow:auto;max-height:330px;margin-top:12px}
+  .hourly-scroll table{width:100%;font-size:12px}
+  .hourly-scroll th{position:sticky;top:0;background:var(--panel);white-space:nowrap}
+  .hourly-chart{display:block;width:100%;height:auto;max-height:180px;margin-top:12px}
   .forecast .day .rain{display:block;color:var(--cool);font-size:11px;margin-top:2px}
   details{margin-top:8px}
   summary{cursor:pointer;color:var(--muted);font-size:13px}
@@ -780,12 +787,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 </div>
 
   <div class="panel">
-    <h2>Forecast</h2>
+    <h2>Forecast <button id="refreshForecast" class="ghost tiny" type="button">Refresh weather</button></h2>
+    <p class="small" id="forecastSource" role="status" style="color:var(--muted)"></p>
     <div class="forecast" id="forecast"></div>
     <div class="small" style="margin-top:8px" id="weatherNote">—</div>
     <div id="rainfallSummary" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--line2)">
-      <div class="small" style="color:var(--muted);margin-bottom:6px"><strong style="color:var(--ink-soft)">Rainfall</strong> <span id="rainfallNote"></span></div>
+      <div class="small" style="color:var(--muted);margin-bottom:6px"><strong style="color:var(--ink-soft)">Estimated rainfall</strong> <span id="rainfallNote"></span></div>
       <div id="rainfallChart"></div>
+      <p class="small" style="color:var(--muted)">Open-Meteo model estimates; not a backyard rain gauge.</p>
     </div>
     <div id="upcomingAlerts" class="upcoming-alerts"></div>
     <details id="weatherHistoryPanel" style="margin-top:16px;border-top:1px solid var(--line2);padding-top:12px">
@@ -1218,11 +1227,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 </div>
 
 <div class="modal-back" id="weatherModal">
-  <div class="modal" role="dialog" aria-modal="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="weatherDay">
     <button class="close" id="weatherClose" aria-label="Close">×</button>
     <h3 id="weatherDay"></h3>
     <p class="lat" id="weatherSummary"></p>
     <div id="weatherAlerts"></div>
+    <div id="weatherHourly"></div>
   </div>
 </div>
 
@@ -1433,7 +1443,7 @@ function isGsAuthed(){ return GAuth.isAuthed(); }
 const defaultState = {
   settings: {
     city: 'Lilly, PA 15938',
-    lat: 40.4238, lon: -78.6231,
+    lat: 40.4238, lon: -78.6231, timezone:'America/New_York',
     units: 'F',
     zone: '6a',
     lastFrost: '2026-05-13',
@@ -1576,6 +1586,7 @@ function fuzzyMatchOrphanSlug(orphanSlug, candidatePlants){
 state.settings.city = 'Lilly, PA 15938';
 state.settings.lat = 40.4238;
 state.settings.lon = -78.6231;
+state.settings.timezone = 'America/New_York';
 state.settings.zone = state.settings.zone || '6a';
 state.settings.lastFrost = state.settings.lastFrost || '2026-05-13';
 state.settings.firstFrost = state.settings.firstFrost || '2026-10-01';
@@ -2295,7 +2306,7 @@ function renderWeatherHistory(){
   const esc = v=>escapeHtml(String(v ?? ''));
   $('#weatherHistoryStatus').textContent = weatherStorageError || `${weatherHistoryMessage} ${weatherPending.size ? `${weatherPending.size} pending capture(s). ${isGsAuthed() ? 'Waiting for sync.' : 'Sign in to save them to Google Sheets.'}` : ''}`;
   const select = $('#weatherHistorySnapshot'), previous = select.value, snapshots = filteredWeatherHistory();
-  select.innerHTML = snapshots.map(s=>`<option value="${esc(s.id)}">${esc(new Date(s.capturedAt).toLocaleString())} · ${esc(s.location.name || `${s.location.lat}, ${s.location.lon}`)} · ${esc(s.source === 'nws' ? 'NWS' : s.source)} · °${esc(s.units)}</option>`).join('');
+  select.innerHTML = snapshots.map(s=>`<option value="${esc(s.id)}">${esc(new Date(s.capturedAt).toLocaleString())} · ${esc(s.location.name || `${s.location.lat}, ${s.location.lon}`)} · ${esc(WeatherForecast.provider(s.source))} · °${esc(s.units)}</option>`).join('');
   if (snapshots.some(s=>s.id===previous)) select.value = previous;
   select.disabled = !snapshots.length;
   $('#weatherHistoryExport').disabled = !snapshots.length;
@@ -2307,9 +2318,10 @@ function renderWeatherHistory(){
   }
   const s=snapshot, pu=s.units==='C'?'mm':'in', u=`°${s.units}`;
   const value=(n,suffix='',digits=0)=>n == null ? '—' : `${Number(n).toFixed(digits)}${suffix}`;
-  content.innerHTML = `<p class="small">Captured ${esc(new Date(s.capturedAt).toLocaleString())} for ${esc(s.location.name)} (${esc(s.location.lat)}, ${esc(s.location.lon)}). ${s.source==='nws'?'National Weather Service':'Open-Meteo'} forecast; these are predictions, not measured weather.</p>
-    <div style="overflow-x:auto"><table style="width:100%;font-size:12px"><caption style="text-align:left;margin-bottom:6px">Forecast at capture time</caption><thead><tr><th scope="col">Date</th><th scope="col">High / low</th><th scope="col">Rain chance</th><th scope="col">Precip. (${pu})</th><th scope="col">Wind (mph)</th></tr></thead><tbody>${s.days.map(d=>`<tr><th scope="row" style="white-space:nowrap">${esc(d.date)}</th><td>${value(d.hi,u)} / ${value(d.lo,u)}</td><td>${value(d.pop,'%')}</td><td>${value(d.pcp,'',2)}</td><td>${value(d.wind)}</td></tr>`).join('')}</tbody></table></div>
+  content.innerHTML = `<p class="small">Captured ${esc(new Date(s.capturedAt).toLocaleString())} for ${esc(s.location.name)} (${esc(s.location.lat)}, ${esc(s.location.lon)}). ${esc(WeatherForecast.provider(s.source))} forecast; these are predictions, not measured weather.</p>
+    <div style="overflow-x:auto"><table style="width:100%;font-size:12px"><caption style="text-align:left;margin-bottom:6px">Forecast at capture time</caption><thead><tr><th scope="col">Date</th><th scope="col">High / low</th><th scope="col">Rain chance</th><th scope="col">Precip. (${pu})</th><th scope="col">Sustained wind (mph)</th><th scope="col">Gusts (mph)</th></tr></thead><tbody>${s.days.map(d=>`<tr><th scope="row" style="white-space:nowrap">${esc(d.date)}</th><td>${value(d.hi,u)} / ${value(d.lo,u)}</td><td>${value(d.pop,'%')}</td><td>${value(d.pcp,'',2)}</td><td>${value(d.wind)}</td><td>${value(d.gust)}</td></tr>`).join('')}</tbody></table></div>
     ${s.source==='nws'?'<p class="small">— precipitation amount: NWS does not provide it in this forecast.</p>':''}
+    ${Array.isArray(s.hourly) && s.hourly.length ? `<details style="margin:12px 0"><summary>Saved hourly detail</summary>${s.days.map(d=>`<details><summary>${esc(d.date)}</summary>${weatherHourlyMarkup(d.date,s.hourly,s.timezone||'UTC',s.units,d.sources)}</details>`).join('')}</details>` : '<p class="small">Hourly detail was not recorded in this snapshot.</p>'}
     <h3 style="font-size:14px">Official alerts at capture time</h3>
     ${s.alertsAvailable ? s.alerts.length ? s.alerts.map(a=>`<details style="margin:8px 0"><summary>${esc(a.event)} · ${esc(a.headline)}</summary><p class="small">${esc(a.severity)} · ${esc(a.effective)} → ${esc(a.expires)}</p><p class="small" style="white-space:pre-wrap">${esc(a.description)}</p></details>`).join('') : '<p class="small">No active NWS alerts returned.</p>' : '<p class="small">NWS alerts unavailable when captured; this does not mean there were no alerts.</p>'}
     <h3 style="font-size:14px">Forecast-based garden risks</h3>
@@ -2344,86 +2356,33 @@ async function nwsFetchPoints(lat, lon){
   const cache = state.settings.nwsPoints || {};
   const key = nwsCacheKey(lat, lon);
   if (cache[key] && cache[key].forecast) return cache[key];
-  const r = await fetch(`https://api.weather.gov/points/${lat},${lon}`, { headers: { Accept: 'application/geo+json' } });
+  const r = await fetch(`https://api.weather.gov/points/${lat},${lon}`, { headers: { Accept: 'application/geo+json' }, signal:AbortSignal.timeout(15000) });
   if (!r.ok) throw new Error(`NWS points ${r.status}`);
   const j = await r.json();
   const props = j.properties || {};
-  const entry = { forecast: props.forecast, forecastHourly: props.forecastHourly, gridId: props.gridId, gridX: props.gridX, gridY: props.gridY };
+  const entry = { forecast: props.forecast, forecastHourly: props.forecastHourly, gridId: props.gridId, gridX: props.gridX, gridY: props.gridY, timeZone: props.timeZone };
   state.settings.nwsPoints = { ...cache, [key]: entry };
   return entry;
 }
 
 // Convert NWS /forecast periods into the open-meteo daily shape we already use.
-function nwsPeriodsToDaily(periods, units){
-  const wantC = units === 'C';
-  const byDate = new Map();
-  for (const p of periods){
-    const date = (p.startTime || '').slice(0, 10);
-    if (!date) continue;
-    if (!byDate.has(date)) byDate.set(date, []);
-    byDate.get(date).push(p);
-  }
-  const dates = [...byDate.keys()].slice(0, 7);
-  const time = dates;
-  const hi = [], lo = [], pop = [], wind = [], pcp = [], code = [];
-  for (const d of dates){
-    const items = byDate.get(d);
-    const day = items.find(x => x.isDaytime);
-    const night = items.find(x => !x.isDaytime);
-    const dayT = day ? day.temperature : null;
-    const nightT = night ? night.temperature : null;
-    // NWS returns °F for US points by default. Convert if user wants °C.
-    const toUserUnit = (t, srcUnit) => {
-      if (t == null) return null;
-      const isF = (srcUnit || 'F') === 'F';
-      if (wantC && isF) return (t - 32) * 5/9;
-      if (!wantC && !isF) return t * 9/5 + 32;
-      return t;
-    };
-    const dayU = day ? toUserUnit(dayT, day.temperatureUnit) : null;
-    const nightU = night ? toUserUnit(nightT, night.temperatureUnit) : null;
-    // High = warmer of the two periods; low = cooler.
-    const samples = [dayU, nightU].filter(v => v != null);
-    hi.push(samples.length ? Math.max(...samples) : null);
-    lo.push(samples.length ? Math.min(...samples) : null);
-    // Probability of precipitation: max across periods.
-    const pops = items.map(p => p.probabilityOfPrecipitation && p.probabilityOfPrecipitation.value).filter(v => v != null);
-    pop.push(pops.length ? Math.max(...pops) : 0);
-    // Wind: parse "5 to 10 mph" / "10 mph" — take the upper bound across periods.
-    const winds = items.map(p => {
-      const m = String(p.windSpeed || '').match(/(\d+)\s*(?:to\s*(\d+))?\s*mph/i);
-      return m ? parseInt(m[2] || m[1], 10) : 0;
-    });
-    wind.push(winds.length ? Math.max(...winds) : 0);
-    // /forecast doesn't expose daily precip amount; leave as 0 for legacy rendering. Brief uses
-    // pop (probability) as the primary signal, so this is acceptable.
-    pcp.push(0);
-    code.push(0);
-  }
-  return {
-    time,
-    temperature_2m_max: hi,
-    temperature_2m_min: lo,
-    precipitation_sum: pcp,
-    precipitation_probability_max: pop,
-    wind_speed_10m_max: wind,
-    weather_code: code,
-  };
-}
+function nwsPeriodsToDaily(periods, units){ return WeatherForecast.nwsDaily(periods, units); }
 
 async function fetchForecastNWS(s){
   const point = await nwsFetchPoints(s.lat, s.lon);
   if (!point.forecast) throw new Error('NWS forecast URL missing');
   const units = s.units === 'C' ? 'si' : 'us';
-  const r = await fetch(`${point.forecast}?units=${units}`, { headers: { Accept: 'application/geo+json' } });
+  const r = await fetch(`${point.forecast}?units=${units}`, { headers: { Accept: 'application/geo+json' }, signal:AbortSignal.timeout(15000) });
   if (!r.ok) throw new Error(`NWS forecast ${r.status}`);
   const j = await r.json();
-  return nwsPeriodsToDaily((j.properties && j.properties.periods) || [], s.units);
+  const daily = nwsPeriodsToDaily((j.properties && j.properties.periods) || [], s.units);
+  if (!WeatherForecast.validDaily(daily)) throw new Error('NWS forecast unavailable');
+  return daily;
 }
 
 async function fetchNWSAlerts(lat, lon){
   try {
-    const r = await fetch(`https://api.weather.gov/alerts/active?point=${lat},${lon}`, { headers: { Accept: 'application/geo+json' } });
+    const r = await fetch(`https://api.weather.gov/alerts/active?point=${lat},${lon}`, { headers: { Accept: 'application/geo+json' }, signal:AbortSignal.timeout(15000) });
     if (!r.ok) throw new Error(`NWS alerts ${r.status}`);
     const j = await r.json();
     if (!Array.isArray(j.features)) throw new Error('Invalid NWS alerts response');
@@ -2443,99 +2402,92 @@ async function fetchNWSAlerts(lat, lon){
 }
 
 async function fetchForecastOpenMeteo(s){
-  const tempUnit = s.units === 'C' ? 'celsius' : 'fahrenheit';
-  const precipUnit = s.units === 'C' ? 'mm' : 'inch';
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${s.lat}&longitude=${s.lon}`+
-    `&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,weather_code`+
-    `&temperature_unit=${tempUnit}&precipitation_unit=${precipUnit}&wind_speed_unit=mph&timezone=auto&forecast_days=7`+
-    `&models=best_match`;
-  const r = await fetch(url);
+  const url = new URL('https://api.open-meteo.com/v1/forecast');
+  url.search = new URLSearchParams({latitude:s.lat,longitude:s.lon,
+    hourly:'temperature_2m,precipitation_probability,precipitation,wind_speed_10m,wind_gusts_10m',
+    daily:'temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,wind_gusts_10m_max',
+    temperature_unit:s.units==='C'?'celsius':'fahrenheit',precipitation_unit:s.units==='C'?'mm':'inch',wind_speed_unit:'mph',
+    timezone:'auto',timeformat:'unixtime',forecast_days:7,models:'best_match'});
+  const r = await fetch(url.toString(),{signal:AbortSignal.timeout(15000)});
   if (!r.ok) throw new Error(`Open-Meteo ${r.status}`);
-  const j = await r.json();
-  return j.daily;
+  return WeatherForecast.openMeteo(await r.json());
 }
 
 // Historical rainfall from Open-Meteo archive. Returns last 30 days of daily
-// precipitation so we can show actual vs. forecast and make smarter watering
+// precipitation estimates for context alongside the forecast and watering
 // recommendations. Always uses Open-Meteo (NWS doesn't expose historical precip).
 async function fetchRainfallHistory(s){
-  const end = new Date(); end.setDate(end.getDate() - 1);
-  const start = new Date(end); start.setDate(start.getDate() - 29);
-  const fmt = d => d.toISOString().slice(0, 10);
+  const end=WeatherForecast.shiftDate(WeatherForecast.dateKey(Date.now(),s.timezone||'UTC'),-1);
+  const start=WeatherForecast.shiftDate(end,-29);
   const precipUnit = s.units === 'C' ? 'mm' : 'inch';
   const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${s.lat}&longitude=${s.lon}` +
-    `&start_date=${fmt(start)}&end_date=${fmt(end)}` +
+    `&start_date=${start}&end_date=${end}` +
     `&daily=precipitation_sum&precipitation_unit=${precipUnit}&timezone=auto`;
-  const r = await fetch(url);
+  const r = await fetch(url,{signal:AbortSignal.timeout(15000)});
   if (!r.ok) throw new Error(`Open-Meteo archive ${r.status}`);
   const j = await r.json();
   const d = j.daily;
   if (!d || !d.time) return [];
-  return d.time.map((t, i) => ({ date: t, amount: d.precipitation_sum[i] || 0 }));
+  return d.time.map((t, i) => ({ date: t, amount: WeatherForecast.number(d.precipitation_sum?.[i]) }));
 }
 
+let weatherRequest = 0;
 async function fetchForecast(force=false){
-  const s = {...state.settings};
+  const request = ++weatherRequest, s = {...state.settings};
+  const weatherKey = `${s.lat},${s.lon}|${s.units}`;
+  const current = ()=>request === weatherRequest && `${state.settings.lat},${state.settings.lon}|${state.settings.units}` === weatherKey;
   if (s.lat == null || s.lon == null || s.lat === '' || s.lon === ''){
     $('#forecast').innerHTML = '<div class="empty" style="grid-column:1/-1">Set location in Settings to see the forecast.</div>';
-    $('#weatherNote').textContent = '';
     return;
   }
-  const weatherKey = `${s.lat},${s.lon}|${s.units}`;
-  const stale = state.forecastLocation !== weatherKey || !state.forecast || (Date.now() - state.forecastFetched) > 1000*60*60;
-  const rainStale = state.rainfallLocation !== weatherKey || !state.rainfall || (Date.now() - (state.rainfallFetched || 0)) > 1000*60*60*6;
+  const stale = state.forecastVersion !== 2 || state.forecastLocation !== weatherKey || !state.forecast || Date.now()-state.forecastFetched > 3600000;
+  const rainStale = state.forecastVersion !== 2 || state.rainfallLocation !== weatherKey || !state.rainfall || Date.now()-(state.rainfallFetched||0) > 6*3600000;
   if (!force && !stale){
-    // Forecast is fresh, but rainfall might still need fetching (first load,
-    // or >6 hours since last fetch). Kick it off in the background.
-    if (rainStale){
-      fetchRainfallHistory(s).then(r => {
-        if (`${state.settings.lat},${state.settings.lon}|${state.settings.units}` !== weatherKey) return;
-        state.rainfall = r; state.rainfallFetched = Date.now(); state.rainfallLocation = weatherKey;
-        save(); renderForecast();
-      }).catch(e => console.warn('[weather] Rainfall fetch failed:', e.message));
-    }
-    renderForecast(); return;
+    if (rainStale) fetchRainfallHistory(s).then(r=>{
+      if (!current()) return;
+      state.rainfall=r;state.rainfallFetched=Date.now();state.rainfallLocation=weatherKey;save();renderForecast();
+    }).catch(e=>console.warn('[weather] rainfall unavailable'));
+    renderForecast();return;
   }
-  // Try NWS first, fall back to Open-Meteo on any failure (non-US point,
-  // network error, NWS downtime, etc).
-  let daily = null, source = 'nws';
+  $('#forecastSource').textContent = 'Updating NWS and Open-Meteo…';
+  // Fetch providers independently. Official alerts never depend on the selected daily provider.
+  const [nws,meteo,alerts,rain] = await Promise.allSettled([
+    fetchForecastNWS(s),fetchForecastOpenMeteo(s),fetchNWSAlerts(s.lat,s.lon),
+    rainStale ? fetchRainfallHistory(s) : Promise.resolve(state.rainfall),
+  ]);
+  if (!current()) return;
+  const alertList = alerts.status==='fulfilled' ? alerts.value : null;
+  state.nwsAlerts = alertList || [];state.nwsAlertsAvailable = alertList !== null;
+  let bundle;
   try {
-    daily = await fetchForecastNWS(s);
+    const timezone=state.settings.nwsPoints?.[nwsCacheKey(s.lat,s.lon)]?.timeZone || s.timezone || 'UTC';
+    bundle=WeatherForecast.combine(nws.status==='fulfilled'?nws.value:null,meteo.status==='fulfilled'?meteo.value:null,timezone);
   } catch(e){
-    console.warn('[weather] NWS forecast failed, falling back to Open-Meteo:', e.message);
-    try {
-      daily = await fetchForecastOpenMeteo(s);
-      source = 'open-meteo';
-    } catch(e2){
-      $('#weatherNote').textContent = 'Could not fetch forecast.';
-      console.warn('[weather] Open-Meteo fallback also failed:', e2.message);
-      return;
-    }
+    if (state.forecast && state.forecastLocation===weatherKey) renderForecast();
+    else { $('#forecast').innerHTML='';state._forecastDays=[];state.computed=null;$('#rainfallSummary').style.display='none'; }
+    $('#forecastSource').textContent='Forecast providers unavailable. Any cached forecast below may be out of date.';
+    $('#weatherNote').textContent='Could not refresh forecast.';
+    renderOfficialAlertsOnly();return;
   }
-  if (`${state.settings.lat},${state.settings.lon}|${state.settings.units}` !== weatherKey) return;
   const capturedAt = Date.now();
-  const alerts = await fetchNWSAlerts(s.lat, s.lon);
-  let rainfall = state.rainfallLocation === weatherKey ? state.rainfall : [];
-  let rainfallFetched = state.rainfallLocation === weatherKey ? state.rainfallFetched : null;
-  if (rainStale || !rainfall?.length){
-    try {
-      rainfall = await fetchRainfallHistory(s);
-      rainfallFetched = Date.now();
-    } catch(e){ console.warn('[weather] Rainfall history fetch failed:', e.message); }
-  }
-  if (`${state.settings.lat},${state.settings.lon}|${state.settings.units}` !== weatherKey) return;
-  state.forecastLocation = weatherKey;
-  state.forecast = daily;
-  state.forecastFetched = capturedAt;
-  state.forecastSource = source;
-  state.nwsAlerts = alerts || [];
-  state.rainfall = rainfall;
-  state.rainfallFetched = rainfallFetched;
-  state.rainfallLocation = weatherKey;
-  recordWeatherSnapshot({settings:s, daily, source, alerts, alertsAvailable:alerts !== null,
-    capturedAt, rainfall, rainfallFetched, dayAlerts});
-  save();
-  renderForecast();
+  state.forecast=bundle.daily;state.forecastHourly=bundle.hourly;state.forecastTimezone=bundle.timezone;
+  state.forecastSource=bundle.source;state.forecastLocation=weatherKey;state.forecastVersion=2;state.forecastFetched=capturedAt;
+  if (rain.status==='fulfilled'){
+    state.rainfall=rain.value;state.rainfallLocation=weatherKey;
+    if (rainStale) state.rainfallFetched=capturedAt;
+  } else if (state.rainfallLocation !== weatherKey){state.rainfall=[];state.rainfallFetched=null;}
+  recordWeatherSnapshot({settings:s,daily:bundle.daily,hourly:bundle.hourly,timezone:bundle.timezone,source:bundle.source,
+    alerts:alertList,alertsAvailable:alertList!==null,capturedAt,
+    rainfall:state.rainfallLocation===weatherKey?state.rainfall:[],rainfallFetched:state.rainfallLocation===weatherKey?state.rainfallFetched:null,dayAlerts});
+  save();renderForecast();
+}
+$('#refreshForecast').addEventListener('click',async()=>{
+  const button=$('#refreshForecast');button.disabled=true;
+  try { await fetchForecast(true); } finally {button.disabled=false;}
+});
+function renderOfficialAlertsOnly(){
+  $('#upcomingAlerts').innerHTML=(state.nwsAlerts||[]).map(a=>`<div class="ua is-nws"><span class="ua-day">NWS</span><span class="ua-pill nws">${escapeHtml(a.event||'Alert')}</span><span class="ua-detail">${escapeHtml(a.headline||a.description||'')}</span></div>`).join('') +
+    (!state.nwsAlertsAvailable ? '<p class="small">Official NWS alerts unavailable.</p>' : '');
 }
 
 function dayAlerts(d, units){
@@ -2555,7 +2507,10 @@ function dayAlerts(d, units){
   }
   if (d.wind != null && d.wind >= windT){
     alerts.push({label:'High wind',
-      detail:`Gusts up to ${Math.round(d.wind)} mph. Move hanging pots (Asayake, Rikuzen Shidare) to a sheltered spot. Check stake ties on young trees.`});
+      detail:`Sustained wind up to ${Math.round(d.wind)} mph. Move hanging pots (Asayake, Rikuzen Shidare) to a sheltered spot. Check stake ties on young trees.`});
+  }
+  if (d.gust != null && d.gust >= 35){
+    alerts.push({label:'Strong gusts',detail:`Forecast gusts up to ${Math.round(d.gust)} mph. Check stakes and move vulnerable containers to shelter.`});
   }
   return alerts;
 }
@@ -2567,14 +2522,7 @@ function renderForecast(){
   const pu = units==='C' ? 'mm' : 'in';
   const frostThresh = units==='C' ? 2 : 36;
   const warmThresh  = units==='C' ? 27 : 80;
-  const days = f.time.map((t,i)=>({
-    date: t,
-    hi: f.temperature_2m_max[i],
-    lo: f.temperature_2m_min[i],
-    pop: f.precipitation_probability_max[i],
-    pcp: f.precipitation_sum[i],
-    wind: f.wind_speed_10m_max[i],
-  }));
+  const days = WeatherForecast.days(f);
   state._forecastDays = days;
   $('#forecast').innerHTML = days.map((d,i)=>{
     const dt = new Date(d.date+'T12:00:00');
@@ -2583,28 +2531,25 @@ function renderForecast(){
     const alerts = dayAlerts(d, units);
     let cls = '';
     if (alerts.length) cls = 'alert';
-    else if (d.lo <= frostThresh) cls = 'frost';
+    else if (d.lo != null && d.lo <= frostThresh) cls = 'frost';
     else if (d.hi >= warmThresh) cls = 'warm';
     const titleAttr = alerts.length
       ? `title="${alerts.map(a=>a.label).join(' · ')} — click for details"` : '';
-    return `<div class="day ${cls}" data-day="${i}" ${titleAttr}>
+    return `<button type="button" class="day ${cls}" data-day="${i}" aria-haspopup="dialog" aria-label="${escapeHtml(d.date)} forecast details" ${titleAttr}>
       <div class="d">${dow} ${md}</div>
-      <div class="hi">${Math.round(d.hi)}${u}</div>
-      <div class="lo">${Math.round(d.lo)}${u}</div>
-      ${d.pop>=30 ? `<span class="rain">☂ ${d.pop}%</span>` : ''}
-    </div>`;
+      <div class="hi">${d.hi == null ? '—' : Math.round(d.hi)+u}</div>
+      <div class="lo">${d.lo == null ? '—' : Math.round(d.lo)+u}</div>
+      ${d.pop == null ? '<span class="rain">Chance —</span>' : `<span class="rain">☂ ${Math.round(d.pop)}%</span>`}
+      <span class="rain">${d.pcp == null ? 'Amount —' : d.pcp.toFixed(2)+' '+pu}</span>
+    </button>`;
   }).join('');
   // weather note
-  const next3 = days.slice(0,3);
-  const minLo = Math.min(...next3.map(d=>d.lo));
-  const maxHi = Math.max(...next3.map(d=>d.hi));
-  const totalPcp = next3.reduce((a,d)=>a+(d.pcp||0),0);
-  const maxWind = Math.max(...next3.map(d=>d.wind||0));
-  const note = [];
-  note.push(`Next 3 days: ${Math.round(minLo)}–${Math.round(maxHi)}${u}`);
-  note.push(`${totalPcp.toFixed(2)} ${pu} precip`);
-  note.push(`gusts to ${Math.round(maxWind)} mph`);
-  $('#weatherNote').textContent = note.join(' · ');
+  const next3 = days.slice(0,3), lows=next3.map(d=>d.lo).filter(v=>v!=null);
+  const minLo=lows.length?Math.min(...lows):null, maxHi=WeatherForecast.max(next3.map(d=>d.hi));
+  const totalPcp=WeatherForecast.total(next3.map(d=>d.pcp));
+  $('#weatherNote').textContent = `Next 3 days: ${WeatherForecast.format(minLo,u)} to ${WeatherForecast.format(maxHi,u)} · Precipitation ${WeatherForecast.format(totalPcp,' '+pu,2)} · Sustained wind ${WeatherForecast.format(WeatherForecast.max(next3.map(d=>d.wind)),' mph')} · Gusts ${WeatherForecast.format(WeatherForecast.max(next3.map(d=>d.gust)),' mph')}`;
+  const partial = state.forecastSource === 'nws' ? 'Open-Meteo unavailable: hourly detail, precipitation amounts and gusts unavailable. ' : state.forecastSource==='open-meteo' ? 'NWS daily forecast unavailable; Open-Meteo fallback. ' : '';
+  $('#forecastSource').textContent = `${WeatherForecast.provider(state.forecastSource)} · ${partial}Hourly detail: ${state.forecastHourly?.length?'Open-Meteo':'unavailable'} · Updated ${new Date(state.forecastFetched).toLocaleString()} · Official alerts: ${state.nwsAlertsAvailable?'NWS':'unavailable'}. Select a day for details.`;
   // Upcoming alerts list — official NWS active alerts first, then computed
   // frost / heat / wind alerts derived from the per-day forecast numbers.
   const ua = $('#upcomingAlerts');
@@ -2635,10 +2580,9 @@ function renderForecast(){
     }
     days.forEach((d, i) => {
       const dt = new Date(d.date+'T12:00:00');
-      const dayLabel = i === 0 ? 'Today' : i === 1 ? 'Tomorrow'
-        : dt.toLocaleDateString(undefined, { weekday:'short', month:'numeric', day:'numeric' });
+      const dayLabel = dt.toLocaleDateString(undefined, { weekday:'short', month:'numeric', day:'numeric' });
       for (const a of dayAlerts(d, units)){
-        const cls = /frost/i.test(a.label) ? 'frost' : /heat/i.test(a.label) ? 'heat' : 'wind';
+        const cls = /frost|freez/i.test(a.label) ? 'frost' : /heat/i.test(a.label) ? 'heat' : 'wind';
         items.push({ idx: i, dayLabel, cls, label: a.label, detail: a.detail });
       }
     });
@@ -2651,7 +2595,7 @@ function renderForecast(){
         </div>`
       ).join('');
     } else {
-      ua.innerHTML = '';
+      ua.innerHTML = state.nwsAlertsAvailable ? '' : '<p class="small">Official NWS alerts unavailable.</p>';
     }
   }
   // Rainfall summary + chart
@@ -2667,11 +2611,11 @@ function renderRainfall(pu){
   const rain = state.rainfall;
   if (!rain || !rain.length){ panel.style.display = 'none'; return; }
   panel.style.display = '';
-  const today = new Date().toISOString().slice(0, 10);
-  const daysAgo = n => { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); };
-  const sum = n => rain.filter(r => r.date >= daysAgo(n) && r.date <= today).reduce((a, r) => a + (r.amount || 0), 0);
+  const today=WeatherForecast.dateKey(Date.now(),state.forecastTimezone||state.settings.timezone||'UTC');
+  const daysAgo=n=>WeatherForecast.shiftDate(today,-n);
+  const sum = n => { const selected=rain.filter(r=>r.date>=daysAgo(n) && r.date<today);return selected.length===n ? WeatherForecast.total(selected.map(r=>r.amount)) : null; };
   const r7 = sum(7), r14 = sum(14), r30 = sum(30);
-  $('#rainfallNote').textContent = `last 7d: ${r7.toFixed(2)} ${pu} · 14d: ${r14.toFixed(2)} ${pu} · 30d: ${r30.toFixed(2)} ${pu}`;
+  $('#rainfallNote').textContent = `last 7d: ${WeatherForecast.format(r7,' '+pu,2)} · 14d: ${WeatherForecast.format(r14,' '+pu,2)} · 30d: ${WeatherForecast.format(r30,' '+pu,2)}`;
 
   // Compact bar chart — one bar per day, last 30 days
   const sorted = rain.slice().sort((a, b) => a.date.localeCompare(b.date));
@@ -2682,7 +2626,7 @@ function renderRainfall(pu){
   const bars = sorted.map((r, i) => {
     const amt = r.amount || 0;
     const x = i * bw;
-    const label = `${fmtDate(r.date)}: ${amt > 0 ? amt.toFixed(2) + ' ' + pu : 'dry'}`;
+    const label = `${fmtDate(r.date)}: ${r.amount == null ? 'unavailable' : amt > 0 ? amt.toFixed(2) + ' ' + pu : 'dry'}`;
     // Invisible full-height hit area for hover on every day
     const hit = `<rect x="${x.toFixed(1)}" y="0" width="${bw.toFixed(1)}" height="${(h - padB).toFixed(1)}" fill="transparent"><title>${label}</title></rect>`;
     if (amt < 0.005) return hit;
@@ -2713,7 +2657,7 @@ function buildBrief(){
   const livePlants = state.plants.filter(p => !p.dead && !p.wishlist);
 
   // Frost / cold protection
-  const coldDays = days.slice(0,5).filter(d=>d.lo <= frostT);
+  const coldDays = days.slice(0,5).filter(d=>d.lo != null && d.lo <= frostT);
   if (coldDays.length){
     const tender = livePlants.filter(p=>/tender|tropical|citrus/i.test(p.tags||''));
     const containers = livePlants.filter(p=>p.container===true || p.container==='true');
@@ -2743,16 +2687,17 @@ function buildBrief(){
   }
 
   // Watering — containers and recently un-watered.
-  // Use actual rainfall (state.rainfall) if available; fall back to forecast only.
+  // Use modeled rainfall estimates when complete; missing values never imply a dry spell.
   const pu = state.settings.units==='C' ? 'mm' : 'in';
   const recentRainfall = (() => {
     const rain = state.rainfall;
     if (!rain || !rain.length) return null;
-    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 3);
-    const cutoffStr = cutoff.toISOString().slice(0, 10);
-    return rain.filter(r => r.date >= cutoffStr).reduce((a, r) => a + (r.amount || 0), 0);
+    const todayKey=WeatherForecast.dateKey(Date.now(),state.forecastTimezone||state.settings.timezone||'UTC');
+    const cutoffStr=WeatherForecast.shiftDate(todayKey,-3);
+    const rows=rain.filter(r=>r.date>=cutoffStr && r.date<todayKey);
+    return rows.length===3 ? WeatherForecast.total(rows.map(r=>r.amount)) : null;
   })();
-  const forecastDry = days.slice(0,3).every(d=>(d.pop||0) < 40 && (d.pcp||0) < 0.1);
+  const forecastDry = days.length>=3 && days.slice(0,3).every(d=>d.pop != null && d.pcp != null && d.pop < 40 && d.pcp < (state.settings.units==='C'?2.5:0.1));
   // Dry stretch: no significant rain in the past 3 days AND none forecast.
   // Threshold: 0.1 in (or ~2.5 mm). If we have rainfall data, use it; otherwise
   // fall back to forecast probability only.
@@ -2818,12 +2763,12 @@ function buildBrief(){
   }
 
   // Rain coming → skip watering note
-  const wet = days.slice(0,2).find(d=>(d.pop||0)>=60 || (d.pcp||0)>=0.25);
+  const wet = days.slice(0,2).find(d=>(d.pop||0)>=60 || (d.pcp!=null && d.pcp >= (state.settings.units==='C'?6.35:0.25)));
   if (wet){
     const rainWhy = recentRainfall !== null && recentRainfall >= dryThreshold
-      ? `Already got ${recentRainfall.toFixed(2)} ${pu} in the last 3 days. Skip watering; check stake ties and mulch washouts after.`
+      ? `Model estimates ${recentRainfall.toFixed(2)} ${pu} in the last 3 days. Skip watering; check stake ties and mulch washouts after.`
       : 'Skip watering today; check stake ties and mulch washouts after.';
-    tasks.push({tag:'water', title:`Rain likely ${prettyDate(wet.date)} (${wet.pop||0}% / ${wet.pcp||0})`, why: rainWhy});
+    tasks.push({tag:'water', title:`Rain likely ${prettyDate(wet.date)} (${WeatherForecast.format(wet.pop,'%')} / ${WeatherForecast.format(wet.pcp,' '+pu,2)})`, why: rainWhy});
   }
 
   // Seasonal tasks driven by frost dates
@@ -3885,7 +3830,7 @@ $('#infoModal').addEventListener('click', e=>{ if (e.target.id==='infoModal') $(
 document.addEventListener('keydown', e=>{
   if (e.key==='Escape'){
     $('#infoModal').classList.remove('show');
-    $('#weatherModal').classList.remove('show');
+    closeWeather();
     $('#lightbox').classList.remove('show');
     $('#logEditModal').classList.remove('show');
     closeBulkUpload();
@@ -3893,7 +3838,33 @@ document.addEventListener('keydown', e=>{
   }
 });
 
-// Weather alert modal
+function weatherHourlyMarkup(date,hourly,timezone,units,sources={}){
+  const esc=value=>escapeHtml(String(value ?? ''));
+  const u=`°${units}`,pu=units==='C'?'mm':'in';
+  const provider=key=>WeatherForecast.provider(sources?.[key]);
+  const provenance=`Daily temperature: ${provider('high')} / ${provider('low')}; precipitation: ${provider('precipitation')}; sustained wind: ${provider('wind')}; gusts: ${provider('gust')}.`;
+  const samples=hourly.filter(h=>h.date===date);
+  if (!samples.length) return `<p class="small">${esc(provenance)}</p><p class="small">Hourly detail unavailable for this date. The daily forecast remains available.</p>`;
+  const time=h=>new Date(h.time).toLocaleTimeString(undefined,{timeZone:timezone,hour:'numeric',minute:'2-digit',timeZoneName:'short'});
+  const values=samples.map(h=>h.temp).filter(v=>v!=null);
+  let chart='';
+  if (values.length){
+    const low=Math.min(...values)-2,high=Math.max(...values)+2,w=650,h=150,left=40,right=12,top=18,bottom=26;
+    const x=i=>left+i*(w-left-right)/Math.max(1,samples.length-1), y=v=>top+(high-v)*(h-top-bottom)/(high-low);
+    let path='',connected=false;
+    samples.forEach((s,i)=>{if(s.temp==null){connected=false;return;}path+=`${connected?'L':'M'}${x(i).toFixed(1)},${y(s.temp).toFixed(1)} `;connected=true;});
+    const thresholds=[units==='C'?0:32,units==='C'?20/9:36].filter(t=>t>=low && t<=high).map(t=>`<line x1="${left}" x2="${w-right}" y1="${y(t)}" y2="${y(t)}" stroke="var(--muted)" stroke-dasharray="4 4"/><text x="2" y="${y(t)-3}" fill="var(--muted)" font-size="10">${t.toFixed(t===20/9?1:0)}${u}</text>`).join('');
+    const points=samples.map((s,i)=>s.temp==null?'':`<circle cx="${x(i)}" cy="${y(s.temp)}" r="2.5" fill="var(--accent)"><title>${esc(time(s))}: ${esc(WeatherForecast.format(s.temp,u,1))}</title></circle>`).join('');
+    const ticks=[0,Math.floor((samples.length-1)/2),samples.length-1].map((i,j)=>`<text x="${x(i)}" y="${h-5}" text-anchor="${j===0?'start':j===2?'end':'middle'}" fill="var(--muted)" font-size="10">${esc(time(samples[i]))}</text>`).join('');
+    const scale=[Math.min(...values),Math.max(...values)].filter((v,i,a)=>a.indexOf(v)===i).map(v=>`<text x="2" y="${y(v)+3}" fill="var(--muted)" font-size="10">${Math.round(v)}${u}</text>`).join('');
+    chart=`<svg class="hourly-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(date)} hourly temperature forecast in ${esc(u)}; exact values in the table below"><title>Open-Meteo hourly temperature forecast</title>${scale}${thresholds}<path d="${path}" fill="none" stroke="var(--accent)" stroke-width="2"/>${points}${ticks}</svg>`;
+  }
+  return `<h4>Hourly forecast</h4><p class="small">${esc(provenance)}</p><p class="small">Open-Meteo model forecast · ${esc(timezone)}. Precipitation amounts and gust maxima refer to the hour ending at the listed time. Missing values are shown as —.</p>${chart}
+    <div class="hourly-scroll" tabindex="0" role="region" aria-label="Hourly forecast table"><table><thead><tr><th scope="col">Time</th><th scope="col">Temp (${u})</th><th scope="col">Chance (%)</th><th scope="col">Precip. (${pu})</th><th scope="col">Sustained (mph)</th><th scope="col">Gusts (mph)</th></tr></thead><tbody>${samples.map(s=>`<tr><th scope="row">${esc(time(s))}</th>${[['temp',1],['pop',0],['pcp',2],['wind',0],['gust',0]].map(([key,digits])=>`<td>${s[key]==null?'—':Number(s[key]).toFixed(digits)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+
+// Weather details modal
+let weatherReturnFocus = null;
 function openWeather(idx){
   const days = state._forecastDays || [];
   const d = days[idx]; if (!d) return;
@@ -3902,11 +3873,11 @@ function openWeather(idx){
   const pu = units==='C' ? 'mm' : 'in';
   const dt = new Date(d.date+'T12:00:00');
   $('#weatherDay').textContent = dt.toLocaleDateString(undefined,{weekday:'long', month:'long', day:'numeric'});
-  $('#weatherSummary').textContent =
-    `High ${Math.round(d.hi)}${u} · Low ${Math.round(d.lo)}${u} · ${Number(d.pcp||0).toFixed(2)} ${pu} precip (${d.pop||0}%) · wind to ${Math.round(d.wind||0)} mph`;
+  $('#weatherSummary').textContent = WeatherForecast.summary(d,units);
+  $('#weatherHourly').innerHTML = weatherHourlyMarkup(d.date,state.forecastHourly||[],state.forecastTimezone||'UTC',units,d.sources);
   const alerts = dayAlerts(d, units);
   if (!alerts.length){
-    $('#weatherAlerts').innerHTML = `<p style="color:var(--muted);font-size:14px;margin:8px 0 0">No weather alerts for this day.</p>`;
+    $('#weatherAlerts').innerHTML = `<p style="color:var(--muted);font-size:14px;margin:8px 0 0">No calculated frost, heat, or wind alerts for this day.</p>`;
   } else {
     $('#weatherAlerts').innerHTML = alerts.map(a=>`
       <div style="margin-top:14px;padding:10px 12px;border:1px solid var(--line2);border-radius:10px;background:var(--bg2)">
@@ -3914,13 +3885,28 @@ function openWeather(idx){
         <div style="font-size:14px;line-height:1.5">${escapeHtml(a.detail)}</div>
       </div>`).join('');
   }
+  $('#weatherAlerts').innerHTML += '<h4>Current official NWS alerts</h4>' +
+    (state.nwsAlertsAvailable ? (state.nwsAlerts||[]).length ? (state.nwsAlerts||[]).map(a=>`<details><summary>${escapeHtml(a.event||'Alert')}</summary><p class="small" style="white-space:pre-wrap">${escapeHtml(a.headline||'')}<br>${escapeHtml(a.description||'')}</p></details>`).join('') : '<p class="small">No active NWS alerts returned.</p>' : '<p class="small">Official alerts unavailable.</p>');
+  weatherReturnFocus = document.activeElement;
   $('#weatherModal').classList.add('show');
+  $('#weatherClose').focus();
 }
-$('#weatherClose').onclick = ()=> $('#weatherModal').classList.remove('show');
-$('#weatherModal').addEventListener('click', e=>{ if (e.target.id==='weatherModal') $('#weatherModal').classList.remove('show'); });
+function closeWeather(){
+  $('#weatherModal').classList.remove('show');
+  weatherReturnFocus?.focus?.();
+}
+$('#weatherClose').onclick = closeWeather;
+$('#weatherModal').addEventListener('click', e=>{ if (e.target.id==='weatherModal') closeWeather(); });
+$('#weatherModal').addEventListener('keydown',e=>{
+  if (e.key!=='Tab') return;
+  const focusable=[...$('#weatherModal').querySelectorAll('button,summary,[tabindex="0"]')].filter(el=>el.getClientRects().length);
+  const first=focusable[0],last=focusable[focusable.length-1];
+  if (e.shiftKey && document.activeElement===first){e.preventDefault();last?.focus();}
+  else if (!e.shiftKey && document.activeElement===last){e.preventDefault();first?.focus();}
+});
 $('#forecast').addEventListener('click', e=>{
   const day = e.target.closest('.day');
-  if (day && day.classList.contains('alert')) openWeather(parseInt(day.dataset.day, 10));
+  if (day) openWeather(parseInt(day.dataset.day, 10));
 });
 $('#upcomingAlerts').addEventListener('click', e=>{
   const row = e.target.closest('.ua');

@@ -823,7 +823,19 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <option value="taken outside">taken outside</option>
         <option value="brought inside">brought inside</option>
         <option value="frost">frost</option>
-        <option value="frost damage">frost damage</option>
+        <optgroup label="Plant damage">
+          <option value="frost damage">frost damage</option>
+          <option value="wind damage">wind damage</option>
+          <option value="deer damage">deer damage</option>
+          <option value="rabbit damage">rabbit damage</option>
+          <option value="insect damage">insect damage</option>
+          <option value="disease damage">disease damage</option>
+          <option value="heat damage">heat / sun damage</option>
+          <option value="drought damage">drought damage</option>
+          <option value="hail damage">hail damage</option>
+          <option value="snow / ice damage">snow / ice damage</option>
+          <option value="other damage">other damage</option>
+        </optgroup>
         <option value="trunk measurement">trunk measurement</option>
         <option value="note">note</option>
       </select>
@@ -938,7 +950,17 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </div>
 
   <div class="panel full" id="frostPanel">
-    <h2>Frost log <span class="small" id="frostCount" style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted)"></span></h2>
+    <h2>Damage &amp; frost log <span class="small" id="frostCount" style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted)"></span></h2>
+    <div class="row" style="margin-bottom:10px;gap:10px;align-items:center;flex-wrap:wrap">
+      <label class="small" for="damageFilter">Show</label>
+      <select id="damageFilter" style="width:auto;max-width:100%" aria-controls="frostLog">
+        <option value="all">All damage &amp; frost events</option>
+        <option value="damage">All damage reports</option>
+        <option value="frost">Frost events</option>
+      </select>
+      <span class="small" id="damageShown" role="status" aria-live="polite"></span>
+    </div>
+    <p class="small" style="color:var(--muted)">Record damage from weather, wildlife, or other causes in Quick log. Open a report to add notes and attach plant photos.</p>
     <div id="frostLog" class="small"></div>
   </div>
 
@@ -1534,12 +1556,12 @@ function fuzzyMatchOrphanSlug(orphanSlug, candidatePlants){
 })();
 // Migration: auto-hide damage-linked photos from the rotating gallery.
 // Damage shots that were attached before this rule existed didn't get the
-// hide flag set. Walk every frost-damage log entry and apply it. Idempotent:
+// hide flag set. Walk every damage log entry and apply it. Idempotent:
 // autoHidePhoto skips photos already hidden.
 (function migrateDamagePhotosHide(){
   let hidden = 0;
   for (const e of (state.log||[])){
-    if (e.action !== 'frost damage') continue;
+    if (!isDamageAction(e.action)) continue;
     if (!Array.isArray(e.photoKeys) || !e.photoKeys.length) continue;
     for (const k of e.photoKeys){
       if (autoHidePhoto(k)) hidden++;
@@ -2107,7 +2129,7 @@ function buildPrintInventory(){
 
   // Photo cards for plants that have at least one photo (uses linked photos
   // too via getPhotosForPlant). One card per plant, latest photo as the visual.
-  // Exclude photos flagged hideFromGallery — that's how frost-damage shots get
+  // Exclude photos flagged hideFromGallery — that's how damage shots get
   // auto-marked and is also the manual "not representative" toggle.
   const printablePhotos = (p) => getPhotosForPlant(p).filter(ph => !ph.hideFromGallery);
   const cardable = inventory.filter(p => printablePhotos(p).length > 0)
@@ -3959,6 +3981,7 @@ function fmtTemp(t){
   if (isNaN(n)) return '';
   return Math.round(n) + tempUnitSymbol();
 }
+function isDamageAction(action){ return typeof action === 'string' && / damage$/i.test(action); }
 function isFrostAction(a){ return a === 'frost' || a === 'frost damage'; }
 function fmtTrunk(v){ const n = Number(v); return isFinite(n) ? `${n.toFixed(1)} in` : ''; }
 function recentFrostEvents(){
@@ -4153,7 +4176,7 @@ $('#logBtn').onclick = ()=>{
     const by = plantsById();
     for (const t of targets){ const p = by.get(t); if (p && !p.planted) p.planted = date; }
   }
-  save(); renderPlants(); renderLog(); buildBrief();
+  save(); renderPlants(); renderLog(); renderFrostLog(); buildBrief();
   if (typeof renderCareViews === 'function' && $('#calendarView').style.display !== 'none') renderCareViews();
 };
 function renderLog(){
@@ -4168,7 +4191,7 @@ function renderLog(){
       const measureBadge = (e.action === 'trunk measurement' && e.value !== undefined)
         ? `<span class="meta" style="color:var(--accent)">${escapeHtml(fmtTrunk(e.value))}${e.note ? ' · ' : ''}</span>` : '';
       const thumbsHtml = renderLogThumbs(e);
-      return `<tr class="log-row" data-log-id="${e.id}"><td>${escapeHtml(fmtLogWhen(e))}</td><td>${escapeHtml(who)}</td><td>${e.action}</td><td>${tempBadge}${measureBadge}<span class="meta">${escapeHtml(e.note||'')}</span>${thumbsHtml}</td></tr>`;
+      return `<tr class="log-row" data-log-id="${e.id}"><td>${escapeHtml(fmtLogWhen(e))}</td><td>${escapeHtml(who)}</td><td>${escapeHtml(e.action || '')}</td><td>${tempBadge}${measureBadge}<span class="meta">${escapeHtml(e.note||'')}</span>${thumbsHtml}</td></tr>`;
     }).join('')
     + '</tbody></table>';
 }
@@ -4327,10 +4350,10 @@ $('#logEditSave').onclick = () => {
   } else {
     delete e.photoKeys;
   }
-  // Auto-hide any photos linked to a frost-damage entry from the rotating
+  // Auto-hide any photos linked to a damage entry from the rotating
   // gallery. Damage shots aren't what you want cycling through the hero strip.
   // Honors the existing manual toggle — already-hidden photos stay hidden.
-  if (e.action === 'frost damage' && Array.isArray(e.photoKeys)){
+  if (isDamageAction(e.action) && Array.isArray(e.photoKeys)){
     for (const k of e.photoKeys) autoHidePhoto(k);
   }
   // Bump modifiedAt so a later sync from a stale device can't silently revert
@@ -5636,28 +5659,38 @@ document.addEventListener('click', (ev) => {
 
 function renderFrostLog(){
   const el = $('#frostLog'); if (!el) return;
-  const entries = (state.log||[])
-    .filter(e => e.action === 'frost' || e.action === 'frost damage')
+  const allEntries = (state.log||[])
+    .filter(e => e.action === 'frost' || isDamageAction(e.action))
     .slice()
     .sort((a,b) => fmtLogWhen(b).localeCompare(fmtLogWhen(a)));
+  const filter = $('#damageFilter');
+  const selected = filter.value;
+  const actionLabels = new Map([...$('#logAction').options].filter(o=>isDamageAction(o.value)).map(o=>[o.value,o.textContent]));
+  // Preserve unfamiliar damage categories already present in a sheet or older device.
+  for (const e of allEntries) if (isDamageAction(e.action) && !actionLabels.has(e.action)) actionLabels.set(e.action,e.action);
+  filter.innerHTML = '<option value="all">All damage &amp; frost events</option><option value="damage">All damage reports</option><option value="frost">Frost events</option>' +
+    [...actionLabels].map(([value,label])=>`<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`).join('');
+  filter.value = ['all','damage','frost',...actionLabels.keys()].includes(selected) ? selected : 'all';
+  const entries = allEntries.filter(e=>filter.value === 'all' || (filter.value === 'damage' ? isDamageAction(e.action) : e.action === filter.value));
+  $('#damageShown').textContent = allEntries.length ? `Showing ${entries.length} of ${allEntries.length}` : '';
   const countEl = $('#frostCount');
   if (countEl){
-    const frost = entries.filter(e => e.action === 'frost').length;
-    const dmg = entries.filter(e => e.action === 'frost damage').length;
-    countEl.textContent = entries.length ? ` · ${frost} event${frost===1?'':'s'}, ${dmg} damage report${dmg===1?'':'s'}` : '';
+    const frost = allEntries.filter(e => e.action === 'frost').length;
+    const dmg = allEntries.filter(e => isDamageAction(e.action)).length;
+    countEl.textContent = allEntries.length ? ` · ${frost} frost event${frost===1?'':'s'}, ${dmg} damage report${dmg===1?'':'s'}` : '';
   }
   if (!entries.length){
-    el.innerHTML = '<div class="empty">No frost events logged yet. Use Quick log → "frost" or "frost damage" to add one.</div>';
+    el.innerHTML = allEntries.length ? '<div class="empty">No reports match this filter.</div>' : '<div class="empty">No damage or frost events logged yet. Choose a plant (or yard-wide event) and a damage type in Quick log to add one.</div>';
     return;
   }
   // Index frost events by id for quick lookup of the parent of damage entries.
-  const frostById = new Map(entries.filter(e => e.action === 'frost').map(e => [e.id, e]));
+  const frostById = new Map(allEntries.filter(e => e.action === 'frost').map(e => [e.id, e]));
   el.innerHTML = '<table><thead><tr><th>When</th><th>Type</th><th>Low</th><th>Plant</th><th>Note</th></tr></thead><tbody>'
     + entries.map(e => {
       const p = state.plants.find(x => x.id === e.plantId);
-      const pillCls = e.action === 'frost damage' ? 'pill-damage' : 'pill-frost';
+      const pillCls = isDamageAction(e.action) ? 'pill-damage' : 'pill-frost';
       const who = p ? p.name : (e.plantId === '' ? '<em style="color:var(--muted)">Yard</em>' : '—');
-      const temp = e.temp !== undefined ? fmtTemp(e.temp) : '';
+      const temp = isFrostAction(e.action) && e.temp !== undefined ? fmtTemp(e.temp) : '';
       let causedByBadge = '';
       if (e.action === 'frost damage' && e.causedBy){
         const parent = frostById.get(e.causedBy);
@@ -5679,6 +5712,8 @@ function renderFrostLog(){
     }).join('')
     + '</tbody></table>';
 }
+
+$('#damageFilter').addEventListener('change',renderFrostLog);
 
 /* ---------- Yard map ---------- */
 let ympEditing = false;

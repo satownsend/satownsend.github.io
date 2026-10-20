@@ -803,7 +803,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <div id="careNudge" style="display:none"></div>
 </div>
 
-  <div class="panel">
+  <div class="panel full" id="forecastPanel">
     <h2>Forecast <button id="refreshForecast" class="ghost tiny" type="button">Refresh weather</button></h2>
     <p class="small" id="forecastSource" role="status" style="color:var(--muted)"></p>
     <div class="forecast" id="forecast"></div>
@@ -831,7 +831,58 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </details>
   </div>
 
-  <div class="panel">
+  <div class="panel full">
+    <h2>Plants <span class="small">(click "edit" on a row)</span></h2>
+    <div class="filter-row">
+      <input type="search" id="plantFilter" placeholder="Filter plants by name, type, location, tag…" style="flex:1;min-width:160px;max-width:340px">
+      <label><input type="checkbox" id="showDead"> Show departed (RIP)</label>
+      <label><input type="checkbox" id="showThumbs"> Thumbnails</label>
+      <span style="position:relative">
+        <button class="ghost tiny" id="colsBtn" aria-haspopup="true" aria-expanded="false">⚙ columns</button>
+        <div class="cols-pop" id="colsPop" role="dialog" aria-label="Show/hide columns" style="display:none"></div>
+      </span>
+      <button id="addPlantBtn" class="ghost tiny">+ Add plant</button>
+      <button id="bulkUploadBtn" class="ghost tiny">📷 Upload photos</button>
+      <span style="position:relative">
+        <button class="ghost tiny" id="overviewBtn" aria-haspopup="true" aria-expanded="false">✨ AI overviews</button>
+        <div class="ov-pop" id="overviewPop" role="dialog" aria-label="AI overviews">
+          <div class="small" id="ovPopInfo"></div>
+          <button class="tiny" id="ovGenMissing">Generate missing</button>
+          <button class="ghost tiny" id="ovUpdateOld" style="display:none">Add seasonal color</button>
+          <button class="ghost tiny" id="ovRegenAll">Regenerate all</button>
+          <div class="small" id="ovPopStatus" style="min-height:1.2em"></div>
+        </div>
+      </span>
+      <input type="file" id="bulkPhotoInput" accept="image/*,.heic,.heif" multiple style="display:none">
+      <span class="right small" id="plantStats"></span>
+    </div>
+    <div class="table-scroll">
+      <table id="plantTable">
+        <thead><tr>
+          <th data-sort="name" data-col="name">Name</th>
+          <th data-col="thumb"></th>
+          <th data-sort="type" data-col="type">Latin name</th>
+          <th data-sort="category" data-col="category">Type</th>
+          <th data-sort="location" data-col="location">Location</th>
+          <th data-sort="qty" data-col="qty">Qty</th>
+          <th data-sort="photos" data-col="photos">Photos</th>
+          <th data-sort="planted" data-col="planted">Planted</th>
+          <th data-sort="price" data-col="price">Price</th>
+          <th data-sort="total" data-col="total">Total</th>
+          <th data-sort="watered" data-col="watered">Last watered</th>
+          <th data-sort="fed" data-col="fed">Last fed</th>
+          <th data-sort="notes" data-col="notes">Notes</th>
+          <th data-col="edit"></th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <span class="right small" id="plantCount"></span>
+    </div>
+  </div>
+
+  <div class="panel full" id="quickLogPanel">
     <h2>Quick log</h2>
     <div class="row" style="margin-bottom:8px;position:relative">
       <button id="logPlantBtn" type="button" style="flex:1;min-width:160px;text-align:left;background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:7px 10px;cursor:pointer;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Select plants…</button>
@@ -890,57 +941,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <input type="text" id="logNote" placeholder="optional note (e.g. deep soak, 1 gal each)">
     <hr>
     <div id="recentLog" class="small">No entries yet.</div>
-  </div>
-
-  <div class="panel full">
-    <h2>Plants <span class="small">(click "edit" on a row)</span></h2>
-    <div class="filter-row">
-      <input type="search" id="plantFilter" placeholder="Filter plants by name, type, location, tag…" style="flex:1;min-width:160px;max-width:340px">
-      <label><input type="checkbox" id="showDead"> Show departed (RIP)</label>
-      <label><input type="checkbox" id="showThumbs"> Thumbnails</label>
-      <span style="position:relative">
-        <button class="ghost tiny" id="colsBtn" aria-haspopup="true" aria-expanded="false">⚙ columns</button>
-        <div class="cols-pop" id="colsPop" role="dialog" aria-label="Show/hide columns" style="display:none"></div>
-      </span>
-      <button id="addPlantBtn" class="ghost tiny">+ Add plant</button>
-      <button id="bulkUploadBtn" class="ghost tiny">📷 Upload photos</button>
-      <span style="position:relative">
-        <button class="ghost tiny" id="overviewBtn" aria-haspopup="true" aria-expanded="false">✨ AI overviews</button>
-        <div class="ov-pop" id="overviewPop" role="dialog" aria-label="AI overviews">
-          <div class="small" id="ovPopInfo"></div>
-          <button class="tiny" id="ovGenMissing">Generate missing</button>
-          <button class="ghost tiny" id="ovUpdateOld" style="display:none">Add seasonal color</button>
-          <button class="ghost tiny" id="ovRegenAll">Regenerate all</button>
-          <div class="small" id="ovPopStatus" style="min-height:1.2em"></div>
-        </div>
-      </span>
-      <input type="file" id="bulkPhotoInput" accept="image/*,.heic,.heif" multiple style="display:none">
-      <span class="right small" id="plantStats"></span>
-    </div>
-    <div class="table-scroll">
-      <table id="plantTable">
-        <thead><tr>
-          <th data-sort="name" data-col="name">Name</th>
-          <th data-col="thumb"></th>
-          <th data-sort="type" data-col="type">Latin name</th>
-          <th data-sort="category" data-col="category">Type</th>
-          <th data-sort="location" data-col="location">Location</th>
-          <th data-sort="qty" data-col="qty">Qty</th>
-          <th data-sort="photos" data-col="photos">Photos</th>
-          <th data-sort="planted" data-col="planted">Planted</th>
-          <th data-sort="price" data-col="price">Price</th>
-          <th data-sort="total" data-col="total">Total</th>
-          <th data-sort="watered" data-col="watered">Last watered</th>
-          <th data-sort="fed" data-col="fed">Last fed</th>
-          <th data-sort="notes" data-col="notes">Notes</th>
-          <th data-col="edit"></th>
-        </tr></thead>
-        <tbody></tbody>
-      </table>
-    </div>
-    <div class="row" style="margin-top:10px">
-      <span class="right small" id="plantCount"></span>
-    </div>
   </div>
 
   <div class="panel full" id="yardMapPanel">

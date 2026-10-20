@@ -25,6 +25,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <script src="/shared/yard-photo-views.js?v=1"></script>
 <script src="/shared/forecast-history.js?v=protection-1"></script>
 <script src="/shared/weather-forecast.js?v=1"></script>
+<script src="/shared/weather-calendar.js?v=1"></script>
 <script src="/shared/plant-protection.js?v=1"></script>
 <script src="/shared/watering-guidance.js?v=1"></script>
 <script defer src="/shared/nav.js"></script>
@@ -739,6 +740,23 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 .ymp-view-pin span { position:relative; z-index:1; }
 .ymp-view-pin.is-draft { outline:3px dashed var(--cool); outline-offset:3px; }
 .ymp-view-pin:focus-visible { outline:3px solid var(--cool); outline-offset:4px; }
+
+.wc-controls label { display:flex; align-items:center; gap:6px; font-size:13px; }
+.wc-controls select { width:auto; max-width:260px; }
+.wc-months { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr)); gap:20px; margin-top:16px; }
+.wc-grid { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:4px; }
+.wc-weekday { text-align:center; color:var(--muted); font-size:11px; }
+.wc-tile { min-width:0; min-height:45px; padding:4px 1px; font-size:12px; border:1px solid transparent; color:#fff; display:flex; flex-direction:column; justify-content:space-between; align-items:center; border-radius:5px; }
+.wc-symbols { font-size:10px; min-height:13px; }
+.wc-freezing { background:#254578; color:#fff; }.wc-cool { background:#356877; color:#fff; }.wc-mild { background:#3a6348; color:#fff; }.wc-warm { background:#77552c; color:#fff; }.wc-hot { background:#8c3936; color:#fff; }
+.wc-unknown { background:repeating-linear-gradient(135deg,var(--panel) 0 4px,var(--panel2) 4px 8px); color:var(--muted); border:1px dashed var(--line2); }
+.wc-tile.selected,.wc-tile:focus-visible { outline:3px solid var(--accent); outline-offset:1px; }
+.wc-legend { display:flex; flex-wrap:wrap; gap:8px; }.wc-legend span { padding:5px 8px; border-radius:4px; }
+#wcDay { margin-top:20px; border-top:1px solid var(--line2); padding-top:12px; scroll-margin-top:20px; }
+#wcDay details { margin:14px 0; }#wcDay summary { cursor:pointer; font-weight:600; }
+.wc-snapshot { padding:8px 0; border-bottom:1px solid var(--line2); font-size:13px; }
+.wc-photos { display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:10px; }
+.wc-photos button { padding:4px; background:var(--panel2); color:var(--ink); }.wc-photos img { display:block; width:100%; height:100px; object-fit:cover; }.wc-photos span { font-size:12px; }
 </style>
 <link rel="stylesheet" href="/shared/record-cover.css">
 <script src="/shared/record-cover.js"></script>
@@ -854,6 +872,23 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div id="weatherHistoryContent"></div>
     </details>
   </div>
+
+  <details class="panel full" id="weatherCalendarPanel">
+    <summary style="font-weight:600;cursor:pointer">Weather calendar</summary>
+    <p class="small">Saved forecasts, not observed weather. Each tile uses the latest capture strictly before that day in the calendar time zone, for one location and unit set. Today’s captures cannot replace yesterday’s prediction. This calendar uses all loaded history, independently of the history date filters.</p>
+    <div class="row wc-controls" style="flex-wrap:wrap;margin:12px 0">
+      <label>Location / units <select id="wcLocation"></select></label>
+      <button type="button" class="ghost tiny" id="wcPrev" aria-label="Previous calendar year">← Year</button>
+      <label>Year <input type="number" id="wcYear" min="1900" max="2200" step="1" style="width:90px"></label>
+      <button type="button" class="ghost tiny" id="wcNext" aria-label="Next calendar year">Year →</button>
+      <label>Month <select id="wcMonth"><option value="all">All months</option></select></label>
+    </div>
+    <p class="small" id="wcCoverage" role="status"></p>
+    <div class="wc-legend small"><span class="wc-freezing">High ≤32°F / 0°C</span><span class="wc-cool">≤50°F / 10°C</span><span class="wc-mild">≤70°F / 21.1°C</span><span class="wc-warm">≤85°F / 29.4°C</span><span class="wc-hot">Above 85°F / 29.4°C</span><span class="wc-unknown">? No eligible forecast · stripes: high unavailable</span></div>
+    <p class="small">Color = predicted high. ● rain chance ≥40% · ❄ frost risk · ☀ heat risk · ≋ strong wind/gusts · ! official alert with a saved validity interval covering this day. Symbols are predictions/alerts as captured, not confirmed events. No symbol does not establish calm weather; values may be missing.</p>
+    <div id="wcMonths" class="wc-months"></div>
+    <section id="wcDay" tabindex="-1" aria-label="Selected weather calendar day"></section>
+  </details>
 
   <div class="panel full">
     <h2>Plants <span class="small">(click "edit" on a row)</span></h2>
@@ -2350,6 +2385,64 @@ async function syncWeatherHistory(){
     throw e;
   } finally { weatherSyncing = false; renderWeatherHistory(); }
 }
+let weatherCalendarYear=new Date().getFullYear(),weatherCalendarDate='',weatherCalendarGroup='';
+const wcMonthNames=Array.from({length:12},(_,i)=>new Date(Date.UTC(2020,i,1)).toLocaleDateString(undefined,{timeZone:'UTC',month:'long'}));
+function calendarPhotos(date){
+  const result=[],seen=new Set(),owners=[...(state.plants||[]).filter(p=>!p.wishlist),...(isGsAuthed()?[YARD]:[])];
+  for(const p of owners)for(const ph of p.photos||[])if(ph.key&&ph.date===date&&!ph.hideFromGallery&&!seen.has(ph.key)){seen.add(ph.key);result.push({...ph,plantId:p.id,plantName:p.name});}
+  return result;
+}
+function calendarSetup(){
+  $('#wcMonth').innerHTML='<option value="all">All months</option>'+wcMonthNames.map((m,i)=>`<option value="${i}">${escapeHtml(m)}</option>`).join('');
+  $('#wcLocation').onchange=()=>{weatherCalendarGroup=$('#wcLocation').value;renderWeatherCalendar();};
+  $('#wcYear').addEventListener('input',()=>{const y=Number($('#wcYear').value);if(Number.isInteger(y)&&y>=1900&&y<=2200)weatherCalendarYear=y;});
+  $('#wcYear').onchange=()=>{const y=Number($('#wcYear').value);if(Number.isInteger(y)&&y>=1900&&y<=2200){weatherCalendarYear=y;weatherCalendarDate='';}renderWeatherCalendar();};
+  $('#wcPrev').onclick=()=>{weatherCalendarYear=Math.max(1900,weatherCalendarYear-1);weatherCalendarDate='';renderWeatherCalendar();};
+  $('#wcNext').onclick=()=>{weatherCalendarYear=Math.min(2200,weatherCalendarYear+1);weatherCalendarDate='';renderWeatherCalendar();};
+  $('#wcMonth').onchange=()=>renderWeatherCalendar();
+  $('#weatherCalendarPanel').addEventListener('toggle',()=>{if($('#weatherCalendarPanel').open)renderWeatherCalendar();});
+  $('#wcMonths').onclick=e=>{const tile=e.target.closest('[data-wc-date]');if(!tile)return;weatherCalendarDate=tile.dataset.wcDate;renderWeatherCalendar();$('#wcDay').focus();$('#wcDay').scrollIntoView({behavior:'smooth',block:'start'});};
+  $('#wcDay').onclick=e=>{const button=e.target.closest('[data-wc-photo]');if(!button)return;const photo=calendarPhotos(weatherCalendarDate)[Number(button.dataset.wcPhoto)];if(!photo)return;currentInfoPlantId=photo.plantId;const owner=photo.plantId===YARD_ID?YARD:state.plants.find(p=>p.id===photo.plantId);const photos=(owner?.photos||[]).filter(p=>!p.hideFromGallery);openLightbox(photos,photos.findIndex(p=>p.key===photo.key));};
+}
+calendarSetup();
+function renderWeatherCalendar(){
+  const el=$('#wcMonths');if(!el)return;
+  const groups=WeatherCalendar.groups(weatherHistory),esc=v=>escapeHtml(String(v??''));
+  const preferred=`${state.settings.lat},${state.settings.lon}|${state.settings.units}`;
+  if(!groups.some(g=>g.key===weatherCalendarGroup))weatherCalendarGroup=groups.find(g=>g.key===preferred)?.key||groups[0]?.key||'';
+  $('#wcLocation').innerHTML=groups.map(g=>`<option value="${esc(g.key)}">${esc(g.name)} · °${g.units}</option>`).join('');$('#wcLocation').value=weatherCalendarGroup;$('#wcLocation').disabled=!groups.length;
+  $('#wcYear').value=weatherCalendarYear;$('#wcPrev').disabled=weatherCalendarYear<=1900;$('#wcNext').disabled=weatherCalendarYear>=2200;
+  const group=groups.find(g=>g.key===weatherCalendarGroup),timezone=group?.timezone||'UTC',index=WeatherCalendar.index(weatherHistory,group);
+  const total=new Date(Date.UTC(weatherCalendarYear+1,0,1))-new Date(Date.UTC(weatherCalendarYear,0,1));
+  const covered=[...index.keys()].filter(d=>d.startsWith(weatherCalendarYear+'-')).length;
+  $('#wcCoverage').textContent=`${covered} of ${total/86400000} days have an eligible saved forecast · ${timezone}. ${weatherHistoryMessage} Missing days remain unknown. Coverage counts dates, not weather events.`;
+  const icons={frost:'❄',heat:'☀',wind:'≋',official:'!'};
+  const month=$('#wcMonth').value;
+  el.innerHTML=wcMonthNames.map((name,m)=>{
+    if(month!=='all'&&Number(month)!==m)return '';
+    const count=new Date(Date.UTC(weatherCalendarYear,m+1,0)).getUTCDate(),offset=new Date(Date.UTC(weatherCalendarYear,m,1)).getUTCDay();
+    const tiles=Array.from({length:count},(_,i)=>{
+      const date=`${weatherCalendarYear}-${String(m+1).padStart(2,'0')}-${String(i+1).padStart(2,'0')}`,entry=index.get(date),flags=WeatherCalendar.flags(entry,timezone),d=entry?.day;
+      const text=entry?`${date}. Saved forecast: high ${d.hi??'unavailable'}, low ${d.lo??'unavailable'} degrees ${entry.snapshot.units}; rain chance ${d.pop==null?'unavailable':d.pop+' percent'}; ${flags.join(', ')||'no risk symbols'}. Captured ${entry.snapshot.capturedAt}, ${entry.leadDays} calendar days before target.`:`${date}. No eligible saved forecast; weather unknown.`;
+      return `<button type="button" class="wc-tile wc-${WeatherCalendar.temperature(entry)}${weatherCalendarDate===date?' selected':''}" data-wc-date="${date}" aria-pressed="${weatherCalendarDate===date}" aria-label="${esc(text)}" title="${esc(text)}"><span>${i+1}</span><span class="wc-symbols" aria-hidden="true">${entry?(d.pop>=40?'●':'')+flags.map(f=>icons[f]).join(''):'?'}</span></button>`;
+    }).join('');
+    return `<section><h3>${esc(name)}</h3><div class="wc-grid">${['S','M','T','W','T','F','S'].map(d=>`<span class="wc-weekday" aria-hidden="true">${d}</span>`).join('')}${'<span aria-hidden="true"></span>'.repeat(offset)}${tiles}</div></section>`;
+  }).join('');
+  renderCalendarDay(index.get(weatherCalendarDate),group);
+}
+function renderCalendarDay(entry,group){
+  const el=$('#wcDay'),date=weatherCalendarDate,esc=v=>escapeHtml(String(v??''));
+  if(!date){el.innerHTML='<p class="small">Select a day to explore its saved prediction, photos and care notes.</p>';return;}
+  const tz=group?.timezone||'UTC',stamp=s=>new Date(s.capturedAt).toLocaleString(undefined,{timeZone:tz,timeZoneName:'short'});
+  const snapshots=weatherHistory.filter(s=>group&&WeatherCalendar.key(s)===group.key&&s.days.some(d=>d.date===date)).sort((a,b)=>b.capturedAt.localeCompare(a.capturedAt));
+  const photos=calendarPhotos(date),notes=(state.log||[]).filter(l=>l.date===date);
+  el.innerHTML=`<h3>${esc(prettyDate(date))} · ${date.slice(0,4)}</h3>${entry?`<p><strong>Chosen forecast</strong> · captured ${esc(stamp(entry.snapshot))} · ${entry.leadDays} calendar day${entry.leadDays===1?'':'s'} before target day · ${esc(WeatherForecast.provider(entry.snapshot.source))}.</p><p>${esc(WeatherForecast.summary(entry.day,entry.snapshot.units))}</p><p class="small">${entry.snapshot.alertsAvailable?'Official alerts were available at capture time.':'Official alert information was unavailable at capture time.'}</p>`:'<p>No eligible snapshot was captured before this day. Weather is unknown, even if photos or care records exist.</p>'}
+    ${entry?`<details><summary>Official alerts as saved (${entry.snapshot.alerts.length})</summary><p class="small">These are the alerts returned at capture time. Only saved validity intervals overlapping this date receive a tile symbol.</p>${entry.snapshot.alerts.map(a=>`<p><strong>${esc(a.event)}</strong> · ${esc(a.effective)} → ${esc(a.expires)}<br>${esc(a.headline)}<br>${esc(a.description)}</p>`).join('')}</details>`:''}
+    <details><summary>All saved forecasts containing this date (${snapshots.length})</summary><p class="small">Same-day and later captures are listed for comparison only; they cannot color the tile.</p>${snapshots.map(s=>{const d=s.days.find(d=>d.date===date);return `<div class="wc-snapshot"><strong>${esc(stamp(s))}</strong> · ${WeatherCalendar.dateAt(s.capturedAt,tz)<date?'pre-day capture':'same-day/later capture'}<p>${esc(WeatherForecast.provider(s.source))} · ${esc(WeatherForecast.summary(d,s.units))}</p></div>`;}).join('')||'<p>No saved forecasts contain this date.</p>'}</details>
+    <h4>Dated photos (${photos.length})</h4><p class="small">Site records matched by recorded photo date, not by forecast location or proof of weather conditions. Hidden photos are excluded; yard photos require sign-in.</p><div class="wc-photos">${photos.map((p,i)=>`<button type="button" data-wc-photo="${i}" aria-label="Open ${esc(p.plantName)} photo"><img src="${esc(r2PublicUrl(p.key+'.thumb.jpg'))}" loading="lazy" alt="${esc(p.caption||p.plantName)}"><span>${esc(p.plantName)}</span></button>`).join('')||'<p class="small">No visible photos dated this day.</p>'}</div>
+    <h4>Care notes (${notes.length})</h4>${notes.length?`<ul>${notes.map(l=>`<li><strong>${esc(state.plants.find(p=>p.id===l.plantId)?.name||'Yard')}</strong> · ${esc(l.action)}${l.time?' · '+esc(l.time):''}${l.note?' — '+esc(l.note):''}</li>`).join('')}</ul>`:'<p class="small">No care records dated this day.</p>'}`;
+}
+
 function filteredWeatherHistory(){
   const from = $('#weatherHistoryFrom').value, through = $('#weatherHistoryThrough').value;
   return weatherHistory.filter(s=>{
@@ -2359,6 +2452,7 @@ function filteredWeatherHistory(){
   });
 }
 function renderWeatherHistory(){
+  renderWeatherCalendar();
   const esc = v=>escapeHtml(String(v ?? ''));
   $('#weatherHistoryStatus').textContent = weatherStorageError || `${weatherHistoryMessage} ${weatherPending.size ? `${weatherPending.size} pending capture(s). ${isGsAuthed() ? 'Waiting for sync.' : 'Sign in to save them to Google Sheets.'}` : ''}`;
   const select = $('#weatherHistorySnapshot'), previous = select.value, snapshots = filteredWeatherHistory();
@@ -5304,6 +5398,7 @@ function setSyncStatus(label, kind){
 
 // --- Google OAuth (implicit grant for browser apps) ---
 function refreshGsStatus(){
+  renderWeatherCalendar();
   const authed = isGsAuthed();
   document.body.classList.toggle('view-only', !authed);
   if (authed){

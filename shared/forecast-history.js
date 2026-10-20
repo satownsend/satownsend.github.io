@@ -11,7 +11,7 @@
     return [...new Map(lists.flat().filter(s => s && s.id && Number.isFinite(Date.parse(s.capturedAt)) && s.location && ['C','F'].includes(s.units) && Array.isArray(s.days) && Array.isArray(s.alerts) && s.rainfall && Array.isArray(s.rainfall.days)).map(s => [s.id,s])).values()]
       .sort((a,b) => b.capturedAt.localeCompare(a.capturedAt));
   }
-  function capture({settings, daily, source, alerts, alertsAvailable, rainfall, rainfallFetched, capturedAt, dayAlerts, hourly, timezone}){
+  function capture({settings, daily, source, alerts, alertsAvailable, rainfall, rainfallFetched, capturedAt, dayAlerts, hourly, timezone, protection}){
     if (!daily || !Array.isArray(daily.time) || !daily.time.length || !Number.isFinite(capturedAt)) return null;
     const location = {name:settings.city || '', lat:number(settings.lat), lon:number(settings.lon)};
     if (location.lat == null || location.lon == null) return null;
@@ -29,8 +29,9 @@
     if (!days.length) return null;
     const time = new Date(capturedAt).toISOString();
     return {id:`${location.lat},${location.lon}|${units}|${time}`, capturedAt:time,
-      kind:'forecast', version:Array.isArray(hourly)?2:1, location, units, source, days,
+      kind:'forecast', version:protection?3:Array.isArray(hourly)?2:1, location, units, source, days,
       ...(Array.isArray(hourly) ? {timezone:timezone||'UTC',hourly:hourly.map(h=>({time:h.time,date:h.date,temp:number(h.temp),pop:number(h.pop),pcp:number(h.pcp),wind:number(h.wind),gust:number(h.gust)}))} : {}),
+      ...(protection ? {protection} : {}),
       alertsAvailable:!!alertsAvailable, alerts:Array.isArray(alerts) ? alerts : [],
       rainfall: {source:'open-meteo-archive', kind:'model-estimate',
         fetchedAt:rainfallFetched ? new Date(rainfallFetched).toISOString() : null,

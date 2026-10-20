@@ -50,6 +50,17 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 .gallery-stage:hover .gallery-nav{opacity:1}
 @media (hover:none){.gallery-nav{opacity:.7}}
 
+/* ── Collection thumbnails ── */
+.instrument-name{display:flex;align-items:center;gap:12px}
+.instrument-name .namelink{min-width:0;overflow-wrap:anywhere}
+.instrument-thumb{display:inline-flex;align-items:center;justify-content:center;flex:none;width:52px;height:64px;padding:3px;border:1px solid var(--line2);border-radius:7px;background:var(--bg2);color:var(--muted);overflow:hidden}
+button.instrument-thumb{cursor:pointer}
+.instrument-thumb img[hidden]{display:none}
+.instrument-thumb img{display:block;width:100%;height:100%;object-fit:contain}
+.instrument-thumb.is-missing:after{content:'—'}
+.instrument-thumb:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+#instrumentTable.hide-thumbnails .instrument-thumb{display:none}
+
 /* ── Column visibility ── */
 #instrumentTable.hide-category [data-col="category"],
 #instrumentTable.hide-type [data-col="type"],
@@ -68,6 +79,7 @@ body.view-only .edit-row,
 body.view-only #photoUploadInput + span,
 body.view-only label:has(#photoUploadInput),
 body.view-only #lightboxDelete,
+body.view-only #lightboxThumbnail,
 body.view-only #lightboxCaption,
 body.view-only #addMaintenanceBtn{display:none!important}
 
@@ -171,6 +183,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <input type="search" id="searchBox" placeholder="Search instruments&hellip;">
       <select id="categoryFilter"><option value="">All categories</option></select>
       <select id="typeFilter"><option value="">All types</option></select>
+      <label><input type="checkbox" id="showThumbs" checked> Thumbnails</label>
       <span style="position:relative">
         <button class="ghost tiny" id="colsBtn" aria-haspopup="true" aria-expanded="false">&#9881; columns</button>
         <div class="cols-pop" id="colsPop" role="dialog" aria-label="Show/hide columns" style="display:none"></div>
@@ -382,6 +395,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div style="display:flex;gap:8px;justify-content:center;margin-top:10px;flex-wrap:wrap">
         <button id="lightboxPrev" class="ghost tiny" style="color:#fff;border-color:rgba(255,255,255,.2)">&lsaquo; Prev</button>
         <button id="lightboxNext" class="ghost tiny" style="color:#fff;border-color:rgba(255,255,255,.2)">Next &rsaquo;</button>
+        <button id="lightboxThumbnail" class="ghost tiny" style="color:#fff;border-color:rgba(255,255,255,.2)">Use as thumbnail</button>
         <button id="lightboxFeature" class="ghost tiny edit-row" style="color:#fff;border-color:rgba(255,255,255,.2)">&#9734; Feature on homepage</button>
         <button id="lightboxDelete" class="ghost tiny" style="color:#f59a8a;border-color:rgba(245,154,138,.3)">Delete</button>
       </div>
@@ -633,6 +647,21 @@ function maintenanceFor(id){ return state.maintenance.filter(m=>m.instrument_id=
 function photosFor(id){ return state.photos.filter(p=>p.instrument_id===id); }
 function r2PublicUrl(key){ return `${R2_CONFIG.publicUrl}/${key}`; }
 
+function isInstrumentImage(photo){ return !!photo?.key && !/\.(mp4|mov|webm|m4v)(?:[?#]|$)/i.test(photo.key); }
+function instrumentThumbnail(inst){
+  const photos = photosFor(inst.id).filter(isInstrumentImage);
+  return photos.find(photo=>photo.key === inst.thumbKey) || photos[0] || null;
+}
+function instrumentThumbnailMarkup(inst){
+  const photo = instrumentThumbnail(inst);
+  if (!photo) return '<span class="instrument-thumb" role="img" aria-label="No instrument photo">—</span>';
+  return `<button type="button" class="instrument-thumb" data-info="${escapeHtml(inst.id)}" aria-label="Open ${escapeHtml(instrumentName(inst))}"><img loading="lazy" decoding="async" src="${escapeHtml(r2PublicUrl(photo.key + '.thumb.jpg'))}" data-full-src="${escapeHtml(r2PublicUrl(photo.key))}" onerror="instrumentThumbnailError(this)" alt=""></button>`;
+}
+function instrumentThumbnailError(img){
+  if (!img.dataset.fallbackTried){ img.dataset.fallbackTried = '1'; img.src = img.dataset.fullSrc; }
+  else { img.hidden = true; img.closest('.instrument-thumb')?.classList.add('is-missing'); }
+}
+
 function instrumentName(inst){
   return [inst.make, inst.model].filter(Boolean).join(' ') || inst.id || 'Unnamed';
 }
@@ -705,7 +734,7 @@ function renderInstruments(){
     const statusDisplay = inst.status || '—';
 
     tr.innerHTML = `
-      <td data-col="name"><a href="#" class="namelink" data-info="${escapeHtml(inst.id)}">${escapeHtml(name)}</a></td>
+      <td data-col="name"><div class="instrument-name">${instrumentThumbnailMarkup(inst)}<a href="#" class="namelink" data-info="${escapeHtml(inst.id)}">${escapeHtml(name)}</a></div></td>
       <td data-col="category" data-label="Category">${escapeHtml(inst.category||'—')}</td>
       <td data-col="type" data-label="Type">${escapeHtml(inst.type||'—')}</td>
       <td data-col="year" data-label="Year">${escapeHtml(inst.year||'—')}</td>
@@ -912,6 +941,42 @@ function cancelEdit(){
   $('#editBtn').style.display = '';
 }
 
+function instrumentSheetColumn(index){
+  let value = index + 1, result = '';
+  while (value > 0){ value--; result = String.fromCharCode(65 + value % 26) + result; value = Math.floor(value / 26); }
+  return result;
+}
+async function gsSetInstrumentThumbnail(instrumentId, key){
+  const token = GAuth.token();
+  if (!token) throw new Error('Not signed in to Google');
+  const base = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}`;
+  const headers = {Authorization:'Bearer '+token,'Content-Type':'application/json'};
+  const response = await fetch(`${base}/values/instruments?majorDimension=ROWS`,{headers});
+  if (!response.ok) throw new Error('Could not read instrument sheet');
+  const rows = (await response.json()).values || [], columns = rows[0] || [];
+  const idColumn = columns.indexOf('id');
+  if (idColumn < 0) throw new Error('No instrument id column found');
+  const rowIndex = rows.findIndex((row,i)=>i>0 && row[idColumn]===instrumentId);
+  if (rowIndex < 1) throw new Error('Instrument not found in sheet');
+  let thumbColumn = columns.indexOf('thumbKey');
+  const data = [];
+  if (thumbColumn < 0){
+    thumbColumn = columns.length;
+    const metadata = await fetch(`${base}?fields=sheets.properties(sheetId,title,gridProperties(columnCount))`,{headers});
+    if (!metadata.ok) throw new Error('Could not read instrument sheet columns');
+    const tab = (await metadata.json()).sheets?.find(sheet=>sheet.properties.title==='instruments')?.properties;
+    if (!tab) throw new Error('Instrument sheet not found');
+    if (tab.gridProperties.columnCount <= thumbColumn){
+      const resize = await fetch(`${base}:batchUpdate`,{method:'POST',headers,body:JSON.stringify({requests:[{updateSheetProperties:{properties:{sheetId:tab.sheetId,gridProperties:{columnCount:thumbColumn+1}},fields:'gridProperties.columnCount'}}]})});
+      if (!resize.ok) throw new Error('Could not add thumbnail column');
+    }
+    data.push({range:`instruments!${instrumentSheetColumn(thumbColumn)}1`,values:[['thumbKey']]});
+  }
+  data.push({range:`instruments!${instrumentSheetColumn(thumbColumn)}${rowIndex+1}`,values:[[key]]});
+  const write = await fetch(`${base}/values:batchUpdate`,{method:'POST',headers,body:JSON.stringify({valueInputOption:'RAW',data})});
+  if (!write.ok) throw new Error('Could not save instrument thumbnail');
+}
+
 async function gsUpdateRow(instrumentId, updatedValues){
   const token = GAuth.token();
   if(!token) throw new Error('Not signed in to Google');
@@ -929,8 +994,8 @@ async function gsUpdateRow(instrumentId, updatedValues){
     if(rows[i][idCol]===instrumentId){ rowIdx=i+1; break; }
   }
   if(rowIdx<0) throw new Error('Instrument not found in sheet');
-  const newRow = headers.map(h=> updatedValues[h]!==undefined ? updatedValues[h] : '');
-  const range = `instruments!A${rowIdx}:${String.fromCharCode(64+headers.length)}${rowIdx}`;
+  const newRow = headers.map((h,i)=> updatedValues[h]!==undefined ? updatedValues[h] : (rows[rowIdx-1][i] ?? ''));
+  const range = `instruments!A${rowIdx}:${instrumentSheetColumn(headers.length-1)}${rowIdx}`;
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=RAW`;
   const r = await fetch(url, {
     method:'PUT',
@@ -1136,7 +1201,7 @@ async function updateMaintenance(m, updated){
 function renderInstrumentPhotos(instrumentId){
   const instrument = state.instruments.find(i => i.id === instrumentId);
   if (instrument) RecordCover.render(document.getElementById('recordCover'), {
-    photos: photosFor(instrumentId), preferredKey: photosFor(instrumentId).find(p => p.key === state._featuredKey)?.key || photosFor(instrumentId).find(p => p.key && !/\.(mp4|mov|webm)$/i.test(p.key))?.key, url: r2PublicUrl, name: instrumentName(instrument),
+    photos: photosFor(instrumentId), preferredKey: instrumentThumbnail(instrument)?.key, url: r2PublicUrl, name: instrumentName(instrument),
     facts: [['Make', instrument.make], ['Year', instrument.year], ['Category', instrument.category], ['Status', instrument.status]]
   });
   const photos = photosFor(instrumentId).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
@@ -1178,11 +1243,21 @@ document.addEventListener('keydown', e=>{
 
 /* ── Table click → open info ── */
 $('#instrumentTable').addEventListener('click', e=>{
-  const link = e.target.closest('a[data-info]');
+  const link = e.target.closest('[data-info]');
   if(link){ e.preventDefault(); openInfo(link.dataset.info); return; }
   const tr = e.target.closest('tr[data-id]');
   if(tr) openInfo(tr.dataset.id);
 });
+
+/* ── Thumbnail visibility (saved in this browser) ── */
+const SHOW_THUMBS_KEY = 'instrumentDashboard.showThumbs';
+try { $('#showThumbs').checked = localStorage.getItem(SHOW_THUMBS_KEY) !== '0'; } catch(e){}
+function applyThumbnailVisibility(){ $('#instrumentTable').classList.toggle('hide-thumbnails', !$('#showThumbs').checked); }
+$('#showThumbs').addEventListener('change',()=>{
+  try { localStorage.setItem(SHOW_THUMBS_KEY,$('#showThumbs').checked ? '1' : '0'); } catch(e){}
+  applyThumbnailVisibility();
+});
+applyThumbnailVisibility();
 
 /* ── Column visibility ── */
 const COL_KEYS = ['category','type','year','datePurchased','stringsGauge','status'];
@@ -1827,6 +1902,7 @@ $('#photoUploadInput').addEventListener('change', async function(){
   if (ok){
     statusEl.textContent = `${ok} photo${ok>1?'s':''} uploaded.`;
     renderInstrumentPhotos(instrumentId);
+    renderInstruments();
     refreshGallery();
   }
   setTimeout(()=>{ statusEl.style.display = 'none'; }, 3000);
@@ -1853,7 +1929,36 @@ function showLightboxIdx(){
   $('#lightboxDate').textContent = ph.date || '';
   $('#lightboxCaption').value = ph.caption || '';
   updateFeatureBtn(ph);
+  updateThumbnailBtn(ph);
 }
+
+/* ── Per-instrument thumbnail (issue #61) ── */
+let thumbnailSaving = false;
+function updateThumbnailBtn(photo){
+  const btn = $('#lightboxThumbnail');
+  const instrument = state.instruments.find(i=>i.id === (photo?.instrument_id || state._currentInstrumentId));
+  const selected = instrument?.thumbKey === photo?.key;
+  btn.textContent = selected ? '✓ Thumbnail · reset to automatic' : 'Use as thumbnail';
+  btn.hidden = !isGsAuthed() || !instrument || !isInstrumentImage(photo);
+  btn.disabled = thumbnailSaving;
+  btn.setAttribute('aria-pressed',String(!!selected));
+}
+async function saveInstrumentThumbnail(){
+  if (!isGsAuthed() || thumbnailSaving) return;
+  const photo = (state._lightboxPhotos || [])[lightboxIdx];
+  const instrument = state.instruments.find(i=>i.id === (photo?.instrument_id || state._currentInstrumentId));
+  if (!instrument || !isInstrumentImage(photo) || !photosFor(instrument.id).some(p=>p.key===photo.key)) return;
+  const key = instrument.thumbKey === photo.key ? '' : photo.key;
+  thumbnailSaving = true; updateThumbnailBtn(photo);
+  try {
+    await gsSetInstrumentThumbnail(instrument.id,key);
+    instrument.thumbKey = key;
+    renderInstruments();
+    if (state._currentInstrumentId === instrument.id) renderInstrumentPhotos(instrument.id);
+  } catch(e){ alert('Could not save thumbnail: ' + e.message); }
+  finally { thumbnailSaving = false; updateThumbnailBtn((state._lightboxPhotos || [])[lightboxIdx]); }
+}
+$('#lightboxThumbnail').addEventListener('click',saveInstrumentThumbnail);
 
 /* ── Feature-on-homepage toggle (issue #50) ── */
 function updateFeatureBtn(ph){
@@ -1906,6 +2011,8 @@ $('#lightboxDelete').onclick = async ()=>{
     await deleteInstrumentPhoto(ph.instrument_id || state._currentInstrumentId, ph.key);
     state._lightboxPhotos = (state._lightboxPhotos||[]).filter((_,i)=>i!==lightboxIdx);
     renderInstrumentPhotos(state._currentInstrumentId);
+    renderInstruments();
+    refreshGallery();
     if (!state._lightboxPhotos.length){
       $('#lightbox').style.display='none';
     } else {

@@ -346,3 +346,11 @@ Validation: `node tests/forecast-history.cjs` exercises snapshot provenance, mis
 Plants → Quick log supports frost, wind, deer, rabbit, insect, disease, heat/sun, drought, hail, snow/ice, and other damage. Log one report for selected plants or a yard-wide event, then open an entry to add notes and attach plant photos. The Damage & frost log filters by damage category and keeps existing frost events, temperatures, and caused-by links available. Temperature and frost-event linking apply only to frost/frost-damage entries; switching to another cause clears those frost-only fields on save.
 
 Damage categories use the existing log `action` column, so no sheet migration is needed. Linked damage photos follow the existing frost-damage gallery-hiding behavior, and damage entries can appear among Backyard Year's seasonal milestones. `node tests/plant-damage.cjs` exercises production save/edit/render and sheet import/export code with simulated state and no live writes.
+
+### Instrument thumbnails
+
+The Instruments collection shows an uncropped thumbnail beside each name. The Thumbnails checkbox saves its visibility preference in the current browser. Open an instrument photo and, while signed in, choose **Use as thumbnail** to save that instrument's preferred photo; select the same photo again to reset to automatic selection. The record cover uses the same choice. This is independent of the homepage feature setting.
+
+The preferred key is stored in a `thumbKey` column added to the instruments sheet on first use. Only the new header and selected instrument's cell are written; ordinary instrument edits preserve the preference and other unedited columns. Legacy rows use their first available image, videos are skipped, missing thumbnail files fall back to originals, and a deleted/missing preferred key falls back to a remaining photo. Uploading or deleting photos refreshes the collection thumbnails immediately.
+
+Validation: `node tests/instrument-thumbnails.cjs` checks selection, fallbacks, failed saves, signed-out guards, additive column creation, and preservation of existing data using simulated services.

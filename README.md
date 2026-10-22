@@ -383,3 +383,10 @@ Colors represent the forecast high, dots indicate rain chance ≥40%, and symbol
 Selecting a day shows all saved forecasts containing that date, visible plant photos, and care log entries matched by recorded date. Those site records are not verified to belong to the selected weather location. Hidden photos and wishlist plants are excluded, and yard photos retain their sign-in requirement. Photo buttons open the existing lightbox. The calendar uses all loaded archive records independently of the Weather history date filters; cache-only/offline coverage may be incomplete until shared history loads.
 
 Validation for #110: syntax/whitespace checks; local browser review of year/month controls, a 29-day February in 2024, known and unknown days, capture/lead labels, dated care notes, and opening a photo. No tests were written or run, per user preference. Multiple-location/unit combinations and synthetic official-alert intervals were not exercised in the browser.
+
+
+### Bulk plant-log corrections
+
+Signed-in Quick log offers checkboxes, date/action filters, Select matching, and a Bulk edit log disclosure. Choose which fields to change: date, action, or notes (replace/clear/append). Other fields remain unchanged; selection spans filters and the editor lists the selected entries before Apply. Changing an action clears incompatible temperature/measurement/frost-cause fields and applies damage-photo hiding consistently. The existing Sheets sync saves updates under the same log IDs. Undo is available for 10 seconds and preserves subsequent edits to changed fields. Individual editing remains available by clicking the row outside its checkbox.
+
+Quick log now defaults to the browser's local calendar date instead of UTC, matching its time field. Last-log lookups choose the latest dated/time-stamped entry rather than spreadsheet order, so corrections update last-watered/fed displays correctly. Validation: syntax/whitespace checks and signed-out browser review of the local date and hidden editing controls; authenticated bulk writes/undo were not exercised. No tests written or run, per user preference.

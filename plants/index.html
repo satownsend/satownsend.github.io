@@ -26,6 +26,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <script src="/shared/forecast-history.js?v=protection-1"></script>
 <script src="/shared/weather-forecast.js?v=1"></script>
 <script src="/shared/weather-calendar.js?v=1"></script>
+<script src="/shared/growth-story.js?v=1"></script>
 <script src="/shared/plant-protection.js?v=1"></script>
 <script src="/shared/watering-guidance.js?v=1"></script>
 <script defer src="/shared/nav.js"></script>
@@ -1421,6 +1422,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="small" style="color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-size:11px">Photos</div>
         <div style="display:flex;gap:6px">
           <button id="thenNowBtn" class="ghost tiny">Then vs Now</button>
+          <button id="growthStoryBtn" class="ghost tiny" type="button" hidden>Growth story</button>
           <label class="ghost tiny" style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;border:1px solid var(--line2);border-radius:8px;padding:5px 10px;background:transparent;color:var(--ink);font-size:12px">
             + Add
             <input type="file" id="photoUploadInput" accept="image/*,.heic,.heif" multiple style="display:none">
@@ -3849,6 +3851,14 @@ $('#bulkGo').onclick = async ()=>{
   }
 };
 
+GrowthStory.init({
+  isAuthed:isGsAuthed,
+  getPlant:()=>state.plants.find(p=>p.id===currentInfoPlantId),
+  getPhotos:getPhotosForPlant,
+  getLog:()=>state.log,
+  photoUrl:r2PublicUrl
+});
+
 $('#thenNowBtn').onclick = ()=>{
   const p = state.plants.find(x=>x.id===currentInfoPlantId); if (!p) return;
   const photos = (p.photos||[]).slice().sort((a,b)=>(a.date||'').localeCompare(b.date||''));
@@ -5479,6 +5489,8 @@ function setSyncStatus(label, kind){
 
 // --- Google OAuth (implicit grant for browser apps) ---
 function refreshGsStatus(){
+  $('#growthStoryBtn').hidden=!isGsAuthed();
+  if(!isGsAuthed())GrowthStory.close();
   renderWeatherCalendar();
   const authed = isGsAuthed();
   document.body.classList.toggle('view-only', !authed);

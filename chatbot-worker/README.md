@@ -62,3 +62,20 @@ cached reads cost the same on both.
   holds no secrets, so its source can live in the repo safely.
 - **CORS:** allowed origins are listed in `ALLOW_ORIGINS` in `src/index.js`
   (satownsend.com, the github.io domain, and localhost for testing).
+
+## Weather context (#132)
+
+Weather-related conversations (including the retained follow-up messages) load read-only context on the Worker, so questions work from any site page:
+
+- NWS daily temperatures, with Open-Meteo fallback and supplemental precipitation/gusts; Open-Meteo supplies the next 48 hourly samples.
+- Official NWS alerts are fetched independently of either forecast.
+- The prior seven complete Lilly-local calendar days of Open-Meteo modeled precipitation, with complete-only three-/seven-day totals.
+- The existing `weather_history` sheet, including chunked payload reassembly. Context includes up to 90 unique pre-day forecast dates and 12 recent snapshot summaries, with original units and capture times. Only Lilly snapshots are selected; each date uses the latest capture before that date in America/New_York, matching the current site's calendar rule. Repeated captures are not counted as events.
+
+Current values use °F, inches and mph; saved records retain explicit original units. Missing data stays null. Provider requests time out independently and may cache for five minutes. `retrievedAt` is the context-read time, not a model issuance time. Retrieval is independent of the dashboard browser's one-hour cache, so small differences are possible. The shared archive read is limited to 3 MB; oversized or unavailable history is labeled unavailable instead of being partially parsed. Browser-only pending captures are not visible until synced.
+
+This does not provide observed temperatures, soil moisture, or proof of an actual frost. Historical precipitation is modeled, while saved history contains predictions as seen at capture time. Assistant instructions distinguish these from logged events, forbid deducing a frost from average seasonal dates, and do not treat estimated rain as a watering action. Text in source data is not an instruction. Non-weather questions avoid the extra provider calls. No new service account, scheduled collector, archive writes or paid weather API is introduced.
+
+**Activation:** merge the PR, then redeploy this existing Worker from `chatbot-worker/` with `npx wrangler deploy` using the established Cloudflare account. GitHub Pages deployment alone does not deploy Worker changes. Keep existing bindings, model variables and secrets. No secret values need to be changed or posted. The existing Google sign-in gate remains in place. PR #113's scheduled collector stays deferred and unrelated.
+
+Validation: syntax/whitespace checks and a live read-only loader call against providers and the shared archive; no AI inference was called. No tests written or run. An authenticated end-to-end chatbot reply requires redeploying the Worker and was not exercised before merge.

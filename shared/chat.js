@@ -11,7 +11,7 @@
   const CHAT_WORKER_URL = 'https://satownsend-chatbot.satownsend.workers.dev';
 
   const SUGGESTIONS = [
-    'When is my last frost date?',
+    'Is frost or rain forecast for my plants this week?',
     'What months do I usually see hummingbirds?',
     "Average ABV of my last 10 beers?",
     'When did I last change strings on my Warmoth bass?',
@@ -69,7 +69,7 @@
     const panel = el('div', 'cb-panel');
     panel.innerHTML =
       `<div class="cb-head">
-         <div><div class="cb-title">Ask satownsend</div><div class="cb-sub">plants · beer · instruments · wildlife</div></div>
+         <div><div class="cb-title">Ask satownsend</div><div class="cb-sub">plants · weather · beer · instruments · wildlife</div></div>
          <button class="cb-x" aria-label="Close">&times;</button>
        </div>
        <div class="cb-body"></div>
@@ -92,7 +92,7 @@
 
     function showIntro(){
       body.innerHTML = '';
-      const intro = el('div', 'cb-intro', 'Ask me anything about the plants, beers, instruments, or wildlife tracked here. Try:');
+      const intro = el('div', 'cb-intro', 'Ask me anything about the plants, weather forecasts, beers, instruments, or wildlife tracked here. Try:');
       body.appendChild(intro);
       const sugs = el('div', 'cb-sugs');
       SUGGESTIONS.forEach(q=>{

@@ -757,6 +757,14 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 .wc-snapshot { padding:8px 0; border-bottom:1px solid var(--line2); font-size:13px; }
 .wc-photos { display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:10px; }
 .wc-photos button { padding:4px; background:var(--panel2); color:var(--ink); }.wc-photos img { display:block; width:100%; height:100px; object-fit:cover; }.wc-photos span { font-size:12px; }
+
+body.view-only .log-bulk,body.view-only .log-bulk-cell { display:none; }
+.log-bulk label { display:inline-flex; align-items:center; flex-wrap:wrap; gap:8px; margin:6px 12px 6px 0; font-size:13px; }
+.log-bulk input[type=date],.log-bulk select { width:auto; max-width:260px; }
+.log-bulk summary { cursor:pointer; font-weight:600; padding:8px 0; }
+.log-bulk textarea { width:100%; box-sizing:border-box; }
+.log-bulk-cell input { width:18px; height:18px; cursor:pointer; }
+#bulkLogForm { padding:10px 0; }
 </style>
 <link rel="stylesheet" href="/shared/record-cover.css">
 <script src="/shared/record-cover.js"></script>
@@ -999,6 +1007,28 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
     <input type="text" id="logNote" placeholder="optional note (e.g. deep soak, 1 gal each)">
     <hr>
+    <div class="log-bulk">
+      <div class="row" style="flex-wrap:wrap;margin-bottom:10px">
+        <label>Show date <input type="date" id="bulkLogFilterDate"></label>
+        <label>Action <select id="bulkLogFilterAction"><option value="">All actions</option></select></label>
+        <button type="button" class="ghost tiny" id="bulkLogResetFilter">Reset filters</button>
+        <button type="button" class="ghost tiny" id="bulkLogSelect">Select matching</button>
+        <button type="button" class="ghost tiny" id="bulkLogClear">Clear selection</button>
+      </div>
+      <details id="bulkLogEditor"><summary>Bulk edit log <span id="bulkLogCount">(0 selected)</span></summary>
+        <form id="bulkLogForm">
+          <p class="small">Only checked fields change. Selection can include entries outside the current filter. Plant, time and linked photos stay attached to each entry.</p>
+          <label><input type="checkbox" id="bulkLogUseDate"> Change date <input type="date" id="bulkLogDate" disabled required></label>
+          <label><input type="checkbox" id="bulkLogUseAction"> Change action <select id="bulkLogAction" disabled></select></label>
+          <label><input type="checkbox" id="bulkLogUseNote"> Change notes <select id="bulkLogNoteMode" disabled><option value="replace">Replace notes (blank clears)</option><option value="append">Append to notes</option></select></label>
+          <textarea id="bulkLogNote" disabled rows="2" placeholder="Notes for the selected entries"></textarea>
+          <p class="small">Changing an action removes incompatible temperature, measurement or frost-cause fields, and damage actions hide linked photos from galleries. Use individual editing to enter those details.</p>
+          <div id="bulkLogPreview" class="small"></div>
+          <button type="submit" id="bulkLogApply" disabled>Apply to selected entries</button>
+        </form>
+      </details>
+      <p id="bulkLogStatus" class="small" role="status"></p>
+    </div>
     <div id="recentLog" class="small">No entries yet.</div>
   </div>
 
@@ -1701,11 +1731,8 @@ const daysBetween = (a,b) => Math.round((b-a)/86400000);
 const fmtDate = d => d.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric',year:'numeric'});
 
 function lastLogFor(plantId, action){
-  for (let i=state.log.length-1;i>=0;i--){
-    const e = state.log[i];
-    if (e.plantId===plantId && (!action || e.action===action)) return e;
-  }
-  return null;
+  return (state.log||[]).filter(e=>e.plantId===plantId&&(!action||e.action===action))
+    .reduce((latest,e)=>!latest||fmtLogWhen(e)>=fmtLogWhen(latest)?e:latest,null);
 }
 function daysSince(dateStr){
   if (!dateStr) return null;
@@ -4149,14 +4176,15 @@ function applyTempRowVisibility(){
     causedByRow.style.display = 'none';
   }
 }
+function localLogDate(d=new Date()){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 function resetLogDateTime(){
   // Date defaults to today; time stays blank (optional). "now" button fills both.
-  $('#logDate').value = ymd(new Date());
+  $('#logDate').value = localLogDate();
   $('#logTime').value = '';
 }
 function fillLogNow(){
   const now = new Date();
-  $('#logDate').value = ymd(now);
+  $('#logDate').value = localLogDate(now);
   $('#logTime').value = hmNow(now);
 }
 resetLogDateTime();
@@ -4252,7 +4280,7 @@ refreshLogPlantBtn();
 $('#logBtn').onclick = ()=>{
   const action = $('#logAction').value;
   const note = $('#logNote').value.trim();
-  const date = $('#logDate').value || ymd(new Date());
+  const date = $('#logDate').value || localLogDate();
   const time = $('#logTime').value || '';
   const tempRaw = isFrostAction(action) ? $('#logTemp').value.trim() : '';
   const temp = tempRaw === '' ? undefined : (parseFloat(tempRaw));
@@ -4290,11 +4318,64 @@ $('#logBtn').onclick = ()=>{
   save(); renderPlants(); renderLog(); renderFrostLog(); buildBrief();
   if (typeof renderCareViews === 'function' && $('#calendarView').style.display !== 'none') renderCareViews();
 };
+let bulkLogSelection=new Set();
+function bulkLogRows(){
+  const date=$('#bulkLogFilterDate').value,action=$('#bulkLogFilterAction').value;
+  return (state.log||[]).filter(e=>(!date||e.date===date)&&(!action||e.action===action));
+}
+function refreshBulkLogSelection(){
+  const live=new Set((state.log||[]).map(e=>e.id));bulkLogSelection=new Set([...bulkLogSelection].filter(id=>live.has(id)));
+  $('#bulkLogCount').textContent=`(${bulkLogSelection.size} selected)`;
+  $('#bulkLogApply').disabled=!bulkLogSelection.size||!isGsAuthed();
+  $('#bulkLogApply').textContent=`Apply changes to ${bulkLogSelection.size} selected entries`;
+  const entries=(state.log||[]).filter(e=>bulkLogSelection.has(e.id));
+  $('#bulkLogPreview').innerHTML=entries.length?`<p>Selected: ${entries.slice(0,8).map(e=>escapeHtml(`${e.date} · ${state.plants.find(p=>p.id===e.plantId)?.name||'Yard'} · ${e.action}`)).join('<br>')}${entries.length>8?`<br>+${entries.length-8} more`:''}</p>`:'<p>Select log entries using the checkboxes below.</p>';
+}
+for(const id of ['bulkLogFilterDate','bulkLogFilterAction'])$('#'+id).onchange=renderLog;
+$('#bulkLogResetFilter').onclick=()=>{$('#bulkLogFilterDate').value='';$('#bulkLogFilterAction').value='';renderLog();};
+$('#bulkLogSelect').onclick=()=>{if(!isGsAuthed())return;bulkLogRows().forEach(e=>bulkLogSelection.add(e.id));renderLog();};
+$('#bulkLogClear').onclick=()=>{bulkLogSelection.clear();renderLog();};
+for(const [toggle,fields]of [['bulkLogUseDate',['bulkLogDate']],['bulkLogUseAction',['bulkLogAction']],['bulkLogUseNote',['bulkLogNote','bulkLogNoteMode']]])$('#'+toggle).onchange=()=>{fields.forEach(id=>$('#'+id).disabled=!$('#'+toggle).checked);};
+$('#bulkLogAction').innerHTML=$('#logAction').innerHTML;
+$('#recentLog').addEventListener('change',e=>{const box=e.target.closest('[data-bulk-log]');if(!box||!isGsAuthed())return;if(box.checked)bulkLogSelection.add(box.dataset.bulkLog);else bulkLogSelection.delete(box.dataset.bulkLog);refreshBulkLogSelection();});
+$('#bulkLogForm').onsubmit=e=>{
+  e.preventDefault();if(!isGsAuthed()||!bulkLogSelection.size)return;
+  const date=$('#bulkLogUseDate').checked,action=$('#bulkLogUseAction').checked,note=$('#bulkLogUseNote').checked;
+  if(!date&&!action&&!note){$('#bulkLogStatus').textContent='Choose at least one field to change.';return;}
+  const selected=(state.log||[]).filter(e=>bulkLogSelection.has(e.id)),changes=[],hidden=[];
+  for(const entry of selected){
+    const before=JSON.parse(JSON.stringify(entry));
+    if(date)entry.date=$('#bulkLogDate').value;
+    if(note){const text=$('#bulkLogNote').value.trim();entry.note=$('#bulkLogNoteMode').value==='append'?[entry.note,text].filter(Boolean).join('\n'):text;}
+    if(action){
+      entry.action=$('#bulkLogAction').value;
+      if(!isFrostAction(entry.action))delete entry.temp;
+      if(entry.action!=='frost damage')delete entry.causedBy;
+      if(entry.action!=='trunk measurement')delete entry.value;
+      if(entry.action!==before.action&&isDamageAction(entry.action))for(const key of entry.photoKeys||[]){const owner=findPhotoOwner(key),photo=owner?.photos.find(p=>p.key===key);if(photo&&!photo.hideFromGallery){hidden.push({key,previous:photo.hideFromGallery});autoHidePhoto(key);}}
+    }
+    const fields=[...new Set([...Object.keys(before),...Object.keys(entry)])].filter(k=>JSON.stringify(before[k])!==JSON.stringify(entry[k]));
+    if(fields.length)changes.push({id:entry.id,before,after:JSON.parse(JSON.stringify(entry)),fields});
+  }
+  if(!changes.length){$('#bulkLogStatus').textContent='No entries needed changes.';return;}
+  save();render();renderWeatherCalendar();
+  $('#bulkLogStatus').textContent=`Updated ${changes.length} entries. Undo is available for 10 seconds.`;
+  offerUndo(`Updated ${changes.length} log entries`,()=>{
+    if(!isGsAuthed())return;
+    for(const change of changes){const entry=state.log.find(e=>e.id===change.id);if(!entry)continue;for(const key of change.fields)if(JSON.stringify(entry[key])===JSON.stringify(change.after[key])){if(key in change.before)entry[key]=change.before[key];else delete entry[key];}}
+    hidden.forEach(({key,previous})=>{const photo=findPhotoOwner(key)?.photos.find(p=>p.key===key);if(photo?.hideFromGallery===true){if(previous===undefined)delete photo.hideFromGallery;else photo.hideFromGallery=previous;}});
+    save();render();renderWeatherCalendar();$('#bulkLogStatus').textContent='Bulk changes undone; later edits were preserved.';
+  });
+  bulkLogSelection.clear();refreshBulkLogSelection();
+};
 function renderLog(){
   // Sort by date+time descending so back-dated entries land in the right place
-  const sorted = (state.log||[]).slice().sort((a,b) => fmtLogWhen(b).localeCompare(fmtLogWhen(a)));
-  if (!sorted.length){ $('#recentLog').innerHTML = '<span class="empty">No entries yet.</span>'; return; }
-  $('#recentLog').innerHTML = '<table><thead><tr><th>When</th><th>Plant</th><th>Action</th><th>Note</th></tr></thead><tbody>'
+  const filter=$('#bulkLogFilterAction'),previous=filter.value;
+  filter.innerHTML='<option value="">All actions</option>'+[...new Set((state.log||[]).map(e=>e.action).filter(Boolean))].sort().map(a=>`<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join('');filter.value=previous;
+  const sorted = bulkLogRows().slice().sort((a,b) => fmtLogWhen(b).localeCompare(fmtLogWhen(a)));
+  refreshBulkLogSelection();
+  if (!sorted.length){ $('#recentLog').innerHTML = '<span class="empty">No entries match this filter.</span>'; return; }
+  $('#recentLog').innerHTML = '<table><thead><tr><th class="log-bulk-cell">Select</th><th>When</th><th>Plant</th><th>Action</th><th>Note</th></tr></thead><tbody>'
     + sorted.map(e=>{
       const p = state.plants.find(x=>x.id===e.plantId);
       const who = p ? p.name : (e.plantId === '' ? 'Yard' : '?');
@@ -4302,7 +4383,7 @@ function renderLog(){
       const measureBadge = (e.action === 'trunk measurement' && e.value !== undefined)
         ? `<span class="meta" style="color:var(--accent)">${escapeHtml(fmtTrunk(e.value))}${e.note ? ' · ' : ''}</span>` : '';
       const thumbsHtml = renderLogThumbs(e);
-      return `<tr class="log-row" data-log-id="${e.id}"><td>${escapeHtml(fmtLogWhen(e))}</td><td>${escapeHtml(who)}</td><td>${escapeHtml(e.action || '')}</td><td>${tempBadge}${measureBadge}<span class="meta">${escapeHtml(e.note||'')}</span>${thumbsHtml}</td></tr>`;
+      return `<tr class="log-row" data-log-id="${e.id}"><td class="log-bulk-cell"><input type="checkbox" data-bulk-log="${escapeHtml(e.id)}" ${bulkLogSelection.has(e.id)?'checked':''} aria-label="Select ${escapeHtml(who)} ${escapeHtml(fmtLogWhen(e))} ${escapeHtml(e.action||'')}"></td><td>${escapeHtml(fmtLogWhen(e))}</td><td>${escapeHtml(who)}</td><td>${escapeHtml(e.action || '')}</td><td>${tempBadge}${measureBadge}<span class="meta">${escapeHtml(e.note||'')}</span>${thumbsHtml}</td></tr>`;
     }).join('')
     + '</tbody></table>';
 }
@@ -4431,7 +4512,7 @@ $('#logEditSave').onclick = () => {
   const plantSel = $('#logEditPlant').value;
   e.action = action;
   e.plantId = plantSel === '__yard__' ? '' : plantSel;
-  e.date = $('#logEditDate').value || ymd(new Date());
+  e.date = $('#logEditDate').value || localLogDate();
   e.time = $('#logEditTime').value || '';
   e.note = $('#logEditNote').value.trim();
   if (isFrostAction(action)){
@@ -4490,7 +4571,7 @@ document.addEventListener('click', e => {
   const row = e.target.closest('.log-row');
   if (!row) return;
   // Don't trigger if click was on a link/button inside the row (none today, but future-proof)
-  if (e.target.closest('a, button')) return;
+  if (e.target.closest('a, button, input, label')) return;
   openLogEdit(row.dataset.logId);
 });
 

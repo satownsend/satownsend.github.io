@@ -25,7 +25,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <style>
 /* ── Instrument-specific styles ── */
 .info-card .info-type{color:var(--accent);font-size:14px;font-weight:600}
-.notes-block{background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:12px;font-size:14px;line-height:1.6;white-space:pre-wrap;margin-top:6px}
+.notes-block{border-top:1px solid var(--line);padding:12px 0;font-size:14px;line-height:1.6;white-space:pre-wrap;margin-top:6px}
 
 /* ── Gallery ── */
 .gallery{margin-bottom:16px;border-radius:14px;overflow:hidden;box-shadow:var(--shadow);border:1px solid var(--line);background:#000}
@@ -94,7 +94,7 @@ body.view-only #addMaintenanceBtn{display:none!important}
 
 /* ── Maintenance log ── */
 .maint-list{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px}
-.maint-item{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:13px}
+.maint-item{border-bottom:1px solid var(--line);padding:12px 0;font-size:13px}
 .maint-item .maint-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .maint-item .maint-type{font-weight:600;color:var(--ink)}
 .maint-item .maint-date{color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
@@ -116,7 +116,7 @@ body.view-only #addMaintenanceBtn{display:none!important}
 @media (max-width:700px){
   table,thead,tbody,tr,th,td{display:block;width:100%}
   thead{display:none}
-  tbody tr{padding:12px 14px;margin-bottom:8px;border:1px solid var(--line);border-radius:10px;background:var(--panel);position:relative;display:block}
+  tbody tr{padding:14px 0;margin-bottom:0;border-bottom:1px solid var(--line);background:var(--panel);position:relative;display:block}
   tbody td{padding:2px 0;white-space:normal;border:none;background:transparent!important}
   tbody td:before{content:attr(data-label);display:inline-block;width:80px;color:var(--muted);font-size:12px;font-weight:600}
   tbody td[data-col="name"]{font-size:16px;margin-bottom:4px}

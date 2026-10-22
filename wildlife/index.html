@@ -33,7 +33,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
 /* ── Sighting log within detail ── */
 .sighting-log{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px}
-.sighting-entry{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:13px}
+.sighting-entry{border-bottom:1px solid var(--line);padding:12px 0;font-size:13px}
 .sighting-entry .se-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .sighting-entry .se-date{font-weight:600;color:var(--ink)}
 .sighting-entry .se-location{color:var(--muted);font-size:12px}
@@ -98,7 +98,7 @@ body.view-only #lightboxCaption{display:none!important}
 .photo-grid .empty{grid-column:1/-1;color:var(--muted);font-size:13px;font-style:italic;text-align:center;padding:18px}
 
 /* ── Notes block ── */
-.notes-block{background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:12px;font-size:14px;line-height:1.6;white-space:pre-wrap;margin-top:6px}
+.notes-block{border-top:1px solid var(--line);padding:12px 0;font-size:14px;line-height:1.6;white-space:pre-wrap;margin-top:6px}
 
 /* ── Calendar ── */
 .cal-wrap{margin-top:16px}
@@ -128,7 +128,7 @@ body.view-only #lightboxCaption{display:none!important}
 
 /* ── Life list ── */
 .life-list{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:4px}
-.life-item{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;font-size:13px}
+.life-item{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--line);font-size:13px}
 .life-item .li-species{font-weight:600;color:var(--ink)}
 .life-item .li-meta{color:var(--muted);font-size:12px;text-align:right}
 .life-item .li-count{color:var(--accent);font-weight:700;font-size:14px}
@@ -137,7 +137,7 @@ body.view-only #lightboxCaption{display:none!important}
 @media (max-width:700px){
   table,thead,tbody,tr,th,td{display:block;width:100%}
   thead{display:none}
-  tbody tr{padding:12px 14px;margin-bottom:8px;border:1px solid var(--line);border-radius:10px;background:var(--panel);position:relative;display:block}
+  tbody tr{padding:14px 0;margin-bottom:0;border-bottom:1px solid var(--line);background:var(--panel);position:relative;display:block}
   tbody td{padding:2px 0;white-space:normal;border:none;background:transparent!important}
   tbody td:before{content:attr(data-label);display:inline-block;width:80px;color:var(--muted);font-size:12px;font-weight:600}
   tbody td[data-col="species"]{font-size:16px;margin-bottom:4px}

@@ -14,7 +14,7 @@
 [data-section-details="on"][data-section="beer"] #recordCover{border-radius:3px;background:var(--bg2);border-bottom:3px double var(--accent)}
 [data-section-details="on"][data-section="beer"] .record-cover-eyebrow{letter-spacing:.22em}
 [data-section-details="on"][data-section="beer"] .record-cover-facts dd{font-variant-numeric:tabular-nums}
-[data-section-details="on"][data-section="beer"] #infoOverlay .info-section{padding:20px;border:1px solid var(--line2);border-radius:3px;background:var(--bg2);margin-top:18px}
+[data-section-details="on"][data-section="beer"] #infoOverlay .info-section{padding:20px 0;border-top:1px solid var(--line2);margin-top:18px}
 [data-section-details="on"][data-section="beer"] #infoOverlay .info-section h3{color:var(--accent);font-size:11px;letter-spacing:.13em;border-bottom:1px solid var(--line2);padding-bottom:12px;margin-bottom:14px}
 [data-section-details="on"][data-section="beer"] #infoGrains,[data-section-details="on"][data-section="beer"] #infoHops .ingredient-list{display:block;list-style:none;padding:0;margin:0}
 [data-section-details="on"][data-section="beer"] .ingredient-list li{display:flex;align-items:baseline;justify-content:space-between;gap:12px;background:transparent;border:0;border-radius:0;padding:10px 0;border-bottom:1px dotted var(--line2);line-height:1.55}
@@ -38,7 +38,7 @@
 [data-section-details="on"][data-section="wildlife"] #lightboxDate{display:none}
 [data-section-details="on"][data-section="wildlife"] .specimen-lightbox{flex:none;color:#fff;font-size:13px;line-height:1.6;max-width:90vw;text-align:center;border-top:1px solid rgba(255,255,255,.3);padding:10px 4px;overflow-wrap:anywhere}
 @media(max-width:600px){
- [data-section-details="on"][data-section="beer"] #infoOverlay .info-section{padding:16px}
+ [data-section-details="on"][data-section="beer"] #infoOverlay .info-section{padding:16px 0}
  [data-section-details="on"][data-section="wildlife"] #infoSpecies{font-size:26px}
  [data-section-details="on"][data-section="plants"] .record-cover-copy{padding-left:18px}
 }

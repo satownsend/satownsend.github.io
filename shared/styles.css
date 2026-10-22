@@ -325,10 +325,9 @@ h2 .small{font:inherit;font-size:13px;font-weight:400;letter-spacing:0;color:var
 hr{border:0;border-top:1px solid var(--line);margin:14px 0}
 
 /* ── Panels & chips ── */
-/* Panels step up from the page background instead of being outlined (issue
-   #73): the shadow and the lighter fill do the work; a faint hairline keeps
-   the edge legible on near-black themes. */
-.panel{background:var(--panel);border:1px solid transparent;border-color:color-mix(in srgb,var(--line) 40%,transparent);border-radius:14px;padding:18px 20px;box-shadow:var(--shadow)}
+/* Major sections use a quiet fill and hairline. Reserve the stronger
+   --shadow for floating menus and dialogs. */
+.panel{background:var(--panel);border:1px solid transparent;border-color:color-mix(in srgb,var(--line) 40%,transparent);border-radius:14px;padding:18px 20px;box-shadow:0 2px 8px rgba(0,0,0,.08)}
 .panel.full{grid-column:1/-1}
 .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .chip{display:inline-flex;align-items:center;gap:6px;background:var(--chip);color:var(--ink-soft);border:1px solid var(--chip-line);

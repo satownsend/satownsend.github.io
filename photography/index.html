@@ -50,6 +50,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
 /* ── Category chips ── */
 .cat-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.photo-wall{margin:28px 0}
 .cat-chip{background:var(--panel2);border:1px solid var(--line);color:var(--ink);border-radius:999px;padding:6px 14px;
   font:inherit;font-size:13px;cursor:pointer;transition:border-color .15s,background .15s,color .15s}
 .cat-chip:hover{border-color:var(--accent)}
@@ -145,8 +146,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
   </div>
 
-  <!-- Photo wall -->
-  <div class="panel">
+  <!-- Photo wall: images sit directly on the page. -->
+  <div class="photo-wall">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
       <h2 style="margin:0">Photos</h2>
       <button id="addPhotosBtn" class="tiny">+ Add Photos</button>

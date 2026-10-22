@@ -8,7 +8,13 @@ The browser (`/shared/chat.js`) POSTs `{ messages: [...] }`; the Worker fetches
 the public Google Sheets, stuffs them into the prompt, calls the model, and
 returns `{ answer }`.
 
-## Deploy (one time)
+## Automatic deployment
+
+The existing `satownsend-chatbot` Worker is connected to `satownsend/satownsend.github.io` through Cloudflare Workers Builds. Pushes to `main` trigger production deployment, with root directory `chatbot-worker`, no build command, and deploy command `npx wrangler deploy`. Preview builds are disabled. Existing runtime secrets and the AI binding remain on the Worker. No local Node.js installation is needed for this flow.
+
+Inspect build and deployment status in Cloudflare → satownsend-chatbot → Deployments / Settings → Builds. GitHub Pages hosts the site separately; Cloudflare builds deploy the chatbot.
+
+## Manual deployment (optional)
 
 From this folder:
 
@@ -76,6 +82,6 @@ Current values use °F, inches and mph; saved records retain explicit original u
 
 This does not provide observed temperatures, soil moisture, or proof of an actual frost. Historical precipitation is modeled, while saved history contains predictions as seen at capture time. Assistant instructions distinguish these from logged events, forbid deducing a frost from average seasonal dates, and do not treat estimated rain as a watering action. Text in source data is not an instruction. Non-weather questions avoid the extra provider calls. No new service account, scheduled collector, archive writes or paid weather API is introduced.
 
-**Activation:** merge the PR, then redeploy this existing Worker from `chatbot-worker/` with `npx wrangler deploy` using the established Cloudflare account. GitHub Pages deployment alone does not deploy Worker changes. Keep existing bindings, model variables and secrets. No secret values need to be changed or posted. The existing Google sign-in gate remains in place. PR #113's scheduled collector stays deferred and unrelated.
+**Activation:** merges to `main` now trigger the connected Cloudflare build. Verify the build and deployment succeed before expecting the live chatbot to use the new code. GitHub Pages deployment alone does not deploy Worker changes. Keep existing bindings, model variables and secrets. No secret values need to be changed or posted. The existing Google sign-in gate remains in place. PR #113's scheduled collector stays deferred and unrelated.
 
 Validation: syntax/whitespace checks and a live read-only loader call against providers and the shared archive; no AI inference was called. No tests written or run. An authenticated end-to-end chatbot reply requires redeploying the Worker and was not exercised before merge.

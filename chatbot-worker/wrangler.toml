@@ -10,7 +10,17 @@ binding = "AI"
 # set (`npx wrangler secret put ANTHROPIC_API_KEY`); without it the care handler
 # falls back to Workers AI. Switch to "claude-sonnet-5-5" to halve the cost.
 [vars]
+WEATHER_ARCHIVE_PAUSED = "0"
 CARE_MODEL = "claude-opus-5-5"
 # Chatbot model (issue #70) — same key, same fallback rule. Sonnet: the math is
 # done in code, so the model is mostly reading rows back; half the price of Opus.
 CHAT_MODEL = "claude-sonnet-5-5"
+
+# Fixed-prefix weather archive in the existing bucket. No browser write credentials.
+[[r2_buckets]]
+binding = "WEATHER_ARCHIVE"
+bucket_name = "plant-photos"
+
+# Small resumable bootstrap batches; after bootstrap only daily data checks occur.
+[triggers]
+crons = ["7,22,37,52 * * * *"]

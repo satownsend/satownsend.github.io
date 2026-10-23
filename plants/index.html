@@ -542,6 +542,20 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .photo-grid .empty{grid-column:1/-1;color:var(--muted);font-size:13px;font-style:italic;text-align:center;padding:18px}
   .photo-timeline{margin-bottom:10px;border:1px solid var(--line2);border-radius:10px;overflow:hidden;background:var(--bg2)}
   .photo-timeline .pt-stage{position:relative;width:100%;aspect-ratio:1/1;background:#000;display:flex;align-items:center;justify-content:center;cursor:pointer;max-height:70vh}
+  /* A draft stays in this native dialog until Add plant is submitted. */
+  #addPlantDialog{width:min(640px,calc(100vw - 24px));max-height:calc(100dvh - 32px);overflow:auto;margin:auto;padding:24px;background:var(--panel);color:var(--ink);border:1px solid var(--line2);border-radius:14px;box-shadow:var(--shadow)}
+  #addPlantDialog::backdrop{background:rgba(5,10,7,.7);backdrop-filter:blur(3px)}
+  #addPlantDialog h2{margin-bottom:6px}
+  #addPlantDialog p{margin:0 0 18px;color:var(--ink-soft)}
+  .add-plant-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 16px}
+  .add-plant-fields label{display:flex;flex-direction:column;gap:5px;font-size:14px;min-width:0}
+  .add-plant-wide{grid-column:1/-1}
+  #addPlantDialog details{margin-top:20px;padding-top:16px;border-top:1px solid var(--line)}
+  #addPlantDialog summary{cursor:pointer;font-weight:600;margin-bottom:14px}
+  #addPlantDialog .add-plant-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:22px}
+  #addPlantDialog :focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+  @media(max-width:600px){#addPlantDialog{padding:18px}.add-plant-fields{grid-template-columns:1fr}}
+
   /* Plant info modal gets a wider frame so the timeline photo has more room */
   #infoModal .modal{max-width:960px}
   .photo-timeline .pt-stage img{width:100%;height:100%;object-fit:contain;display:block}
@@ -907,6 +921,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
   <div class="panel full">
     <h2>Plants <span class="small">(click "edit" on a row)</span></h2>
+    <p id="addPlantStatus" role="status" aria-live="polite" class="small"></p>
     <div class="filter-row">
       <input type="search" id="plantFilter" placeholder="Filter plants by name, type, location, tag…" style="flex:1;min-width:160px;max-width:340px">
       <label><input type="checkbox" id="showDead"> Show departed (RIP)</label>
@@ -1504,6 +1519,37 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
   </div>
 </div>
+
+<dialog id="addPlantDialog" aria-labelledby="addPlantTitle" aria-describedby="addPlantHelp">
+  <form id="addPlantForm">
+    <h2 id="addPlantTitle">Add a plant</h2>
+    <p id="addPlantHelp">Give your plant a name. Everything else is optional and can be edited later.</p>
+    <div class="add-plant-fields">
+      <label class="add-plant-wide">Common name (required)
+        <input name="name" type="text" required autofocus autocomplete="off" placeholder="e.g. Dawn Redwood">
+      </label>
+      <label>Latin name<input name="type" type="text" placeholder="e.g. Metasequoia glyptostroboides"></label>
+      <label>Type<input name="category" type="text" placeholder="e.g. Tree, Shrub, Vine"></label>
+      <label>Location<input name="spot" type="text" placeholder="e.g. front bed, west pot"></label>
+      <label>Growing in<select name="container"><option value="false">In ground</option><option value="true">Container</option></select></label>
+    </div>
+    <details>
+      <summary>More details</summary>
+      <div class="add-plant-fields">
+        <label>Quantity<input name="quantity" type="number" min="1" step="1" placeholder="1"></label>
+        <label>Price (each, $)<input name="price" type="number" min="0" step="0.01" placeholder="e.g. 50"></label>
+        <label>Date purchased<input name="purchased" type="date"></label>
+        <label>Date planted<input name="planted" type="date"><span class="small">Blank = same as purchased</span></label>
+        <label class="add-plant-wide">Tags (comma separated)<input name="tags" type="text" placeholder="e.g. shade, tender"></label>
+        <label class="add-plant-wide">Notes<textarea name="notes" rows="3"></textarea></label>
+      </div>
+    </details>
+    <div class="add-plant-actions">
+      <button type="button" id="addPlantCancel" class="ghost">Cancel</button>
+      <button type="submit">Add plant</button>
+    </div>
+  </form>
+</dialog>
 
 <template id="plantEditTpl">
   <tr class="edit-row"><td colspan="13">
@@ -3958,6 +4004,7 @@ $('#infoClose').onclick = ()=> $('#infoModal').classList.remove('show');
 $('#infoModal').addEventListener('click', e=>{ if (e.target.id==='infoModal') $('#infoModal').classList.remove('show'); });
 document.addEventListener('keydown', e=>{
   if (e.key==='Escape'){
+    if ($('#addPlantDialog').open) return; // Native dialog handles Escape and focus.
     $('#infoModal').classList.remove('show');
     closeWeather();
     $('#lightbox').classList.remove('show');
@@ -4083,10 +4130,42 @@ $('#upcomingAlerts').addEventListener('click', e=>{
   if (row.dataset.day === undefined || row.dataset.day === '') return;
   openWeather(parseInt(row.dataset.day, 10));
 });
+const addPlantDialog = $('#addPlantDialog');
+const addPlantForm = $('#addPlantForm');
 $('#addPlantBtn').onclick = ()=>{
-  const p = {id:uid(),name:'New plant',type:'',spot:'',container:false,tags:'',notes:''};
-  state.plants.push(p); save(); renderPlants(); openEdit(p.id);
+  if (!isGsAuthed() || addPlantDialog.open) return;
+  addPlantForm.reset();
+  addPlantForm.elements.namedItem('name').setCustomValidity('');
+  addPlantDialog.querySelector('details').open = false;
+  addPlantDialog.showModal();
 };
+$('#addPlantCancel').onclick = ()=>addPlantDialog.close();
+addPlantDialog.addEventListener('close',()=>addPlantForm.reset());
+addPlantForm.addEventListener('invalid',e=>{
+  const details=e.target.closest('details');
+  if(details)details.open=true;
+},true);
+addPlantForm.elements.namedItem('name').addEventListener('input',e=>e.target.setCustomValidity(''));
+addPlantForm.addEventListener('submit',e=>{
+  e.preventDefault();
+  if (!isGsAuthed() || !addPlantDialog.open){addPlantDialog.close();return;}
+  const nameInput = addPlantForm.elements.namedItem('name');
+  nameInput.setCustomValidity(nameInput.value.trim() ? '' : 'Enter a plant name.');
+  if (!addPlantForm.reportValidity()) return;
+  const draft = new FormData(addPlantForm);
+  const text = key=>String(draft.get(key)||'').trim();
+  const p = {id:uid(),name:text('name'),type:text('type'),category:text('category'),
+    spot:text('spot'),container:text('container')==='true',quantity:Number(text('quantity'))||1,
+    price:text('price')===''?'':Number(text('price')),purchased:text('purchased'),
+    planted:text('planted'),tags:text('tags'),notes:text('notes')};
+  state.plants.push(p);
+  save();
+  addPlantDialog.close();
+  render();
+  $('#addPlantStatus').textContent = `Added ${p.name}.`;
+  // Open the saved record even when the table's current filter excludes it.
+  openInfo(p.id);
+});
 
 function openEdit(id){
   const tr = document.querySelector(`tr[data-id="${id}"]`);
@@ -5500,7 +5579,10 @@ function setSyncStatus(label, kind){
 // --- Google OAuth (implicit grant for browser apps) ---
 function refreshGsStatus(){
   $('#growthStoryBtn').hidden=!isGsAuthed();
-  if(!isGsAuthed())GrowthStory.close();
+  if(!isGsAuthed()){
+    GrowthStory.close();
+    if(addPlantDialog.open)addPlantDialog.close();
+  }
   renderWeatherCalendar();
   const authed = isGsAuthed();
   document.body.classList.toggle('view-only', !authed);

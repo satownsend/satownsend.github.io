@@ -104,6 +104,20 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .tasks .tag.prune{background:#2e2440;color:#b89edc}
   .tasks .tag.move{background:#3a2424;color:#d48a8a}
   .tasks .tag.care{background:#1f2f24;color:#8fc06a}
+  .weather-summary-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .weather-link{font-size:14px;font-weight:600}
+  .weather-link:focus-visible,.dashboard-weather-alerts button:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+  .weather-view-head{grid-column:1/-1}
+  .weather-view-head h2{font-size:24px;margin-bottom:6px}
+  .weather-view-head p{margin:0}
+  .dashboard-weather-alerts{display:flex;flex-direction:column;align-items:flex-start;gap:6px;margin-top:12px}
+  .dashboard-weather-alerts:empty{display:none}
+  .dashboard-weather-alerts button{text-align:left;white-space:normal;color:var(--ink-soft)}
+  #dashboardRain{margin-top:12px;text-align:left;white-space:normal}
+  #dashboardWeatherPanel .forecast-compact{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .forecast-compact .day .hi{font-size:18px}
+  .tasks .weather-task-link{margin-top:8px}
+  #weatherTitle:focus-visible,#upcomingAlerts:focus-visible{outline:2px solid var(--accent);outline-offset:4px}
   .forecast{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
   .forecast .day{cursor:pointer;color:var(--ink);font:inherit;min-width:0;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px;text-align:center;font-size:12px}
   .forecast .day .d{color:var(--muted);font-size:11px}
@@ -321,7 +335,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .bu-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap}
   /* Care calendar (issue #69): Dashboard / Care calendar tabs, month grid, lists */
   .view-tabs{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px;border-bottom:1px solid var(--line)}
-  .plant-view-tabs{display:flex;gap:6px}
+  .plant-view-tabs{display:flex;flex-wrap:wrap;gap:6px}
   .view-tabs .vt{text-decoration:none;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);padding:8px 12px;font:inherit;font-size:14px;cursor:pointer;margin-bottom:-1px;display:inline-flex;align-items:center;gap:6px}
   .view-tabs .vt:hover{color:var(--ink)}
   .view-tabs .vt.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
@@ -820,14 +834,15 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <div class="view-tabs">
   <div class="plant-view-tabs" role="tablist" aria-label="Plants views">
-    <button class="vt active" data-view="dashboard" role="tab" aria-selected="true">Dashboard</button>
-    <button class="vt" data-view="calendar" role="tab" aria-selected="false">Care calendar<span class="vt-badge" id="careBadge" style="display:none"></span></button>
-    <button class="vt" data-view="year" role="tab" aria-selected="false">Seasons</button>
+    <button class="vt active" data-view="dashboard" id="plant-tab-dashboard" aria-controls="dashboardView" role="tab" aria-selected="true">Dashboard</button>
+    <button class="vt" data-view="weather" id="plant-tab-weather" aria-controls="weatherView" role="tab" aria-selected="false">Weather</button>
+    <button class="vt" data-view="calendar" id="plant-tab-calendar" aria-controls="calendarView" role="tab" aria-selected="false">Care calendar<span class="vt-badge" id="careBadge" style="display:none"></span></button>
+    <button class="vt" data-view="year" id="plant-tab-year" aria-controls="yearView" role="tab" aria-selected="false">Seasons</button>
   </div>
   <a class="vt" href="/backyard-year/">Backyard year</a>
 </div>
 
-<div class="grid" id="dashboardView" style="margin-top:16px">
+<div class="grid" id="dashboardView" role="tabpanel" aria-labelledby="plant-tab-dashboard" style="margin-top:16px">
 
 <div class="gallery" id="galleryPanel" style="display:none;grid-column:1/-1">
   <div class="gallery-stage" id="galleryStage">
@@ -869,63 +884,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <div id="careNudge" style="display:none"></div>
 </div>
 
-  <div class="panel full" id="forecastPanel">
-    <h2>Forecast <button id="refreshForecast" class="ghost tiny" type="button">Refresh weather</button></h2>
-    <p class="small" id="forecastSource" role="status" style="color:var(--muted)"></p>
-    <div class="forecast" id="forecast"></div>
-    <div class="small" style="margin-top:8px" id="weatherNote">—</div>
-    <div id="rainfallSummary" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--line2)">
-      <div class="small" style="color:var(--muted);margin-bottom:6px"><strong style="color:var(--ink-soft)">Estimated rainfall</strong> <span id="rainfallNote"></span></div>
-      <div class="row rainfall-controls" style="flex-wrap:wrap;margin:12px 0">
-        <label>View <select id="rainfallView"><option value="bars">Daily bars</option><option value="line">Daily line</option><option value="cumulative">Cumulative total</option></select></label>
-        <label>Range <select id="rainfallRange"><option value="7">7 days</option><option value="14">14 days</option><option value="30" selected>30 days</option></select></label>
-      </div>
-      <p class="small" id="rainfallChartCaption" role="status"></p>
-      <div id="rainfallChart" class="rainfall-chart-scroll" tabindex="0" role="region" aria-label="Rainfall chart; scroll horizontally on small screens"></div>
-      <details><summary>Rainfall data</summary><div id="rainfallData" class="table-scroll"></div></details>
-      <p class="small" style="color:var(--muted)">Open-Meteo model estimates; not a backyard rain gauge.</p>
-    </div>
-    <details class="watering-guidance"><summary>Before you water</summary><div id="wateringGuidance"></div></details>
-    <div id="upcomingAlerts" class="upcoming-alerts"></div>
-    <details id="weatherHistoryPanel" style="margin-top:16px;border-top:1px solid var(--line2);padding-top:12px">
-      <summary style="cursor:pointer;font-weight:600">Weather history</summary>
-      <p class="small">Forecasts as they looked at the time, including predicted temperatures, rain, wind, and alerts. Recorded when this dashboard refreshes, at most once an hour unless official alerts change. No recording while the site is closed.</p>
-      <div class="small" id="weatherHistoryStatus" role="status" aria-live="polite"></div>
-      <div class="row" style="margin:12px 0;align-items:end;flex-wrap:wrap">
-        <label class="small">From<input id="weatherHistoryFrom" type="date"></label>
-        <label class="small">Through<input id="weatherHistoryThrough" type="date"></label>
-        <button type="button" class="tiny ghost" id="weatherHistoryReload">Reload history</button>
-        <button type="button" class="tiny ghost" id="weatherHistoryExport">Export JSON</button>
-      </div>
-      <label class="small" for="weatherHistorySnapshot">Saved snapshot</label>
-      <select id="weatherHistorySnapshot" style="width:100%;margin:6px 0 12px"></select>
-      <div id="weatherHistoryContent"></div>
-    </details>
-  </div>
-
-  <details class="panel full" id="weatherCalendarPanel">
-    <summary style="font-weight:600;cursor:pointer">Weather calendar</summary>
-    <p class="small" id="wcExplanation">Saved forecasts, not observed weather. Each tile uses the latest capture strictly before that day in the calendar time zone, for one location and unit set. Today’s captures cannot replace yesterday’s prediction. This calendar uses all loaded history, independently of the history date filters.</p>
-    <div class="row wc-controls" style="flex-wrap:wrap;margin:12px 0">
-      <label>Data <select id="wcMode"><option value="saved">Saved predictions</option><option value="historical">Historical conditions (estimated)</option></select></label>
-      <label>Location / units <select id="wcLocation"></select></label>
-      <button type="button" class="ghost tiny" id="wcPrev" aria-label="Previous calendar year">← Year</button>
-      <label>Year <input type="number" id="wcYear" min="1900" max="2200" step="1" style="width:90px"></label>
-      <button type="button" class="ghost tiny" id="wcNext" aria-label="Next calendar year">Year →</button>
-      <label>Month <select id="wcMonth"><option value="all">All months</option></select></label>
-    </div>
-    <div class="row wc-controls" id="wcHistoricalControls" style="display:none;margin:12px 0">
-      <label>Model <select id="wcModel"><option value="best_match">Best match (automatic)</option><option value="gfs_seamless">GFS Seamless</option></select></label>
-      <button type="button" id="wcLoad" class="ghost tiny">Load historical year</button>
-      <button type="button" id="wcRefresh" class="ghost tiny">Refresh historical year</button>
-    </div>
-    <p class="small" id="wcHistoricalSource" style="display:none">Estimated past conditions from <a href="https://open-meteo.com/en/docs/historical-forecast-api" target="_blank" rel="noopener">Open-Meteo Historical Forecast</a> · <a href="https://open-meteo.com/en/licence" target="_blank" rel="noopener">CC BY 4.0</a>. Early model-run hours are stitched into a continuous series; this does not reproduce forecasts previously shown here or measure your backyard. Model coverage and versions change over time. Load a year on demand; hourly detail loads separately for one day. Today and future dates are excluded.</p>
-    <p class="small" id="wcCoverage" role="status" aria-live="polite"></p>
-    <div class="wc-legend small"><span class="wc-freezing">High ≤32°F / 0°C</span><span class="wc-cool">≤50°F / 10°C</span><span class="wc-mild">≤70°F / 21.1°C</span><span class="wc-warm">≤85°F / 29.4°C</span><span class="wc-hot">Above 85°F / 29.4°C</span><span class="wc-unknown" id="wcUnknownLegend">? No eligible forecast · stripes: high unavailable</span></div>
-    <p class="small" id="wcSymbolLegend">Color = predicted high. ● rain chance ≥40% · ❄ frost risk · ☀ heat risk · ≋ strong wind/gusts · ! official alert with a saved validity interval covering this day. Symbols are predictions/alerts as captured, not confirmed events. No symbol does not establish calm weather; values may be missing.</p>
-    <div id="wcMonths" class="wc-months"></div>
-    <section id="wcDay" tabindex="-1" aria-label="Selected weather calendar day"></section>
-  </details>
+  <section class="panel full" id="dashboardWeatherPanel" aria-labelledby="dashboardWeatherTitle">
+    <div class="weather-summary-head"><h2 id="dashboardWeatherTitle">Weather ahead</h2><a href="#weather" class="weather-link" data-weather-target="weatherTitle">View weather →</a></div>
+    <p id="dashboardWeatherSource" class="small" role="status">Loading forecast…</p>
+    <div class="forecast forecast-compact" id="dashboardForecast"></div>
+    <button type="button" class="ghost tiny" id="dashboardRain" data-weather-target="rainfallSummary">Recent precipitation unavailable</button>
+    <div id="dashboardWeatherAlerts" class="dashboard-weather-alerts"></div>
+  </section>
 
   <div class="panel full">
     <h2>Plants <span class="small">(click "edit" on a row)</span></h2>
@@ -1149,7 +1114,70 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 </div>
 
-<div class="grid" id="calendarView" style="margin-top:16px;display:none">
+<div class="grid" id="weatherView" role="tabpanel" aria-labelledby="plant-tab-weather" style="margin-top:16px;display:none">
+  <div class="weather-view-head"><h2 id="weatherTitle" tabindex="-1">Weather</h2><p class="small">Forecasts, protection planning, rainfall estimates and weather history for your configured location.</p></div>
+  <div class="panel full" id="forecastPanel">
+    <h2>Forecast <button id="refreshForecast" class="ghost tiny" type="button">Refresh weather</button></h2>
+    <p class="small" id="forecastSource" role="status" style="color:var(--muted)"></p>
+    <div class="forecast" id="forecast"></div>
+    <div class="small" style="margin-top:8px" id="weatherNote">—</div>
+    <div id="rainfallSummary" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--line2)">
+      <div class="small" style="color:var(--muted);margin-bottom:6px"><strong style="color:var(--ink-soft)">Estimated rainfall</strong> <span id="rainfallNote"></span></div>
+      <div class="row rainfall-controls" style="flex-wrap:wrap;margin:12px 0">
+        <label>View <select id="rainfallView"><option value="bars">Daily bars</option><option value="line">Daily line</option><option value="cumulative">Cumulative total</option></select></label>
+        <label>Range <select id="rainfallRange"><option value="7">7 days</option><option value="14">14 days</option><option value="30" selected>30 days</option></select></label>
+      </div>
+      <p class="small" id="rainfallChartCaption" role="status"></p>
+      <div id="rainfallChart" class="rainfall-chart-scroll" tabindex="0" role="region" aria-label="Rainfall chart; scroll horizontally on small screens"></div>
+      <details><summary>Rainfall data</summary><div id="rainfallData" class="table-scroll"></div></details>
+      <p class="small" style="color:var(--muted)">Open-Meteo model estimates; not a backyard rain gauge.</p>
+    </div>
+    <details class="watering-guidance" id="wateringGuidanceDetails"><summary>Before you water</summary><div id="wateringGuidance"></div></details>
+    <div id="upcomingAlerts" class="upcoming-alerts" tabindex="-1" role="region" aria-label="Upcoming weather alerts"></div>
+    <details id="weatherProtectionDetails" class="watering-guidance"><summary>Protection planning</summary><div id="weatherProtectionOverview"></div></details>
+    <details id="weatherHistoryPanel" style="margin-top:16px;border-top:1px solid var(--line2);padding-top:12px">
+      <summary style="cursor:pointer;font-weight:600">Weather history</summary>
+      <p class="small">Forecasts as they looked at the time, including predicted temperatures, rain, wind, and alerts. Recorded when this dashboard refreshes, at most once an hour unless official alerts change. No recording while the site is closed.</p>
+      <div class="small" id="weatherHistoryStatus" role="status" aria-live="polite"></div>
+      <div class="row" style="margin:12px 0;align-items:end;flex-wrap:wrap">
+        <label class="small">From<input id="weatherHistoryFrom" type="date"></label>
+        <label class="small">Through<input id="weatherHistoryThrough" type="date"></label>
+        <button type="button" class="tiny ghost" id="weatherHistoryReload">Reload history</button>
+        <button type="button" class="tiny ghost" id="weatherHistoryExport">Export JSON</button>
+      </div>
+      <label class="small" for="weatherHistorySnapshot">Saved snapshot</label>
+      <select id="weatherHistorySnapshot" style="width:100%;margin:6px 0 12px"></select>
+      <div id="weatherHistoryContent"></div>
+    </details>
+  </div>
+
+  <details class="panel full" id="weatherCalendarPanel">
+    <summary style="font-weight:600;cursor:pointer">Weather calendar</summary>
+    <p class="small" id="wcExplanation">Saved forecasts, not observed weather. Each tile uses the latest capture strictly before that day in the calendar time zone, for one location and unit set. Today’s captures cannot replace yesterday’s prediction. This calendar uses all loaded history, independently of the history date filters.</p>
+    <div class="row wc-controls" style="flex-wrap:wrap;margin:12px 0">
+      <label>Data <select id="wcMode"><option value="saved">Saved predictions</option><option value="historical">Historical conditions (estimated)</option></select></label>
+      <label>Location / units <select id="wcLocation"></select></label>
+      <button type="button" class="ghost tiny" id="wcPrev" aria-label="Previous calendar year">← Year</button>
+      <label>Year <input type="number" id="wcYear" min="1900" max="2200" step="1" style="width:90px"></label>
+      <button type="button" class="ghost tiny" id="wcNext" aria-label="Next calendar year">Year →</button>
+      <label>Month <select id="wcMonth"><option value="all">All months</option></select></label>
+    </div>
+    <div class="row wc-controls" id="wcHistoricalControls" style="display:none;margin:12px 0">
+      <label>Model <select id="wcModel"><option value="best_match">Best match (automatic)</option><option value="gfs_seamless">GFS Seamless</option></select></label>
+      <button type="button" id="wcLoad" class="ghost tiny">Load historical year</button>
+      <button type="button" id="wcRefresh" class="ghost tiny">Refresh historical year</button>
+    </div>
+    <p class="small" id="wcHistoricalSource" style="display:none">Estimated past conditions from <a href="https://open-meteo.com/en/docs/historical-forecast-api" target="_blank" rel="noopener">Open-Meteo Historical Forecast</a> · <a href="https://open-meteo.com/en/licence" target="_blank" rel="noopener">CC BY 4.0</a>. Early model-run hours are stitched into a continuous series; this does not reproduce forecasts previously shown here or measure your backyard. Model coverage and versions change over time. Load a year on demand; hourly detail loads separately for one day. Today and future dates are excluded.</p>
+    <p class="small" id="wcCoverage" role="status" aria-live="polite"></p>
+    <div class="wc-legend small"><span class="wc-freezing">High ≤32°F / 0°C</span><span class="wc-cool">≤50°F / 10°C</span><span class="wc-mild">≤70°F / 21.1°C</span><span class="wc-warm">≤85°F / 29.4°C</span><span class="wc-hot">Above 85°F / 29.4°C</span><span class="wc-unknown" id="wcUnknownLegend">? No eligible forecast · stripes: high unavailable</span></div>
+    <p class="small" id="wcSymbolLegend">Color = predicted high. ● rain chance ≥40% · ❄ frost risk · ☀ heat risk · ≋ strong wind/gusts · ! official alert with a saved validity interval covering this day. Symbols are predictions/alerts as captured, not confirmed events. No symbol does not establish calm weather; values may be missing.</p>
+    <div id="wcMonths" class="wc-months"></div>
+    <section id="wcDay" tabindex="-1" aria-label="Selected weather calendar day"></section>
+  </details>
+
+</div>
+
+<div class="grid" id="calendarView" role="tabpanel" aria-labelledby="plant-tab-calendar" style="margin-top:16px;display:none">
   <div class="panel full" id="carePanel">
     <div class="care-head">
       <h2 style="margin:0">Care calendar</h2>
@@ -1192,7 +1220,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <!-- Year view (issue #8): the whole yard on one 12-month strip, built from
      each plant's AI overview calendar (bloom, fall color, fruit, bark, bare…). -->
-<div class="grid" id="yearView" style="margin-top:16px;display:none">
+<div class="grid" id="yearView" role="tabpanel" aria-labelledby="plant-tab-year" style="margin-top:16px;display:none">
   <div class="panel full">
     <div class="yv-head">
       <h2>Year at a glance <span class="small" id="yvCount"></span></h2>
@@ -2750,7 +2778,7 @@ async function fetchForecast(force=false){
   const current = ()=>request === weatherRequest && `${state.settings.lat},${state.settings.lon}|${state.settings.units}` === weatherKey;
   if (s.lat == null || s.lon == null || s.lat === '' || s.lon === ''){
     $('#forecast').innerHTML = '<div class="empty" style="grid-column:1/-1">Set location in Settings to see the forecast.</div>';
-    return;
+    state._forecastDays=[];renderDashboardWeather();return;
   }
   const stale = state.forecastVersion !== 3 || state.forecastLocation !== weatherKey || !state.forecast || Date.now()-state.forecastFetched > 3600000;
   const rainStale = state.forecastVersion !== 3 || state.rainfallLocation !== weatherKey || !state.rainfall || Date.now()-(state.rainfallFetched||0) > 6*3600000;
@@ -2769,7 +2797,7 @@ async function fetchForecast(force=false){
   ]);
   if (!current()) return;
   const alertList = alerts.status==='fulfilled' ? alerts.value : null;
-  state.nwsAlerts = alertList || [];state.nwsAlertsAvailable = alertList !== null;
+  state.nwsAlerts = alertList || [];state.nwsAlertsAvailable = alertList !== null;state.nwsAlertsLocation=weatherKey;
   let bundle;
   try {
     const timezone=state.settings.nwsPoints?.[nwsCacheKey(s.lat,s.lon)]?.timeZone || s.timezone || 'UTC';
@@ -2779,7 +2807,7 @@ async function fetchForecast(force=false){
     else { $('#forecast').innerHTML='';state._forecastDays=[];state.computed=null;$('#rainfallSummary').style.display='none'; }
     $('#forecastSource').textContent='Forecast providers unavailable. Any cached forecast below may be out of date.';
     $('#weatherNote').textContent='Could not refresh forecast.';
-    renderOfficialAlertsOnly();buildBrief();return;
+    renderOfficialAlertsOnly();buildBrief();renderDashboardWeather();return;
   }
   const capturedAt = Date.now();
   state.forecast=bundle.daily;state.forecastHourly=bundle.hourly;state.forecastTimezone=bundle.timezone;
@@ -2829,7 +2857,7 @@ function dayAlerts(d, units){
 }
 
 function renderForecast(){
-  const f = state.forecast; if (!f) return;
+  const f = state.forecast; if (!f){renderDashboardWeather();return;}
   const units = state.settings.units;
   const u = units==='C' ? '°C' : '°F';
   const pu = units==='C' ? 'mm' : 'in';
@@ -2918,6 +2946,46 @@ function renderForecast(){
   buildBrief();
 }
 
+// Dashboard summaries reuse the full forecast's rendered days and backing state.
+function renderDashboardWeather(){
+  const key=`${state.settings.lat},${state.settings.lon}|${state.settings.units}`,same=state.forecastLocation===key;
+  const timezone=state.forecastTimezone||state.settings.timezone||'UTC',date=WeatherForecast.dateKey(Date.now(),timezone);
+  const next=same?(state._forecastDays||[]).map((day,index)=>({day,index})).filter(({day})=>day.date>=date).slice(0,3):[];
+  $('#dashboardForecast').innerHTML=next.map(({index})=>$('#forecast [data-day="'+index+'"]')?.outerHTML||'').join('')||'<p class="small">No upcoming forecast available. Open Weather to refresh or check location settings.</p>';
+  const source=WeatherForecast.provider(state.forecastSource),stale=!same||!state.forecastFetched||Date.now()-state.forecastFetched>3600000;
+  const failed=$('#forecastSource').textContent.includes('Forecast providers unavailable');
+  $('#dashboardWeatherSource').textContent=next.length?`${source} · Updated ${new Date(state.forecastFetched).toLocaleString()}${stale?' · Cached forecast may be out of date.':''}${failed?' · Refresh failed.':''}`:'Forecast unavailable for the current location.';
+  const rainFresh=state.rainfallLocation===key&&state.rainfallFetched&&Date.now()-state.rainfallFetched<6*3600000;
+  const amounts=Array.from({length:7},(_,i)=>{const d=WeatherForecast.shiftDate(date,i-7),matches=(state.rainfall||[]).filter(r=>r.date===d);return matches.length===1?WeatherForecast.number(matches[0].amount):null;});
+  const amount=rainFresh?WeatherForecast.total(amounts):null,pu=state.settings.units==='C'?'mm':'in';
+  $('#dashboardRain').textContent=amount==null?'Past 7 days: precipitation unavailable or stale →':`Past 7 days: ${amount.toFixed(2)} ${pu} modeled precipitation →`;
+  const alerts=[],officialSame=state.nwsAlertsLocation?state.nwsAlertsLocation===key:same;
+  if(officialSame)for(const a of state.nwsAlerts||[])if(!Number.isFinite(Date.parse(a.expires))||Date.parse(a.expires)>Date.now())alerts.push({label:`NWS: ${a.event||'Alert'}`,target:'upcomingAlerts'});
+  for(const {day}of next)for(const a of dayAlerts(day,state.settings.units))alerts.push({label:`${prettyDate(day.date)} · ${a.label}`,date:day.date});
+  $('#dashboardWeatherAlerts').innerHTML=alerts.slice(0,3).map(a=>`<button type="button" class="ghost tiny" ${a.date?`data-weather-date="${escapeHtml(a.date)}"`:`data-weather-target="${a.target}"`}>${escapeHtml(a.label)} →</button>`).join('')+(alerts.length>3?`<button type="button" class="ghost tiny" data-weather-target="upcomingAlerts">${alerts.length-3} more alerts / risk flags →</button>`:'')+(!officialSame||!state.nwsAlertsAvailable?'<p class="small">Official alert information unavailable.</p>':'');
+}
+function openDashboardWeather(date){
+  setView('weather');
+  const index=(state._forecastDays||[]).findIndex(d=>d.date===date);
+  if(index<0){showWeatherSection('weatherProtectionDetails');return;}
+  $('#forecast [data-day="'+index+'"]')?.focus();
+  openWeather(index);
+}
+function showWeatherSection(id){
+  setView('weather');
+  const target=$('#'+id);if(!target)return;
+  if(target.tagName==='DETAILS')target.open=true;
+  const focus=target.querySelector('summary')||target;
+  if(!focus.hasAttribute('tabindex'))focus.setAttribute('tabindex','-1');
+  focus.focus({preventScroll:true});target.scrollIntoView({behavior:'smooth',block:'start'});
+}
+$('#dashboardForecast').addEventListener('click',e=>{const button=e.target.closest('[data-day]');if(!button)return;const day=state._forecastDays?.[Number(button.dataset.day)];if(day)openDashboardWeather(day.date);});
+for(const id of ['dashboardWeatherPanel','briefPanel'])$('#'+id).addEventListener('click',e=>{
+  const day=e.target.closest('[data-weather-date]'),link=e.target.closest('[data-weather-target]');
+  if(day){e.preventDefault();openDashboardWeather(day.dataset.weatherDate);}
+  else if(link){e.preventDefault();showWeatherSection(link.dataset.weatherTarget);}
+});
+
 let rainfallChartPreferences={view:'bars',range:30};
 try {
   const saved=JSON.parse(localStorage.getItem('yardDashboard.rainfallChart')||'null');
@@ -2985,10 +3053,10 @@ function buildBrief(){
   const coldNight = protection.nights.find(n=>n.frost.length);
   if (coldNight){
     tasks.push({tag:'protect',title:`${coldNight.freeze.length?'Freezing temperatures':'Frost risk'} overnight · around ${PlantProtection.time(coldNight.frost[0].start,protection.timezone)}`,
-      why:`${coldNight.coldest.temp.toFixed(1)}${u} at ${PlantProtection.time(coldNight.coldest.time,protection.timezone)}. ${coldNight.complete?'':'Partial hourly coverage. '}Review ${protection.targets.length} inventory matches in the weather details. Plan protection before ${PlantProtection.time(coldNight.frost[0].entry?.from||coldNight.frost[0].start,protection.timezone)}, allowing extra time where onset is unknown; secure covers against wind. Hourly predictions are not official warnings.`});
+      weatherDate:coldNight.morning,why:`${coldNight.coldest.temp.toFixed(1)}${u} at ${PlantProtection.time(coldNight.coldest.time,protection.timezone)}. ${coldNight.complete?'':'Partial hourly coverage. '}Review ${protection.targets.length} inventory matches in the weather details. Plan protection before ${PlantProtection.time(coldNight.frost[0].entry?.from||coldNight.frost[0].start,protection.timezone)}, allowing extra time where onset is unknown; secure covers against wind. Hourly predictions are not official warnings.`});
   } else {
     const coldDays=days.slice(0,5).filter(d=>d.lo!=null && d.lo<=frostT);
-    if(coldDays.length)tasks.push({tag:'protect',title:`Daily forecast: cold ahead on ${prettyDate(coldDays[0].date)}`,
+    if(coldDays.length)tasks.push({tag:'protect',weatherDate:coldDays[0].date,title:`Daily forecast: cold ahead on ${prettyDate(coldDays[0].date)}`,
       why:'Daily low suggests cold risk; hourly timing is unavailable or does not confirm an overnight window. '+protectionAdvice(protection)});
   }
 
@@ -2999,7 +3067,7 @@ function buildBrief(){
     const sensitive = livePlants.filter(p=>/wind|tender|maple|fern/i.test((p.tags||'')+' '+(p.type||'')));
     if (sensitive.length){
       tasks.push({
-        tag:'move',
+        tag:'move',weatherDate:(hotDays[0]||windyDays[0]).date,
         title: hotDays.length && windyDays.length
           ? `Hot + windy stretch — protect wind-sensitive plants`
           : (hotDays.length ? `Heat coming — give shade-lovers afternoon cover`
@@ -3013,7 +3081,7 @@ function buildBrief(){
   renderWateringGuidance(watering);
   if(watering.checks.length){
     tasks.push({tag:'water',title:`Soil check: ${watering.checks.length} plant${watering.checks.length===1?'':'s'} to review`,
-      why:watering.checks.slice(0,4).map(p=>`${p.name} — ${p.lastWatered?`last watered ${p.lastWatered}`:'watering history unknown'}`).join(' · ')+(watering.checks.length>4?` · +${watering.checks.length-4} more`:'')+'. Check soil before watering; modeled rain does not reset watering logs. Details below the forecast.'});
+      why:watering.checks.slice(0,4).map(p=>`${p.name} — ${p.lastWatered?`last watered ${p.lastWatered}`:'watering history unknown'}`).join(' · ')+(watering.checks.length>4?` · +${watering.checks.length-4} more`:'')+'. Check soil before watering; modeled rain does not reset watering logs. Details in Weather → Before you water.'});
   } else if(watering.lowRain===true && watering.growing!==false){
     tasks.push({tag:'water',title:'Low modeled rainfall — spot-check soil',why:'Recent estimates and today/tomorrow suggest little precipitation. Check soil before deciding to water; this is not a measured dry spell.'});
   }
@@ -3068,10 +3136,12 @@ function buildBrief(){
     ? top.map(t=>t.title).join(' · ')
     : 'Nothing urgent. Take a walk through and see what catches your eye.';
 
+  $('#weatherProtectionOverview').innerHTML=protectionMarkup(protection,state.settings.units);
   $('#taskList').innerHTML = tasks.length
-    ? tasks.map(t=>`<li><span class="tag ${t.tag}">${t.tag}</span><strong>${escapeHtml(t.title)}</strong><div class="why">${escapeHtml(t.why)}</div></li>`).join('')
+    ? tasks.map(t=>`<li><span class="tag ${t.tag}">${t.tag}</span><strong>${escapeHtml(t.title)}</strong><div class="why">${escapeHtml(t.why)}</div>${t.weatherDate?`<button type="button" class="ghost tiny weather-task-link" data-weather-date="${escapeHtml(t.weatherDate)}">View weather details →</button>`:t.tag==='water'?'<button type="button" class="ghost tiny weather-task-link" data-weather-target="wateringGuidanceDetails">Before you water →</button>':''}</li>`).join('')
     : '<li class="empty">Nothing flagged today.</li>';
   if (typeof renderCareNudge === 'function') renderCareNudge();
+  renderDashboardWeather();
 }
 
 function prettyDate(s){
@@ -4187,8 +4257,9 @@ function openWeather(idx){
   $('#weatherClose').focus();
 }
 function closeWeather(){
+  const open=$('#weatherModal').classList.contains('show');
   $('#weatherModal').classList.remove('show');
-  weatherReturnFocus?.focus?.();
+  if(open&&weatherReturnFocus?.getClientRects().length)weatherReturnFocus.focus();
 }
 $('#weatherClose').onclick = closeWeather;
 $('#weatherModal').addEventListener('click', e=>{ if (e.target.id==='weatherModal') closeWeather(); });
@@ -6968,26 +7039,43 @@ $('#calendarView').addEventListener('click', e => {
   const gen  = e.target.closest('[data-gen]');  if (gen){ generateCare([gen.dataset.gen], { replace: true }); }
 });
 
-// Dashboard / Care calendar tabs
-function setView(v){
-  if (!['dashboard', 'calendar', 'year'].includes(v)) v = 'dashboard';
-  $('#dashboardView').style.display = v === 'dashboard' ? '' : 'none';
-  $('#calendarView').style.display = v === 'calendar' ? '' : 'none';
-  $('#yearView').style.display = v === 'year' ? '' : 'none';
-  $$('.plant-view-tabs [data-view]').forEach(b => { const on = b.dataset.view === v; b.classList.toggle('active', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
-  try { localStorage.setItem(VIEW_KEY, v); } catch(e){}
-  history.replaceState(null, '', location.pathname + location.search + (v === 'dashboard' ? '' : '#' + v));
-  if (v === 'calendar') renderCareViews();
-  if (v === 'year' && typeof renderYearView === 'function') renderYearView();
+// Plants views share state; URL changes participate in Back/Forward navigation.
+const plantViews=['dashboard','weather','calendar','year'];
+function setView(v,{historyMode='push'}={}){
+  if(!plantViews.includes(v))v='dashboard';
+  if(v!=='weather'&&$('#weatherModal').classList.contains('show'))closeWeather();
+  const panels={dashboard:'dashboardView',weather:'weatherView',calendar:'calendarView',year:'yearView'};
+  for(const [view,id]of Object.entries(panels))$('#'+id).style.display=view===v?'':'none';
+  $$('.plant-view-tabs [data-view]').forEach(b=>{const on=b.dataset.view===v;b.classList.toggle('active',on);b.setAttribute('aria-selected',String(on));b.tabIndex=on?0:-1;});
+  try{localStorage.setItem(VIEW_KEY,v);}catch(_){}
+  const hash=v==='dashboard'?'':'#'+v,url=location.pathname+location.search+hash;
+  if(historyMode==='none')$('#plant-tab-'+v).focus({preventScroll:true});
+  if(historyMode==='replace')history.replaceState(null,'',url);
+  else if(historyMode==='push'&&location.hash!==hash)history.pushState(null,'',url);
+  if(v==='calendar')renderCareViews();
+  if(v==='year'&&typeof renderYearView==='function')renderYearView();
+  if(v==='weather')renderWeatherCalendar();
 }
-$$('.plant-view-tabs [data-view]').forEach(b => b.addEventListener('click', ()=> setView(b.dataset.view)));
+$$('.plant-view-tabs [data-view]').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.view)));
+$('.plant-view-tabs').addEventListener('keydown',e=>{
+  const current=e.target.closest('[data-view]');if(!current)return;
+  const i=plantViews.indexOf(current.dataset.view);let next;
+  if(e.key==='ArrowRight')next=(i+1)%plantViews.length;
+  else if(e.key==='ArrowLeft')next=(i+plantViews.length-1)%plantViews.length;
+  else if(e.key==='Home')next=0;
+  else if(e.key==='End')next=plantViews.length-1;
+  else return;
+  e.preventDefault();setView(plantViews[next]);$('#plant-tab-'+plantViews[next]).focus();
+});
+function plantViewFromHash(){const hash=location.hash.slice(1);return plantViews.includes(hash)?hash:hash===''?'dashboard':null;}
+function restorePlantView(){const v=plantViewFromHash();if(v)setView(v,{historyMode:'none'});}
+window.addEventListener('popstate',restorePlantView);
+window.addEventListener('hashchange',restorePlantView);
 // Called after GAuth.handleReturn() so an OAuth token in the hash is consumed first.
 function initCareView(){
-  let v = 'dashboard';
-  try { v = localStorage.getItem(VIEW_KEY) || v; } catch(e){}
-  if (location.hash === '#calendar') v = 'calendar';
-  if (location.hash === '#year') v = 'year';
-  setView(v);
+  let v='dashboard';try{v=localStorage.getItem(VIEW_KEY)||v;}catch(_){}
+  if(location.hash&&plantViewFromHash())v=plantViewFromHash();
+  setView(v,{historyMode:'replace'});
 }
 
 /* ── Yard photos (issue #88) ──

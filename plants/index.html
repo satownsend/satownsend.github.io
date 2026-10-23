@@ -448,6 +448,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .ci-edit{background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:0 4px;line-height:1}
   .ci-done{background:var(--chip);border:1px solid var(--chip-line);color:var(--accent);border-radius:999px;padding:2px 9px;font-size:11px;font-weight:600;cursor:pointer;min-height:0;line-height:1.4;white-space:nowrap}
   .ci-done:hover{background:var(--accent);color:#04211d;border-color:var(--accent)}
+  /* Skip / Unskip (issue #146): quieter than Done, since nothing is logged. */
+  .ci-skip{background:transparent;color:var(--muted);border-color:var(--line2)}
+  .ci-skip:hover{background:var(--chip);color:var(--ink);border-color:var(--line2)}
+  .care-item.skipped,.cbp-tasks li.skipped{opacity:.6}
+  .cc-chip.skipped{opacity:.55;font-style:italic}
+  .ci-skipped{color:var(--muted);font-size:11px;font-style:italic;white-space:nowrap}
   .ci-edit:hover{color:var(--accent)}
   .care-byplant{display:flex;flex-direction:column;gap:10px}
   .cbp{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--panel2)}
@@ -2910,10 +2916,10 @@ function buildBrief(){
   if (typeof activeCare === 'function'){
     const by = plantsById(), tmd = mdOf(today), items = [];
     for (const t of activeCare()){
-      if (inWindow(t, tmd)){ if (!isTaskDone(t, today)) items.push({ t, when: t.start === tmd ? 'today' : '' }); continue; }
+      if (inWindow(t, tmd)){ if (!isTaskResolved(t, today)) items.push({ t, when: t.start === tmd ? 'today' : '' }); continue; }
       for (let i = 1; i < 7; i++){
         const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i, 12);
-        if (t.start === mdOf(d)){ items.push({ t, when: d.toLocaleDateString(undefined, {weekday:'short'}) }); break; }
+        if (t.start === mdOf(d)){ if (!isTaskResolved(t, d)) items.push({ t, when: d.toLocaleDateString(undefined, {weekday:'short'}) }); break; }
       }
     }
     if (items.length){
@@ -5208,11 +5214,14 @@ async function pullFromSheets(){
     // Care schedule: remote rows + any local-only tasks not yet pushed.
     const remoteCare = rawCare.filter(r => r.id && r.plant_id).map(r => ({
       id: r.id, plantId: r.plant_id, task: r.task || '', start: r.start || '', end: r.end || r.start || '',
-      notes: r.notes || '', source: r.source || 'ai', updatedAt: parseInt(r.updatedAt, 10) || 0,
+      notes: r.notes || '', source: r.source || 'ai', updatedAt: parseInt(r.updatedAt, 10) || 0, skipped: r.skipped || '',
     }));
     const remoteCareIds = new Set(remoteCare.map(t => t.id));
     const localOnlyCare = (state.care || []).filter(t => t.id && !remoteCareIds.has(t.id));
-    state.care = [...remoteCare, ...localOnlyCare];
+    // A local task edited after the sheet copy (e.g. just skipped, not yet
+    // pushed) wins over the older remote row.
+    const localCare = new Map((state.care || []).map(t => [t.id, t]));
+    state.care = [...remoteCare.map(r => { const l = localCare.get(r.id); return l && (l.updatedAt || 0) > r.updatedAt ? l : r; }), ...localOnlyCare];
     // Plant overviews: remote rows, but a local row that's newer (just
     // regenerated, not pushed yet) wins; local-only rows are kept.
     const localOv = new Map((state.overview || []).filter(o => o.plantId).map(o => [o.plantId, o]));
@@ -5301,11 +5310,12 @@ function logToSheetRows(){
   return rows;
 }
 
-const CARE_HEADERS = ['id','plant_id','task','start','end','notes','source','updatedAt'];
+// 'skipped' (issue #146): the YYYY-MM-DD start of the occurrence that was skipped.
+const CARE_HEADERS = ['id','plant_id','task','start','end','notes','source','updatedAt','skipped'];
 function careToSheetRows(){
   const rows = [CARE_HEADERS];
   for (const t of (state.care || [])){
-    rows.push([t.id||'', t.plantId||'', t.task||'', t.start||'', t.end||'', t.notes||'', t.source||'ai', t.updatedAt ? String(t.updatedAt) : '']);
+    rows.push([t.id||'', t.plantId||'', t.task||'', t.start||'', t.end||'', t.notes||'', t.source||'ai', t.updatedAt ? String(t.updatedAt) : '', t.skipped||'']);
   }
   return rows;
 }
@@ -6226,25 +6236,63 @@ function markCareDone(taskId){
     save(); refresh();
   });
 }
-const doneBtn = (t, done) => done ? '' : `<button class="ci-done care-edit" data-done="${escapeHtml(t.id)}" title="Log this as done today">✓ Done</button>`;
+/* "Skip" (issue #146) passes on this year's occurrence without writing to the
+   plant log, which only records care that actually happened. The skip lives on
+   the task (care_schedule "skipped" column) as the occurrence's start date, so
+   it covers just that window and the task comes back next year by itself. */
+function isTaskSkipped(t, ref){
+  if (!t.skipped) return false;
+  const { start, end } = occurrence(t, ref || today);
+  return t.skipped >= ymd(start) && t.skipped <= ymd(end);
+}
+// Logged or skipped: either way it no longer needs doing this time round.
+function isTaskResolved(t, ref){ return isTaskDone(t, ref) || isTaskSkipped(t, ref); }
+function setCareSkip(taskId, refYmd, on){
+  const t = (state.care || []).find(x => x.id === taskId); if (!t) return;
+  const p = plantsById().get(t.plantId);
+  if (!isGsAuthed()){ alert('Sign in with Google first (Settings).'); return; }
+  const ref = /^\d{4}-\d{2}-\d{2}$/.test(refYmd || '') ? new Date(refYmd + 'T12:00:00') : today;
+  const was = t.skipped || '';
+  const apply = v => {
+    t.skipped = v; t.updatedAt = Date.now(); save(); render({brief:1, calendar:1});
+    if (p && typeof renderInfoCare === 'function' && ovInfoPlantId === p.id) renderInfoCare(p);
+  };
+  apply(on ? ymd(occurrence(t, ref).start) : '');
+  const who = p ? p.name : 'this plant';
+  offerUndo(on ? `Skipped "${t.task}" for ${who} · back next year` : `"${t.task}" for ${who} is back on`, () => apply(was));
+}
+const doneBtn = (t, done, ref) => {
+  if (done) return '';
+  const id = escapeHtml(t.id);
+  if (isTaskSkipped(t, ref)) return `<span class="ci-skipped">skipped</span><button class="ci-done ci-skip care-edit" data-unskip="${id}" data-ref="${ymd(ref || today)}" title="Put this task back on the list">↶ Unskip</button>`;
+  return `<button class="ci-done care-edit" data-done="${id}" title="Log this as done today">✓ Done</button>`
+    + `<button class="ci-done ci-skip care-edit" data-skip="${id}" data-ref="${ymd(ref || today)}" title="Skip it this year. Nothing is logged and it comes back next year.">Skip</button>`;
+};
+// Shared click handling for the Done / Skip / Unskip buttons.
+function careBtnClick(e){
+  const d = e.target.closest('[data-done]');   if (d){ markCareDone(d.dataset.done); return true; }
+  const s = e.target.closest('[data-skip]');   if (s){ setCareSkip(s.dataset.skip, s.dataset.ref, true); return true; }
+  const u = e.target.closest('[data-unskip]'); if (u){ setCareSkip(u.dataset.unskip, u.dataset.ref, false); return true; }
+  return false;
+}
 
 // Task rows that are expanded to show their notes (kept across re-renders).
 const careOpen = new Set();
 
 function careItemHtml(t, ref, opts = {}){
   const p = plantsById().get(t.plantId);
-  const done = isTaskDone(t, ref);
+  const done = isTaskDone(t, ref), skipped = !done && isTaskSkipped(t, ref);
   const status = opts.status ? `<span class="small" style="color:var(--muted)">${escapeHtml(opts.status)}</span>` : '';
   const open = careOpen.has(t.id);
-  const meta = [winLabel(t) + ' every year', t.source === 'manual' ? 'added by you' : 'AI suggested', done ? 'logged ✓' : ''].filter(Boolean).join(' · ');
+  const meta = [winLabel(t) + ' every year', t.source === 'manual' ? 'added by you' : 'AI suggested', done ? 'logged ✓' : skipped ? 'skipped this year' : ''].filter(Boolean).join(' · ');
   const notes = t.notes ? escapeHtml(t.notes) : '<em style="color:var(--muted)">No details for this task.</em>';
-  return `<div class="care-item${done ? ' done' : ''}${open ? ' open' : ''}" data-tid="${escapeHtml(t.id)}" role="button" aria-expanded="${open}" title="Click for details">
+  return `<div class="care-item${done ? ' done' : ''}${skipped ? ' skipped' : ''}${open ? ' open' : ''}" data-tid="${escapeHtml(t.id)}" role="button" aria-expanded="${open}" title="Click for details">
     <span class="ci-chev">▶</span>
     ${done ? '<span title="Logged">✓</span>' : ''}
     <span class="ci-plant" data-open="${escapeHtml(t.plantId)}">${escapeHtml(p ? p.name : '(unknown plant)')}</span>
     <span class="ci-task">${escapeHtml(t.task)}</span>${status}
     <span class="ci-win">${escapeHtml(winLabel(t))}</span>
-    ${doneBtn(t, done)}
+    ${doneBtn(t, done, ref)}
     <button class="ci-edit care-edit" data-edit="${escapeHtml(t.id)}" aria-label="Edit task" title="Edit">✎</button>
     <div class="ci-notes">${notes}<span class="ci-meta">${escapeHtml(meta)}</span></div>
   </div>`;
@@ -6266,8 +6314,8 @@ function renderCareCalendar(){
     const active = care.filter(t => t.start !== md && inWindow(t, md)).length;
     const isToday = mdOf(today) === md && today.getFullYear() === calY;
     const chips = starts.slice(0, 3).map(t => {
-      const p = by.get(t.plantId), done = isTaskDone(t, ref);
-      return `<div class="cc-chip${done ? ' done' : ''}" title="${escapeHtml(p ? p.name : '')}: ${escapeHtml(t.task)}">${escapeHtml(shortName(p))} · ${escapeHtml(t.task)}</div>`;
+      const p = by.get(t.plantId), done = isTaskDone(t, ref), skipped = !done && isTaskSkipped(t, ref);
+      return `<div class="cc-chip${done ? ' done' : ''}${skipped ? ' skipped' : ''}" title="${escapeHtml(p ? p.name : '')}: ${escapeHtml(t.task)}${skipped ? ' (skipped)' : ''}">${escapeHtml(shortName(p))} · ${escapeHtml(t.task)}</div>`;
     }).join('');
     const more = starts.length > 3 ? `<div class="cc-more">+${starts.length - 3} more</div>` : '';
     const count = starts.length ? `<span class="cc-count">${starts.length}</span>` : '';
@@ -6330,7 +6378,7 @@ function careGroupHtml(g, ref){
       const own = (t.task || '').trim().toLowerCase() !== g.task.toLowerCase() ? `<span class="ci-task">${escapeHtml(t.task)}</span>` : '';
       return `<li><span class="ci-plant" data-open="${escapeHtml(t.plantId)}">${escapeHtml(p ? p.name : '(unknown plant)')}</span>${own}
         <span class="ci-win">${escapeHtml(winLabel(t))}</span>
-        ${doneBtn(t, isTaskDone(t, ref))}
+        ${doneBtn(t, isTaskDone(t, ref), ref)}
         <button class="ci-edit care-edit" data-edit="${escapeHtml(t.id)}" aria-label="Edit task" title="Edit">✎</button>
         ${t.notes ? `<span class="ci-gnote">${escapeHtml(t.notes)}</span>` : ''}</li>`;
     }).join('');
@@ -6354,7 +6402,7 @@ function renderCareUpcoming(){
     return;
   }
   const tmd = mdOf(today);
-  const inProgress = care.filter(t => t.start !== tmd && inWindow(t, tmd) && !isTaskDone(t, today));
+  const inProgress = care.filter(t => t.start !== tmd && inWindow(t, tmd) && !isTaskResolved(t, today));
   let html = '';
   if (inProgress.length) html += '<div class="care-date">In progress</div>' + inProgressHtml(inProgress, today);
   for (let i = 0; i < 30; i++){
@@ -6380,7 +6428,7 @@ function renderCareByPlant(){
   box.innerHTML = plants.map(p => {
     const tasks = (by.get(p.id) || []).slice().sort((a, b) => (a.start || '').localeCompare(b.start || ''));
     const list = tasks.length
-      ? `<ul class="cbp-tasks">${tasks.map(t => { const done = isTaskDone(t, today), active = inWindow(t, mdOf(today)); return `<li class="${done ? 'done' : ''}"><span class="t-win">${escapeHtml(winLabel(t))}</span><span>${done ? '✓ ' : ''}${escapeHtml(t.task)}</span>${t.source === 'manual' ? '<span class="small" style="color:var(--muted)">manual</span>' : ''}${active ? doneBtn(t, done) : ''}<button class="ci-edit care-edit" data-edit="${escapeHtml(t.id)}" aria-label="Edit" title="Edit">✎</button>${t.notes ? `<span class="t-notes">${escapeHtml(t.notes)}</span>` : ''}</li>`; }).join('')}</ul>`
+      ? `<ul class="cbp-tasks">${tasks.map(t => { const done = isTaskDone(t, today), skipped = !done && isTaskSkipped(t, today), active = inWindow(t, mdOf(today)); return `<li class="${done ? 'done' : ''}${skipped ? ' skipped' : ''}"><span class="t-win">${escapeHtml(winLabel(t))}</span><span>${done ? '✓ ' : ''}${escapeHtml(t.task)}</span>${t.source === 'manual' ? '<span class="small" style="color:var(--muted)">manual</span>' : ''}${active ? doneBtn(t, done) : ''}<button class="ci-edit care-edit" data-edit="${escapeHtml(t.id)}" aria-label="Edit" title="Edit">✎</button>${t.notes ? `<span class="t-notes">${escapeHtml(t.notes)}</span>` : ''}</li>`; }).join('')}</ul>`
       : '<div class="cbp-empty">No schedule yet.</div>';
     return `<div class="cbp${careWorking.has(p.id) ? ' working' : careQueued.has(p.id) ? ' queued' : ''}" data-pid="${escapeHtml(p.id)}">
       <div class="cbp-head"><span class="cbp-name" data-open="${escapeHtml(p.id)}">${escapeHtml(p.name)}</span>${p.type ? `<span class="cbp-lat">${escapeHtml(p.type)}</span>` : ''}
@@ -6401,7 +6449,7 @@ function renderCareStatus(){
   let soon = 0; const care = activeCare();
   for (let i = 0; i < 7; i++){
     const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i, 12), md = mdOf(d);
-    soon += care.filter(t => t.start === md && !isTaskDone(t, d)).length;
+    soon += care.filter(t => t.start === md && !isTaskResolved(t, d)).length;
   }
   const badge = $('#careBadge'); if (badge){ badge.style.display = soon ? '' : 'none'; badge.textContent = soon; }
   renderCareNudge(missing);
@@ -6575,12 +6623,12 @@ function renderInfoCare(p){
   const next = tasks.find(t => t.start > tmd) || tasks[0];
   teaser.textContent = `${tasks.length} task${tasks.length === 1 ? '' : 's'}` + (live.length ? ` · now: ${live.map(t => t.task).slice(0, 2).join(', ')}` : next ? ` · next: ${next.task} (${fmtMD(next.start)})` : '');
   body.innerHTML = `<ul class="cbp-tasks">${tasks.map(t => {
-    const done = isTaskDone(t, today), active = inWindow(t, tmd);
-    return `<li class="${done ? 'done' : ''}"><span class="t-win">${escapeHtml(winLabel(t))}</span><span${active ? ' style="color:var(--accent)"' : ''}>${done ? '✓ ' : ''}${escapeHtml(t.task)}</span>${t.source === 'manual' ? '<span class="small" style="color:var(--muted)">manual</span>' : ''}${active ? doneBtn(t, done) : ''}<button class="ci-edit care-edit" data-ic-edit="${escapeHtml(t.id)}" aria-label="Edit" title="Edit">✎</button>${t.notes ? `<span class="t-notes">${escapeHtml(t.notes)}</span>` : ''}</li>`;
+    const done = isTaskDone(t, today), skipped = !done && isTaskSkipped(t, today), active = inWindow(t, tmd);
+    return `<li class="${done ? 'done' : ''}${skipped ? ' skipped' : ''}"><span class="t-win">${escapeHtml(winLabel(t))}</span><span${active ? ' style="color:var(--accent)"' : ''}>${done ? '✓ ' : ''}${escapeHtml(t.task)}</span>${t.source === 'manual' ? '<span class="small" style="color:var(--muted)">manual</span>' : ''}${active ? doneBtn(t, done) : ''}<button class="ci-edit care-edit" data-ic-edit="${escapeHtml(t.id)}" aria-label="Edit" title="Edit">✎</button>${t.notes ? `<span class="t-notes">${escapeHtml(t.notes)}</span>` : ''}</li>`;
   }).join('')}</ul>`;
 }
 $('#icBody').addEventListener('click', e => {
-  const d = e.target.closest('[data-done]'); if (d){ markCareDone(d.dataset.done); return; }
+  if (careBtnClick(e)) return;
   const b = e.target.closest('[data-ic-edit]'); if (b) openCareTask(b.dataset.icEdit);
 });
 $('#icAddBtn').onclick = () => { if (!isGsAuthed()){ alert('Sign in with Google first (Settings).'); return; } if (ovInfoPlantId) openCareTask(null, ovInfoPlantId); };
@@ -6744,7 +6792,7 @@ $('#careAddTask').onclick = ()=>{ if (!isGsAuthed()){ alert('Sign in with Google
 $('#careFilter').addEventListener('input', renderCareByPlant);
 $('#calendarView').addEventListener('click', e => {
   const open = e.target.closest('[data-open]'); if (open){ openInfo(open.dataset.open); return; }
-  const done = e.target.closest('[data-done]'); if (done){ markCareDone(done.dataset.done); return; }
+  if (careBtnClick(e)) return;
   const edit = e.target.closest('[data-edit]'); if (edit){ openCareTask(edit.dataset.edit); return; }
   const add  = e.target.closest('[data-add]');  if (add){ openCareTask(null, add.dataset.add); return; }
   // Click a task row (Upcoming / selected day) to expand its full notes.

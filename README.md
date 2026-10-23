@@ -140,7 +140,7 @@ winter protect, repot…), each task a `MM-DD` window that repeats every year.
   trigger a nudge in Today's brief. "Regenerate" replaces a plant's AI tasks
   but keeps any you added or edited yourself.
 - **Storage:** a `care_schedule` tab in the plants sheet
-  (`id, plant_id, task, start, end, notes, source, updatedAt`), created on
+  (`id, plant_id, task, start, end, notes, source, updatedAt, skipped`), created on
   first use and synced row-by-row like the other tabs.
 - **Done tracking:** a task shows ✓ once the matching action is logged inside
   its window (prune → "pruned", fertilize → "fertilized", cover → "covered", …;
@@ -148,6 +148,11 @@ winter protect, repot…), each task a `MM-DD` window that repeats every year.
   button on any active task row writes that log entry for today itself
   (undoable for 10 s); a "plant …" task, or the Quick log's "planted" action,
   also fills in the plant's planted date when it's blank.
+- **Skip:** next to Done, **Skip** passes on this year's occurrence without
+  logging anything. The task drops out of In progress, Today's brief and the
+  tab badge, shows as "skipped" elsewhere with an **↶ Unskip** button, and
+  comes back by itself next year. The skip is stored in the task's `skipped`
+  column as the start date of the skipped window.
 - Tasks in progress or starting within a week also appear in Today's brief and
   as a count badge on the tab.
 

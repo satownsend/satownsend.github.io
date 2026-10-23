@@ -4,7 +4,7 @@
  const key=s=>`${s.location.lat},${s.location.lon}|${s.units}`;
  function dateAt(time,timezone){const parts=new Intl.DateTimeFormat('en-CA',{timeZone:timezone,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date(time));return ['year','month','day'].map(k=>parts.find(p=>p.type===k).value).join('-');}
  function zone(s){try{dateAt(s.capturedAt,s.timezone||'UTC');return s.timezone||'UTC';}catch(_){return 'UTC';}}
- function groups(history){const map=new Map();for(const s of [...history].sort((a,b)=>b.capturedAt.localeCompare(a.capturedAt)))if(!map.has(key(s)))map.set(key(s),{key:key(s),name:s.location.name||`${s.location.lat}, ${s.location.lon}`,units:s.units,timezone:zone(s)});return [...map.values()];}
+ function groups(history){const map=new Map();for(const s of [...history].sort((a,b)=>b.capturedAt.localeCompare(a.capturedAt)))if(!map.has(key(s)))map.set(key(s),{key:key(s),name:s.location.name||`${s.location.lat}, ${s.location.lon}`,units:s.units,timezone:zone(s),lat:s.location.lat,lon:s.location.lon});return [...map.values()];}
  function index(history,group){
   const selected=new Map();if(!group)return selected;
   for(const s of [...history].filter(s=>key(s)===group.key).sort((a,b)=>b.capturedAt.localeCompare(a.capturedAt))){

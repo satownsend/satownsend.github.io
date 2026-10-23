@@ -122,6 +122,15 @@ on my Warmoth bass?", "Frost?").
   your Google token before answering (401 otherwise) — this keeps the
   signed-in-only instrument prices private.
 - The panel shows which model is answering, fetched from the Worker.
+- **Saved answers (issue #145):** every answer has **☆ Save** and **Copy**.
+  Save keeps the question with it. The **★ Saved** button in the panel header
+  opens the saved list, where each item can be copied, asked again, or deleted.
+  The list can also save the whole current conversation as one item and export
+  everything as a Markdown file. Saved items live in a `chat_saved` tab of the
+  plants sheet (`id, saved_at, page, kind, question, answer`), so they follow you
+  across devices, with a local copy for instant loading. Writes are row-level
+  appends and single-row deletes. A save made offline is queued and syncs the
+  next time the Saved list opens.
 
 Deploy/redeploy instructions for the Worker are in
 [`chatbot-worker/README.md`](chatbot-worker/README.md).

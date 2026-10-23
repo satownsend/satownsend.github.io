@@ -413,3 +413,9 @@ Open a plant → Photos → **Growth story** while signed in. The dialog provide
 Download a local PNG collage using 4–9 selected photos. Full originals are fitted without cropping, with plant name, date range and per-photo dates. The image is not uploaded or hosted. Export requires image-storage CORS permission, and load/export failures are reported without downloading a partial collage. The current R2 photo response permits cross-origin access. Play starts only when requested, crossfades respect reduced-motion preferences, and background tabs pause playback. Sign-out closes/clears the story, and open/play/export guard authentication. This is a UI feature restriction, not a change to existing public photo hosting.
 
 This implements the slideshow and shareable-collage portion of #11; downloadable video/GIF encoding remains outside this change. Validation: syntax/whitespace checks, signed-out hidden-control review and a read-only R2 CORS header check. Authenticated playback and PNG downloads were not exercised in the signed-out local browser. No tests written or run, per user preference.
+
+### Adding plants
+
+While signed in, Plants → **+ Add plant** opens a draft form. Common name is required; Latin name, type, location and container status are available immediately. **More details** includes quantity (defaults to one), price, purchase/planting dates, tags and notes. Blank or whitespace-only names and invalid numeric values are rejected. Cancel or Escape discards the draft without creating a record. Submitting adds one plant through the existing local-save/Sheets-sync path and opens its saved record, even when the table filter excludes it. Signing out closes and clears the draft.
+
+Validation for issue #68: inline JavaScript syntax and whitespace checks passed; the updated page loaded in the signed-out browser with Add plant hidden. Authenticated creation and Sheets sync were not exercised. No tests were added.

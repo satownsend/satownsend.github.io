@@ -25,7 +25,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <script src="/shared/yard-photo-views.js?v=1"></script>
 <script src="/shared/forecast-history.js?v=protection-1"></script>
 <script src="/shared/weather-forecast.js?v=1"></script>
-<script src="/shared/weather-calendar.js?v=1"></script>
+<script src="/shared/weather-calendar.js?v=2"></script>
+<script src="/shared/historical-weather.js?v=1"></script>
 <script src="/shared/growth-story.js?v=1"></script>
 <script src="/shared/plant-protection.js?v=1"></script>
 <script src="/shared/watering-guidance.js?v=1"></script>
@@ -904,17 +905,24 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
   <details class="panel full" id="weatherCalendarPanel">
     <summary style="font-weight:600;cursor:pointer">Weather calendar</summary>
-    <p class="small">Saved forecasts, not observed weather. Each tile uses the latest capture strictly before that day in the calendar time zone, for one location and unit set. Today’s captures cannot replace yesterday’s prediction. This calendar uses all loaded history, independently of the history date filters.</p>
+    <p class="small" id="wcExplanation">Saved forecasts, not observed weather. Each tile uses the latest capture strictly before that day in the calendar time zone, for one location and unit set. Today’s captures cannot replace yesterday’s prediction. This calendar uses all loaded history, independently of the history date filters.</p>
     <div class="row wc-controls" style="flex-wrap:wrap;margin:12px 0">
+      <label>Data <select id="wcMode"><option value="saved">Saved predictions</option><option value="historical">Historical conditions (estimated)</option></select></label>
       <label>Location / units <select id="wcLocation"></select></label>
       <button type="button" class="ghost tiny" id="wcPrev" aria-label="Previous calendar year">← Year</button>
       <label>Year <input type="number" id="wcYear" min="1900" max="2200" step="1" style="width:90px"></label>
       <button type="button" class="ghost tiny" id="wcNext" aria-label="Next calendar year">Year →</button>
       <label>Month <select id="wcMonth"><option value="all">All months</option></select></label>
     </div>
-    <p class="small" id="wcCoverage" role="status"></p>
-    <div class="wc-legend small"><span class="wc-freezing">High ≤32°F / 0°C</span><span class="wc-cool">≤50°F / 10°C</span><span class="wc-mild">≤70°F / 21.1°C</span><span class="wc-warm">≤85°F / 29.4°C</span><span class="wc-hot">Above 85°F / 29.4°C</span><span class="wc-unknown">? No eligible forecast · stripes: high unavailable</span></div>
-    <p class="small">Color = predicted high. ● rain chance ≥40% · ❄ frost risk · ☀ heat risk · ≋ strong wind/gusts · ! official alert with a saved validity interval covering this day. Symbols are predictions/alerts as captured, not confirmed events. No symbol does not establish calm weather; values may be missing.</p>
+    <div class="row wc-controls" id="wcHistoricalControls" style="display:none;margin:12px 0">
+      <label>Model <select id="wcModel"><option value="best_match">Best match (automatic)</option><option value="gfs_seamless">GFS Seamless</option></select></label>
+      <button type="button" id="wcLoad" class="ghost tiny">Load historical year</button>
+      <button type="button" id="wcRefresh" class="ghost tiny">Refresh historical year</button>
+    </div>
+    <p class="small" id="wcHistoricalSource" style="display:none">Estimated past conditions from <a href="https://open-meteo.com/en/docs/historical-forecast-api" target="_blank" rel="noopener">Open-Meteo Historical Forecast</a> · <a href="https://open-meteo.com/en/licence" target="_blank" rel="noopener">CC BY 4.0</a>. Early model-run hours are stitched into a continuous series; this does not reproduce forecasts previously shown here or measure your backyard. Model coverage and versions change over time. Load a year on demand; hourly detail loads separately for one day. Today and future dates are excluded.</p>
+    <p class="small" id="wcCoverage" role="status" aria-live="polite"></p>
+    <div class="wc-legend small"><span class="wc-freezing">High ≤32°F / 0°C</span><span class="wc-cool">≤50°F / 10°C</span><span class="wc-mild">≤70°F / 21.1°C</span><span class="wc-warm">≤85°F / 29.4°C</span><span class="wc-hot">Above 85°F / 29.4°C</span><span class="wc-unknown" id="wcUnknownLegend">? No eligible forecast · stripes: high unavailable</span></div>
+    <p class="small" id="wcSymbolLegend">Color = predicted high. ● rain chance ≥40% · ❄ frost risk · ☀ heat risk · ≋ strong wind/gusts · ! official alert with a saved validity interval covering this day. Symbols are predictions/alerts as captured, not confirmed events. No symbol does not establish calm weather; values may be missing.</p>
     <div id="wcMonths" class="wc-months"></div>
     <section id="wcDay" tabindex="-1" aria-label="Selected weather calendar day"></section>
   </details>
@@ -2467,6 +2475,9 @@ async function syncWeatherHistory(){
   } finally { weatherSyncing = false; renderWeatherHistory(); }
 }
 let weatherCalendarYear=new Date().getFullYear(),weatherCalendarDate='',weatherCalendarGroup='';
+const historicalRequests=new Set(),historicalErrors=new Map();
+const historicalMode=()=>$('#wcMode').value==='historical';
+let historicalCalendarContext=null;
 const wcMonthNames=Array.from({length:12},(_,i)=>new Date(Date.UTC(2020,i,1)).toLocaleDateString(undefined,{timeZone:'UTC',month:'long'}));
 function calendarPhotos(date){
   const result=[],seen=new Set(),owners=[...(state.plants||[]).filter(p=>!p.wishlist),...(isGsAuthed()?[YARD]:[])];
@@ -2475,6 +2486,10 @@ function calendarPhotos(date){
 }
 function calendarSetup(){
   $('#wcMonth').innerHTML='<option value="all">All months</option>'+wcMonthNames.map((m,i)=>`<option value="${i}">${escapeHtml(m)}</option>`).join('');
+  $('#wcMode').onchange=()=>renderWeatherCalendar();
+  $('#wcModel').onchange=()=>renderWeatherCalendar();
+  $('#wcLoad').onclick=()=>loadCalendarHistorical();
+  $('#wcRefresh').onclick=()=>loadCalendarHistorical(true);
   $('#wcLocation').onchange=()=>{weatherCalendarGroup=$('#wcLocation').value;renderWeatherCalendar();};
   $('#wcYear').addEventListener('input',()=>{const y=Number($('#wcYear').value);if(Number.isInteger(y)&&y>=1900&&y<=2200)weatherCalendarYear=y;});
   $('#wcYear').onchange=()=>{const y=Number($('#wcYear').value);if(Number.isInteger(y)&&y>=1900&&y<=2200){weatherCalendarYear=y;weatherCalendarDate='';}renderWeatherCalendar();};
@@ -2483,45 +2498,110 @@ function calendarSetup(){
   $('#wcMonth').onchange=()=>renderWeatherCalendar();
   $('#weatherCalendarPanel').addEventListener('toggle',()=>{if($('#weatherCalendarPanel').open)renderWeatherCalendar();});
   $('#wcMonths').onclick=e=>{const tile=e.target.closest('[data-wc-date]');if(!tile)return;weatherCalendarDate=tile.dataset.wcDate;renderWeatherCalendar();$('#wcDay').focus();$('#wcDay').scrollIntoView({behavior:'smooth',block:'start'});};
-  $('#wcDay').onclick=e=>{const button=e.target.closest('[data-wc-photo]');if(!button)return;const photo=calendarPhotos(weatherCalendarDate)[Number(button.dataset.wcPhoto)];if(!photo)return;currentInfoPlantId=photo.plantId;const owner=photo.plantId===YARD_ID?YARD:state.plants.find(p=>p.id===photo.plantId);const photos=(owner?.photos||[]).filter(p=>!p.hideFromGallery);openLightbox(photos,photos.findIndex(p=>p.key===photo.key));};
+  $('#wcDay').onclick=e=>{if(e.target.closest('[data-wc-hourly]')){loadCalendarHistorical(e.target.closest('[data-wc-hourly]').dataset.wcHourly==='refresh','hourly');return;}const button=e.target.closest('[data-wc-photo]');if(!button)return;const photo=calendarPhotos(weatherCalendarDate)[Number(button.dataset.wcPhoto)];if(!photo)return;currentInfoPlantId=photo.plantId;const owner=photo.plantId===YARD_ID?YARD:state.plants.find(p=>p.id===photo.plantId);const photos=(owner?.photos||[]).filter(p=>!p.hideFromGallery);openLightbox(photos,photos.findIndex(p=>p.key===photo.key));};
 }
 calendarSetup();
 function renderWeatherCalendar(){
   const el=$('#wcMonths');if(!el)return;
-  const groups=WeatherCalendar.groups(weatherHistory),esc=v=>escapeHtml(String(v??''));
+  const historical=historicalMode(),groups=WeatherCalendar.groups(weatherHistory),esc=v=>escapeHtml(String(v??''));
   const preferred=`${state.settings.lat},${state.settings.lon}|${state.settings.units}`;
+  if(historical){
+    const current={key:preferred,name:state.settings.city,lat:state.settings.lat,lon:state.settings.lon,units:state.settings.units,timezone:state.settings.timezone||state.forecastTimezone||'UTC'};
+    const existing=groups.findIndex(g=>g.key===preferred);if(existing<0)groups.unshift(current);else groups[existing]={...groups[existing],...current};
+  }
   if(!groups.some(g=>g.key===weatherCalendarGroup))weatherCalendarGroup=groups.find(g=>g.key===preferred)?.key||groups[0]?.key||'';
   $('#wcLocation').innerHTML=groups.map(g=>`<option value="${esc(g.key)}">${esc(g.name)} · °${g.units}</option>`).join('');$('#wcLocation').value=weatherCalendarGroup;$('#wcLocation').disabled=!groups.length;
-  $('#wcYear').value=weatherCalendarYear;$('#wcPrev').disabled=weatherCalendarYear<=1900;$('#wcNext').disabled=weatherCalendarYear>=2200;
-  const group=groups.find(g=>g.key===weatherCalendarGroup),timezone=group?.timezone||'UTC',index=WeatherCalendar.index(weatherHistory,group);
+  const group=groups.find(g=>g.key===weatherCalendarGroup),timezone=group?.timezone||'UTC';
+  const minimum=historical?HistoricalWeather.models[$('#wcModel').value].since:1900,maximum=historical?Number(HistoricalWeather.dateAt(Date.now(),timezone).slice(0,4)):2200;
+  weatherCalendarYear=Math.max(minimum,Math.min(maximum,weatherCalendarYear));
+  if(weatherCalendarDate&&!weatherCalendarDate.startsWith(weatherCalendarYear+'-'))weatherCalendarDate='';
+  $('#wcYear').min=minimum;$('#wcYear').max=maximum;$('#wcYear').value=weatherCalendarYear;$('#wcPrev').disabled=weatherCalendarYear<=minimum;$('#wcNext').disabled=weatherCalendarYear>=maximum;
+  historicalCalendarContext=historical?HistoricalWeather.context(group,weatherCalendarYear,$('#wcModel').value):null;
+  const data=historical?HistoricalWeather.peek(historicalCalendarContext):null;
+  const index=historical?new Map((data?.items||[]).filter(d=>[d.hi,d.lo,d.pcp,d.rain,d.wind,d.gust].some(v=>v!=null)).map(day=>[day.date,{day,snapshot:{units:data.units}}])):WeatherCalendar.index(weatherHistory,group);
+  $('#wcHistoricalControls').style.display=historical?'flex':'none';$('#wcHistoricalSource').style.display=historical?'':'none';
+  $('#wcExplanation').textContent=historical?'Historical conditions are imported model estimates for completed days. They are separate from the forecasts saved by this site. Choose a year and load its daily summaries, then select a date for weather, photos and care notes.':'Saved forecasts, not observed weather. Each tile uses the latest capture strictly before that day in the calendar time zone, for one location and unit set. Today’s captures cannot replace yesterday’s prediction. This calendar uses all loaded history, independently of the history date filters.';
+  $('#wcUnknownLegend').textContent=historical?'? Unavailable / not loaded · stripes: high unavailable':'? No eligible forecast · stripes: high unavailable';
+  $('#wcSymbolLegend').textContent=historical?'Color = estimated daily high. ● estimated rain + showers above zero. These are model estimates, not station measurements or official alerts. Missing values remain unavailable.':'Color = predicted high. ● rain chance ≥40% · ❄ frost risk · ☀ heat risk · ≋ strong wind/gusts · ! official alert with a saved validity interval covering this day. Symbols are predictions/alerts as captured, not confirmed events. No symbol does not establish calm weather; values may be missing.';
+  if(historical){const busy=historicalRequests.has(HistoricalWeather.key(historicalCalendarContext,'daily'));$('#wcLoad').disabled=busy||!!data&&!HistoricalWeather.stale(data);$('#wcLoad').textContent=busy?'Loading historical year…':data?'Historical year loaded':'Load historical year';$('#wcRefresh').disabled=busy||!data;}
+
   const total=new Date(Date.UTC(weatherCalendarYear+1,0,1))-new Date(Date.UTC(weatherCalendarYear,0,1));
   const covered=[...index.keys()].filter(d=>d.startsWith(weatherCalendarYear+'-')).length;
-  $('#wcCoverage').textContent=`${covered} of ${total/86400000} days have an eligible saved forecast · ${timezone}. ${weatherHistoryMessage} Missing days remain unknown. Coverage counts dates, not weather events.`;
+  $('#wcCoverage').textContent=historical?historicalCoverage(data,historicalCalendarContext,covered,total/86400000):`${covered} of ${total/86400000} days have an eligible saved forecast · ${timezone}. ${weatherHistoryMessage} Missing days remain unknown. Coverage counts dates, not weather events.`;
   const icons={frost:'❄',heat:'☀',wind:'≋',official:'!'};
   const month=$('#wcMonth').value;
   el.innerHTML=wcMonthNames.map((name,m)=>{
     if(month!=='all'&&Number(month)!==m)return '';
     const count=new Date(Date.UTC(weatherCalendarYear,m+1,0)).getUTCDate(),offset=new Date(Date.UTC(weatherCalendarYear,m,1)).getUTCDay();
     const tiles=Array.from({length:count},(_,i)=>{
-      const date=`${weatherCalendarYear}-${String(m+1).padStart(2,'0')}-${String(i+1).padStart(2,'0')}`,entry=index.get(date),flags=WeatherCalendar.flags(entry,timezone),d=entry?.day;
-      const text=entry?`${date}. Saved forecast: high ${d.hi??'unavailable'}, low ${d.lo??'unavailable'} degrees ${entry.snapshot.units}; rain chance ${d.pop==null?'unavailable':d.pop+' percent'}; ${flags.join(', ')||'no risk symbols'}. Captured ${entry.snapshot.capturedAt}, ${entry.leadDays} calendar days before target.`:`${date}. No eligible saved forecast; weather unknown.`;
-      return `<button type="button" class="wc-tile wc-${WeatherCalendar.temperature(entry)}${weatherCalendarDate===date?' selected':''}" data-wc-date="${date}" aria-pressed="${weatherCalendarDate===date}" aria-label="${esc(text)}" title="${esc(text)}"><span>${i+1}</span><span class="wc-symbols" aria-hidden="true">${entry?(d.pop>=40?'●':'')+flags.map(f=>icons[f]).join(''):'?'}</span></button>`;
+      const date=`${weatherCalendarYear}-${String(m+1).padStart(2,'0')}-${String(i+1).padStart(2,'0')}`,entry=index.get(date),flags=historical?[]:WeatherCalendar.flags(entry,timezone),d=entry?.day;
+      const text=historical?`${date}. ${entry?'Imported estimate: '+historicalDaySummary(d,data.units):'No historical estimate loaded / available.'}`:entry?`${date}. Saved forecast: high ${d.hi??'unavailable'}, low ${d.lo??'unavailable'} degrees ${entry.snapshot.units}; rain chance ${d.pop==null?'unavailable':d.pop+' percent'}; ${flags.join(', ')||'no risk symbols'}. Captured ${entry.snapshot.capturedAt}, ${entry.leadDays} calendar days before target.`:`${date}. No eligible saved forecast; weather unknown.`;
+      return `<button type="button" class="wc-tile wc-${WeatherCalendar.temperature(entry)}${weatherCalendarDate===date?' selected':''}" data-wc-date="${date}" aria-pressed="${weatherCalendarDate===date}" aria-label="${esc(text)}" title="${esc(text)}"><span>${i+1}</span><span class="wc-symbols" aria-hidden="true">${entry?(historical?(d.rain>0?'●':''):(d.pop>=40?'●':'')+flags.map(f=>icons[f]).join('')):'?'}</span></button>`;
     }).join('');
     return `<section><h3>${esc(name)}</h3><div class="wc-grid">${['S','M','T','W','T','F','S'].map(d=>`<span class="wc-weekday" aria-hidden="true">${d}</span>`).join('')}${'<span aria-hidden="true"></span>'.repeat(offset)}${tiles}</div></section>`;
   }).join('');
-  renderCalendarDay(index.get(weatherCalendarDate),group);
+  renderCalendarDay(index.get(weatherCalendarDate),group,data);
 }
-function renderCalendarDay(entry,group){
+function renderCalendarDay(entry,group,historicalData){
   const el=$('#wcDay'),date=weatherCalendarDate,esc=v=>escapeHtml(String(v??''));
-  if(!date){el.innerHTML='<p class="small">Select a day to explore its saved prediction, photos and care notes.</p>';return;}
+  if(!date){el.innerHTML='<p class="small">Select a day to explore its '+(historicalMode()?'estimated conditions':'saved prediction')+', photos and care notes.</p>';return;}
+  if(historicalMode()){el.innerHTML=historicalDayMarkup(entry,historicalData,historicalCalendarContext)+calendarJournalMarkup(date);return;}
   const tz=group?.timezone||'UTC',stamp=s=>new Date(s.capturedAt).toLocaleString(undefined,{timeZone:tz,timeZoneName:'short'});
   const snapshots=weatherHistory.filter(s=>group&&WeatherCalendar.key(s)===group.key&&s.days.some(d=>d.date===date)).sort((a,b)=>b.capturedAt.localeCompare(a.capturedAt));
-  const photos=calendarPhotos(date),notes=(state.log||[]).filter(l=>l.date===date);
   el.innerHTML=`<h3>${esc(prettyDate(date))} · ${date.slice(0,4)}</h3>${entry?`<p><strong>Chosen forecast</strong> · captured ${esc(stamp(entry.snapshot))} · ${entry.leadDays} calendar day${entry.leadDays===1?'':'s'} before target day · ${esc(WeatherForecast.provider(entry.snapshot.source))}.</p><p>${esc(WeatherForecast.summary(entry.day,entry.snapshot.units))}</p><p class="small">${entry.snapshot.alertsAvailable?'Official alerts were available at capture time.':'Official alert information was unavailable at capture time.'}</p>`:'<p>No eligible snapshot was captured before this day. Weather is unknown, even if photos or care records exist.</p>'}
     ${entry?`<details><summary>Official alerts as saved (${entry.snapshot.alerts.length})</summary><p class="small">These are the alerts returned at capture time. Only saved validity intervals overlapping this date receive a tile symbol.</p>${entry.snapshot.alerts.map(a=>`<p><strong>${esc(a.event)}</strong> · ${esc(a.effective)} → ${esc(a.expires)}<br>${esc(a.headline)}<br>${esc(a.description)}</p>`).join('')}</details>`:''}
     <details><summary>All saved forecasts containing this date (${snapshots.length})</summary><p class="small">Same-day and later captures are listed for comparison only; they cannot color the tile.</p>${snapshots.map(s=>{const d=s.days.find(d=>d.date===date);return `<div class="wc-snapshot"><strong>${esc(stamp(s))}</strong> · ${WeatherCalendar.dateAt(s.capturedAt,tz)<date?'pre-day capture':'same-day/later capture'}<p>${esc(WeatherForecast.provider(s.source))} · ${esc(WeatherForecast.summary(d,s.units))}</p></div>`;}).join('')||'<p>No saved forecasts contain this date.</p>'}</details>
-    <h4>Dated photos (${photos.length})</h4><p class="small">Site records matched by recorded photo date, not by forecast location or proof of weather conditions. Hidden photos are excluded; yard photos require sign-in.</p><div class="wc-photos">${photos.map((p,i)=>`<button type="button" data-wc-photo="${i}" aria-label="Open ${esc(p.plantName)} photo"><img src="${esc(r2PublicUrl(p.key+'.thumb.jpg'))}" loading="lazy" alt="${esc(p.caption||p.plantName)}"><span>${esc(p.plantName)}</span></button>`).join('')||'<p class="small">No visible photos dated this day.</p>'}</div>
+    ${calendarJournalMarkup(date)}`;
+}
+
+function calendarJournalMarkup(date){
+  const esc=v=>escapeHtml(String(v??'')),photos=calendarPhotos(date),notes=(state.log||[]).filter(l=>l.date===date);
+  return `<h4>Dated photos (${photos.length})</h4><p class="small">Site records matched by recorded photo date, not by forecast location or proof of weather conditions. Hidden photos are excluded; yard photos require sign-in.</p><div class="wc-photos">${photos.map((p,i)=>`<button type="button" data-wc-photo="${i}" aria-label="Open ${esc(p.plantName)} photo"><img src="${esc(r2PublicUrl(p.key+'.thumb.jpg'))}" loading="lazy" alt="${esc(p.caption||p.plantName)}"><span>${esc(p.plantName)}</span></button>`).join('')||'<p class="small">No visible photos dated this day.</p>'}</div>
     <h4>Care notes (${notes.length})</h4>${notes.length?`<ul>${notes.map(l=>`<li><strong>${esc(state.plants.find(p=>p.id===l.plantId)?.name||'Yard')}</strong> · ${esc(l.action)}${l.time?' · '+esc(l.time):''}${l.note?' — '+esc(l.note):''}</li>`).join('')}</ul>`:'<p class="small">No care records dated this day.</p>'}`;
+}
+
+async function loadCalendarHistorical(refresh=false,kind='daily'){
+  const context=historicalCalendarContext,date=weatherCalendarDate;
+  if(!historicalMode()||!context)return;
+  const key=HistoricalWeather.key(context,kind,date);
+  if(historicalRequests.has(key))return;
+  historicalRequests.add(key);historicalErrors.delete(key);renderWeatherCalendar();
+  try{await HistoricalWeather.load(context,kind,date,refresh);}
+  catch(e){historicalErrors.set(key,e.message||'Historical weather could not be loaded.');}
+  finally{historicalRequests.delete(key);renderWeatherCalendar();}
+}
+function historicalCoverage(data,context,covered,total){
+  const key=HistoricalWeather.key(context,'daily'),error=historicalErrors.get(key),busy=historicalRequests.has(key);
+  const complete=(data?.items||[]).filter(d=>d.hi!=null&&d.lo!=null&&d.pcp!=null).length;
+  return `${busy?'Loading historical daily summaries. ':''}${error?error+' ':''}${data?`${covered} of ${total} calendar days have at least one estimate; ${complete} have high, low and total precipitation. Requested ${data.start} through ${data.end} · ${data.timezone}. Retrieved ${new Date(data.retrievedAt).toLocaleString()}. ${HistoricalWeather.stale(data)?'Cached data is stale; refresh to check for updates. ':''}${data.persisted===false?'Browser storage unavailable; this result is cached only for this session. ':''}`:'Choose Load historical year to request daily summaries. '}${context.start>context.end?'No completed days in this year yet. ':''}Unavailable dates remain unknown; today and future dates are excluded.`;
+}
+function historicalDaySummary(day,units){
+  const f=WeatherForecast.format,p=units==='C'?'mm':'in';
+  return `High ${f(day.hi,'°'+units,1)} · Low ${f(day.lo,'°'+units,1)} · Rain + showers ${f(day.rain,' '+p,3)} · Total precipitation ${f(day.pcp,' '+p,3)} · Sustained wind max ${f(day.wind,' mph',1)} · Gust max ${f(day.gust,' mph',1)}`;
+}
+function historicalProvenance(data){
+  const esc=v=>escapeHtml(String(v??''));
+  return `<p class="small">Imported model estimate · ${esc(data.provider)} · ${esc(HistoricalWeather.models[data.model].name)}${data.model==='best_match'?' (individual contributing model not identified by the response)':''} · ${esc(data.timezone)} · °${data.units}, ${data.units==='C'?'mm':'in'}, mph. Retrieved ${esc(new Date(data.retrievedAt).toLocaleString())}.</p><details><summary>Historical data provenance</summary><p class="small">Requested location: ${esc(data.name)} (${esc(data.lat)}, ${esc(data.lon)}). Returned grid: ${esc(data.responseLocation.lat)}, ${esc(data.responseLocation.lon)}, elevation ${esc(data.responseLocation.elevation)} m. Selected local dates ${esc(data.start)} through ${esc(data.end)}. API window ${esc(data.requestStart)} through ${esc(data.requestEnd)} (${esc(data.responseTimezone)}). Source type: imported-model-estimate. Retrieval time is not a forecast issue time.</p><p class="small"><a href="${esc(data.requestUrl)}" target="_blank" rel="noopener">Open source API response</a> · <a href="https://open-meteo.com/en/docs/historical-forecast-api" target="_blank" rel="noopener">Open-Meteo documentation</a></p></details>`;
+}
+function historicalDayMarkup(entry,data,context){
+  const esc=v=>escapeHtml(String(v??'')),date=weatherCalendarDate;
+  const eligible=date>=context.start&&date<=context.end,hourly=eligible?HistoricalWeather.peek(context,'hourly',date):null,key=HistoricalWeather.key(context,'hourly',date),busy=historicalRequests.has(key),error=historicalErrors.get(key);
+  return `<h3>${esc(prettyDate(date))} · ${date.slice(0,4)}</h3><h4>Historical conditions · estimated</h4>${entry?`<p>${esc(historicalDaySummary(entry.day,data.units))}</p>`:'<p>No daily estimate loaded / available for this date. This does not establish dry, mild or calm conditions.</p>'}<p class="small">Rain + showers excludes snow; total precipitation includes snow water equivalent. These are regional model estimates, not backyard measurements. Official alerts and forecasts previously displayed by this site are available only in Saved predictions.</p>${data?historicalProvenance(data):''}${eligible?`<div class="row"><button type="button" class="ghost tiny" data-wc-hourly="load" ${busy||hourly&&!HistoricalWeather.stale(hourly)?'disabled':''}>${busy?'Loading hourly estimates…':hourly?'Hourly estimates loaded':'Load hourly estimates'}</button>${hourly?`<button type="button" class="ghost tiny" data-wc-hourly="refresh" ${busy?'disabled':''}>Refresh hourly estimates</button>`:''}</div>${error?`<p role="status">${esc(error)}</p>`:''}${hourly?historicalHourlyMarkup(hourly):'<p class="small">Hourly temperature, total precipitation and wind detail is requested separately for this day.</p>'}`:'<p class="small">Hourly estimates are available only for completed dates within the selected model’s supported range.</p>'}`;
+}
+function historicalHourlyMarkup(data){
+  const esc=v=>escapeHtml(String(v??'')),samples=data.items,u='°'+data.units,p=data.units==='C'?'mm':'in',f=WeatherForecast.format;
+  const time=s=>new Date(s.time).toLocaleTimeString(undefined,{timeZone:data.timezone,hour:'numeric',minute:'2-digit',timeZoneName:'short'});
+  const center=Date.parse(data.start+'T12:00:00Z');let expected=0;
+  for(let t=center-36*3600000;t<=center+36*3600000;t+=3600000)if(HistoricalWeather.dateAt(t,data.timezone)===data.start)expected++;
+  const complete=samples.filter(s=>[s.temp,s.pcp,s.wind,s.gust].every(v=>v!=null)).length,values=samples.map(s=>s.temp).filter(v=>v!=null);
+  let chart='';
+  if(values.length){
+    const lo=Math.min(...values)-2,hi=Math.max(...values)+2,w=650,h=150,firstTime=Date.parse(samples[0].time),span=Math.max(1,Date.parse(samples[samples.length-1].time)-firstTime),x=i=>40+(Date.parse(samples[i].time)-firstTime)*598/span,y=v=>18+(hi-v)*106/(hi-lo);let path='',previous=null;
+    samples.forEach((s,i)=>{if(s.temp==null){previous=null;return;}const stamp=Date.parse(s.time);path+=`${previous!=null&&stamp-previous===3600000?'L':'M'}${x(i).toFixed(1)},${y(s.temp).toFixed(1)} `;previous=stamp;});
+    const labels=[...new Set([0,Math.floor((samples.length-1)/2),samples.length-1])].map(i=>`<text x="${x(i)}" y="145" text-anchor="${i===0?'start':i===samples.length-1?'end':'middle'}" fill="var(--muted)" font-size="10">${esc(time(samples[i]))}</text>`).join('');
+    chart=`<svg class="hourly-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="Estimated historical hourly temperature; exact values in the table"><text x="0" y="14" fill="var(--muted)" font-size="10">${f(Math.max(...values),u,1)}</text><text x="0" y="126" fill="var(--muted)" font-size="10">${f(Math.min(...values),u,1)}</text><path d="${path}" fill="none" stroke="var(--accent)" stroke-width="2"/>${labels}</svg>`;
+  }
+  return `<h4>Hourly estimates</h4><p class="small">${samples.length} of ${expected} expected local-day hourly timestamps returned; ${complete} have all four requested measurements. Local days may have 23 or 25 hours at daylight-saving changes. Precipitation and gusts refer to the hour ending at the listed time. Missing values are —.${HistoricalWeather.stale(data)?' Cached data is stale; refresh to check for updates.':''}</p>${historicalProvenance(data)}${chart}<div class="hourly-scroll" tabindex="0" role="region" aria-label="Historical hourly estimates"><table><thead><tr><th scope="col">Time</th><th scope="col">Temp (${u})</th><th scope="col">Total precip. (${p})</th><th scope="col">Wind (mph)</th><th scope="col">Gust (mph)</th></tr></thead><tbody>${samples.map(s=>`<tr><th scope="row">${esc(time(s))}</th>${[['temp',1],['pcp',3],['wind',1],['gust',1]].map(([k,n])=>`<td>${s[k]==null?'—':s[k].toFixed(n)}</td>`).join('')}</tr>`).join('')||'<tr><td colspan="5">No hourly estimates available.</td></tr>'}</tbody></table></div>`;
 }
 
 function filteredWeatherHistory(){

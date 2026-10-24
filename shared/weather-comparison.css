@@ -1,0 +1,25 @@
+.compare-controls{display:flex;gap:16px;flex-wrap:wrap;align-items:end;margin:16px 0}
+.compare-controls label{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.compare-years{display:flex;gap:14px;flex-wrap:wrap;border:0;padding:0;margin:16px 0}
+.compare-years legend{margin-bottom:8px;color:var(--ink-soft)}
+.compare-years label{display:inline-flex;gap:6px;align-items:center;min-height:32px}
+.compare-years input{width:auto}
+.compare-custom{display:flex;gap:12px;flex-wrap:wrap}
+.compare-custom[hidden]{display:none}
+.compare-custom input{width:100px}
+.compare-scroll{overflow-x:auto;margin:16px 0}
+.compare-chart{display:block;width:100%;min-width:var(--comparison-width,1040px);height:auto;touch-action:pan-x pan-y}
+.compare-chart text{fill:var(--ink);font-size:15px}
+.compare-chart rect.wc-freezing{fill:#254578}.compare-chart rect.wc-cool{fill:#356877}.compare-chart rect.wc-mild{fill:#3a6348}.compare-chart rect.wc-warm{fill:#77552c}.compare-chart rect.wc-hot{fill:#8c3936}
+.compare-chart rect.wc-unknown{fill:var(--panel2);stroke:var(--muted);stroke-width:.6;stroke-dasharray:2 2}
+.compare-chart rect.wc-not-date{fill:none}
+.compare-grid{stroke:var(--muted);stroke-opacity:.22}
+.compare-cursor{stroke:var(--ink);stroke-width:1.5;stroke-dasharray:4 3;pointer-events:none}
+.compare-date-selector{display:flex;align-items:center;gap:12px;margin:12px 0}
+.compare-date-selector input{flex:1;min-width:0;min-height:36px;accent-color:var(--accent)}
+.compare-reading{font-size:16px;line-height:1.7;color:var(--ink);min-height:3.4em;font-variant-numeric:tabular-nums;margin-bottom:24px}
+.compare-year-key{font-weight:700;border-bottom:3px solid var(--year-color);padding-bottom:3px}
+.compare-summaries p{color:var(--ink-soft);font-size:15px;line-height:1.65}
+#compareStatus{line-height:1.6}
+
+.compare-line-legend{display:flex;flex-wrap:wrap;gap:24px;margin:12px 0}

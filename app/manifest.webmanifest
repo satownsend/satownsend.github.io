@@ -1,0 +1,20 @@
+{
+  "id": "/",
+  "name": "Scott Townsend",
+  "short_name": "Scott's Yard",
+  "description": "Plants, care, weather and collections from Scott Townsend's yard and home.",
+  "lang": "en",
+  "start_url": "/plants/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#08191c",
+  "theme_color": "#08191c",
+  "icons": [
+    {"src": "/app/icons/app-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "/app/icons/app-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
+  ],
+  "shortcuts": [
+    {"name": "Care calendar", "url": "/plants/#calendar"},
+    {"name": "Weather", "url": "/plants/#weather"}
+  ]
+}

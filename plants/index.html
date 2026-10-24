@@ -13,8 +13,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <meta name="theme-color" content="#0d1611">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Plants">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Scott's Yard">
 <title>Plants</title>
 <link rel="preconnect" href="https://use.typekit.net" crossorigin>
 <!-- Typekit loaded async (issue #21): preload + swap in on load; the font stacks have system fallbacks so text paints immediately. -->
@@ -33,7 +33,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <script src="/shared/growth-story.js?v=1"></script>
 <script src="/shared/plant-protection.js?v=1"></script>
 <script src="/shared/watering-guidance.js?v=1"></script>
-<script defer src="/shared/nav.js"></script>
+<script defer src="/shared/nav.js?v=app-1"></script>
 <script defer src="/shared/chat.js"></script>
 <style>
   .stats-row{display:grid;grid-template-columns:repeat(auto-fit, minmax(min(280px,100%), 1fr));gap:24px;align-items:start}
@@ -818,6 +818,10 @@ body.view-only .log-bulk,body.view-only .log-bulk-cell { display:none; }
 <link rel="stylesheet" href="/shared/record-cover.css">
 <script src="/shared/record-cover.js"></script>
 <link rel="stylesheet" href="/shared/section-details.css?v=2">
+<link rel="manifest" href="/app/manifest.webmanifest">
+<link rel="apple-touch-icon" sizes="180x180" href="/app/icons/app-180.png">
+<link rel="stylesheet" href="/shared/app.css?v=1">
+<script defer src="/shared/app.js?v=1"></script>
 </head>
 <body>
 <!-- Google Tag Manager (noscript) -->
@@ -7091,8 +7095,25 @@ function setView(v,{historyMode='push'}={}){
   if(v==='calendar')renderCareViews();
   if(v==='year'&&typeof renderYearView==='function')renderYearView();
   if(v==='weather')renderWeatherCalendar();
+  document.dispatchEvent(new Event('yard-app-view'));
 }
 $$('.plant-view-tabs [data-view]').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.view)));
+document.addEventListener('yard-app-navigate',event=>{
+  const target=event.detail?.target;
+  if(!['plants','log','calendar','weather'].includes(target))return;
+  if(target==='log'&&!isGsAuthed()){
+    openSettings('sync');
+    $('#gsSaveTokenBtn').focus();
+    $('#gsSaveTokenBtn').scrollIntoView({block:'center'});
+    return;
+  }
+  setView(target==='plants'||target==='log'?'dashboard':target);
+  const id={plants:'plantFilter',log:'logPlantBtn',calendar:'plant-tab-calendar',weather:'weatherTitle'}[target];
+  const element=document.getElementById(id);
+  if(!element.hasAttribute('tabindex')&&target==='weather')element.tabIndex=-1;
+  element.focus({preventScroll:true});element.scrollIntoView({block:'start'});
+});
+
 $('.plant-view-tabs').addEventListener('keydown',e=>{
   const current=e.target.closest('[data-view]');if(!current)return;
   const i=plantViews.indexOf(current.dataset.view);let next;

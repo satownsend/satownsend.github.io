@@ -1,3 +1,4 @@
+import { archiveResponse, updateArchive } from './weather-archive.js';
 import { loadWeatherContext } from './weather.js';
 
 /* satownsend.com chatbot — Cloudflare Worker (issue #48).
@@ -496,11 +497,14 @@ async function handleCare(body, env, cors){
 }
 
 export default {
+  async scheduled(_event,env,ctx){ctx.waitUntil(updateArchive(env));},
   async fetch(request, env){
     const origin = request.headers.get('Origin') || '';
     const cors = corsHeaders(origin);
 
     if(request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
+
+    if(['/weather-archive','/weather-archive/status'].includes(new URL(request.url).pathname))return archiveResponse(request,env,cors);
 
     // Public info endpoint: which model is answering (issue #54). Not sensitive.
     if(request.method === 'GET'){

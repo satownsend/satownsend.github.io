@@ -85,3 +85,7 @@ This does not provide observed temperatures, soil moisture, or proof of an actua
 **Activation:** merges to `main` now trigger the connected Cloudflare build. Verify the build and deployment succeed before expecting the live chatbot to use the new code. GitHub Pages deployment alone does not deploy Worker changes. Keep existing bindings, model variables and secrets. No secret values need to be changed or posted. The existing Google sign-in gate remains in place. PR #113's scheduled collector stays deferred and unrelated.
 
 Validation: syntax/whitespace checks and a live read-only loader call against providers and the shared archive; no AI inference was called. No tests written or run. An authenticated end-to-end chatbot reply requires redeploying the Worker and was not exercised before merge.
+
+## Permanent weather archive
+
+This Worker also serves the read-only R2 weather archive and imports ERA5 history from 2020-10-01 in scheduled resumable batches. The bucket binding and cron are declared in `wrangler.toml`, so the existing GitHub build deploys them alongside chatbot updates. See [WEATHER_ARCHIVE.md](WEATHER_ARCHIVE.md) for rollout, monitoring, storage/provenance, pause and recovery details. No AI inference is used for archive work.

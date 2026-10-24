@@ -18,7 +18,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <!-- Typekit loaded async (issue #21): preload + swap in on load; the font stacks have system fallbacks so text paints immediately. -->
 <link rel="preload" href="https://use.typekit.net/twp1irx.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
 <noscript><link rel="stylesheet" href="https://use.typekit.net/twp1irx.css"></noscript>
-<link rel="stylesheet" href="/shared/styles.css">
+<link rel="stylesheet" href="/shared/styles.css?v=readability-1">
 <script src="/shared/themes.js"></script>
 <script defer src="/shared/nav.js?v=app-1"></script>
 <script defer src="/shared/chat.js"></script>
@@ -126,7 +126,7 @@ body.view-only #addMaintenanceBtn{display:none!important}
   tbody td[data-col]:not([data-col="name"]):not([data-col="category"]):not([data-col="type"]):not([data-col="year"]):not([data-col="datePurchased"]){display:none}
 }
 </style>
-<link rel="stylesheet" href="/shared/record-cover.css">
+<link rel="stylesheet" href="/shared/record-cover.css?v=readability-1">
 <script src="/shared/record-cover.js"></script>
 <link rel="manifest" href="/app/manifest.webmanifest">
 <link rel="apple-touch-icon" sizes="180x180" href="/app/icons/cedar-180.png">
@@ -136,6 +136,7 @@ body.view-only #addMaintenanceBtn{display:none!important}
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Scott's Yard">
+<link rel="stylesheet" href="/shared/readability.css?v=1">
 </head>
 <body>
 <!-- Google Tag Manager (noscript) -->
@@ -429,7 +430,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
     <div style="margin-bottom:16px">
       <h3 style="margin:0 0 8px">Photo storage (Cloudflare R2)</h3>
-      <div class="small" style="color:var(--muted);margin-bottom:6px">Enter these once while signed in with Google. They're saved to a private Google vault, so signing in on any other device loads them automatically.</div>
+      <div class="small supporting-copy" style="color:var(--muted);margin-bottom:6px">Enter these once while signed in with Google. They're saved to a private Google vault, so signing in on any other device loads them automatically.</div>
       <input type="text" id="r2KeyInput" placeholder="Access Key ID" style="width:100%;margin-bottom:6px">
       <input type="password" id="r2SecretInput" placeholder="Secret Access Key" style="width:100%">
       <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">

@@ -27,6 +27,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <script src="/shared/weather-forecast.js?v=1"></script>
 <script src="/shared/weather-calendar.js?v=2"></script>
 <script src="/shared/historical-weather.js?v=2"></script>
+<script src="/shared/hourly-weather-chart.js?v=1"></script>
 <script src="/shared/growth-story.js?v=1"></script>
 <script src="/shared/plant-protection.js?v=1"></script>
 <script src="/shared/watering-guidance.js?v=1"></script>
@@ -142,7 +143,17 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .hourly-scroll{overflow:auto;max-height:330px;margin-top:12px}
   .hourly-scroll table{width:100%;font-size:12px}
   .hourly-scroll th{position:sticky;top:0;background:var(--panel);white-space:nowrap}
-  .hourly-chart{display:block;width:100%;height:auto;max-height:180px;margin-top:12px}
+  .hourly-explorer{margin:16px 0}
+  .hourly-reading{font-size:16px;line-height:1.65;min-height:3.3em;color:var(--ink);font-variant-numeric:tabular-nums}
+  .hourly-plot-scroll{overflow-x:auto}
+  .hourly-chart{display:block;width:100%;min-width:680px;height:auto;touch-action:pan-x pan-y}
+  .hourly-chart text{fill:var(--ink);font-size:16px}
+  .hourly-grid{stroke:var(--muted);stroke-opacity:.22}
+  .hourly-threshold{stroke:var(--muted);stroke-dasharray:5 5}
+  .hourly-cursor{stroke:var(--ink);stroke-width:1.5;stroke-dasharray:4 4}
+  .hourly-selected{fill:var(--panel);stroke:var(--accent);stroke-width:3}
+  .hourly-selector{display:flex;align-items:center;gap:12px;margin-top:8px;font-size:15px}
+  .hourly-selector input{flex:1;min-width:0;min-height:36px;accent-color:var(--accent)}
   .forecast .day .rain{display:block;color:var(--cool);font-size:11px;margin-top:2px}
   details{margin-top:8px}
   summary{cursor:pointer;color:var(--muted);font-size:13px}
@@ -2640,14 +2651,8 @@ function historicalHourlyMarkup(data){
   const time=s=>new Date(s.time).toLocaleTimeString(undefined,{timeZone:data.timezone,hour:'numeric',minute:'2-digit',timeZoneName:'short'});
   const center=Date.parse(data.start+'T12:00:00Z');let expected=0;
   for(let t=center-36*3600000;t<=center+36*3600000;t+=3600000)if(HistoricalWeather.dateAt(t,data.timezone)===data.start)expected++;
-  const permanent=data.model==='archive_era5',complete=samples.filter(s=>(permanent?[s.temp,s.pcp,s.wind]:[s.temp,s.pcp,s.wind,s.gust]).every(v=>v!=null)).length,values=samples.map(s=>s.temp).filter(v=>v!=null);
-  let chart='';
-  if(values.length){
-    const lo=Math.min(...values)-2,hi=Math.max(...values)+2,w=650,h=150,firstTime=Date.parse(samples[0].time),span=Math.max(1,Date.parse(samples[samples.length-1].time)-firstTime),x=i=>40+(Date.parse(samples[i].time)-firstTime)*598/span,y=v=>18+(hi-v)*106/(hi-lo);let path='',previous=null;
-    samples.forEach((s,i)=>{if(s.temp==null){previous=null;return;}const stamp=Date.parse(s.time);path+=`${previous!=null&&stamp-previous===3600000?'L':'M'}${x(i).toFixed(1)},${y(s.temp).toFixed(1)} `;previous=stamp;});
-    const labels=[...new Set([0,Math.floor((samples.length-1)/2),samples.length-1])].map(i=>`<text x="${x(i)}" y="145" text-anchor="${i===0?'start':i===samples.length-1?'end':'middle'}" fill="var(--muted)" font-size="10">${esc(time(samples[i]))}</text>`).join('');
-    chart=`<svg class="hourly-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="Estimated historical hourly temperature; exact values in the table"><text x="0" y="14" fill="var(--muted)" font-size="10">${f(Math.max(...values),u,1)}</text><text x="0" y="126" fill="var(--muted)" font-size="10">${f(Math.min(...values),u,1)}</text><path d="${path}" fill="none" stroke="var(--accent)" stroke-width="2"/>${labels}</svg>`;
-  }
+  const permanent=data.model==='archive_era5',complete=samples.filter(s=>(permanent?[s.temp,s.pcp,s.wind]:[s.temp,s.pcp,s.wind,s.gust]).every(v=>v!=null)).length;
+  const chart=HourlyWeatherChart.markup(samples,data.timezone,data.units);
   return `<h4>Hourly estimates</h4><p class="small">${samples.length} of ${expected} expected local-day hourly timestamps returned; ${complete} have ${permanent?'temperature, precipitation and wind (ERA5 gusts unavailable)':'all four requested measurements'}. Local days may have 23 or 25 hours at daylight-saving changes. Precipitation and gusts refer to the hour ending at the listed time. Missing values are —.${HistoricalWeather.stale(data)?(permanent?' Stored data is being checked for updates.':' Cached data is stale; refresh to check for updates.'):''}</p>${historicalProvenance(data)}${chart}<div class="hourly-scroll" tabindex="0" role="region" aria-label="Historical hourly estimates"><table><thead><tr><th scope="col">Time</th><th scope="col">Temp (${u})</th><th scope="col">Total precip. (${p})</th><th scope="col">Wind (mph)</th><th scope="col">Gust (mph)</th></tr></thead><tbody>${samples.map(s=>`<tr><th scope="row">${esc(time(s))}</th>${[['temp',1],['pcp',3],['wind',1],['gust',1]].map(([k,n])=>`<td>${s[k]==null?'—':s[k].toFixed(n)}</td>`).join('')}</tr>`).join('')||'<tr><td colspan="5">No hourly estimates available.</td></tr>'}</tbody></table></div>`;
 }
 
@@ -4235,19 +4240,7 @@ function weatherHourlyMarkup(date,hourly,timezone,units,sources={}){
   const samples=hourly.filter(h=>h.date===date);
   if (!samples.length) return `<p class="small">${esc(provenance)}</p><p class="small">Hourly detail unavailable for this date. The daily forecast remains available.</p>`;
   const time=h=>new Date(h.time).toLocaleTimeString(undefined,{timeZone:timezone,hour:'numeric',minute:'2-digit',timeZoneName:'short'});
-  const values=samples.map(h=>h.temp).filter(v=>v!=null);
-  let chart='';
-  if (values.length){
-    const low=Math.min(...values)-2,high=Math.max(...values)+2,w=650,h=150,left=40,right=12,top=18,bottom=26;
-    const x=i=>left+i*(w-left-right)/Math.max(1,samples.length-1), y=v=>top+(high-v)*(h-top-bottom)/(high-low);
-    let path='',connected=false;
-    samples.forEach((s,i)=>{if(s.temp==null){connected=false;return;}path+=`${connected?'L':'M'}${x(i).toFixed(1)},${y(s.temp).toFixed(1)} `;connected=true;});
-    const thresholds=[units==='C'?0:32,units==='C'?20/9:36].filter(t=>t>=low && t<=high).map(t=>`<line x1="${left}" x2="${w-right}" y1="${y(t)}" y2="${y(t)}" stroke="var(--muted)" stroke-dasharray="4 4"/><text x="2" y="${y(t)-3}" fill="var(--muted)" font-size="10">${t.toFixed(t===20/9?1:0)}${u}</text>`).join('');
-    const points=samples.map((s,i)=>s.temp==null?'':`<circle cx="${x(i)}" cy="${y(s.temp)}" r="2.5" fill="var(--accent)"><title>${esc(time(s))}: ${esc(WeatherForecast.format(s.temp,u,1))}</title></circle>`).join('');
-    const ticks=[0,Math.floor((samples.length-1)/2),samples.length-1].map((i,j)=>`<text x="${x(i)}" y="${h-5}" text-anchor="${j===0?'start':j===2?'end':'middle'}" fill="var(--muted)" font-size="10">${esc(time(samples[i]))}</text>`).join('');
-    const scale=[Math.min(...values),Math.max(...values)].filter((v,i,a)=>a.indexOf(v)===i).map(v=>`<text x="2" y="${y(v)+3}" fill="var(--muted)" font-size="10">${Math.round(v)}${u}</text>`).join('');
-    chart=`<svg class="hourly-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(date)} hourly temperature forecast in ${esc(u)}; exact values in the table below"><title>Open-Meteo hourly temperature forecast</title>${scale}${thresholds}<path d="${path}" fill="none" stroke="var(--accent)" stroke-width="2"/>${points}${ticks}</svg>`;
-  }
+  const chart=HourlyWeatherChart.markup(samples,timezone,units);
   return `<h4>Hourly forecast</h4><p class="small">${esc(provenance)}</p><p class="small">Open-Meteo model forecast · ${esc(timezone)}. Precipitation amounts and gust maxima refer to the hour ending at the listed time. Missing values are shown as —.</p>${chart}
     <div class="hourly-scroll" tabindex="0" role="region" aria-label="Hourly forecast table"><table><thead><tr><th scope="col">Time</th><th scope="col">Temp (${u})</th><th scope="col">Chance (%)</th><th scope="col">Precip. (${pu})</th><th scope="col">Sustained (mph)</th><th scope="col">Gusts (mph)</th></tr></thead><tbody>${samples.map(s=>`<tr><th scope="row">${esc(time(s))}</th>${[['temp',1],['pop',0],['pcp',2],['wind',0],['gust',0]].map(([key,digits])=>`<td>${s[key]==null?'—':Number(s[key]).toFixed(digits)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
 }

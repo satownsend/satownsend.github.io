@@ -840,7 +840,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </div>
   <div class="row">
     <span class="chip" id="locchip">📍 set location</span>
-    <span class="chip hide" id="syncchip" title="Sync status — click for settings">⟳ sync: off</span>
+    <span class="chip hide" role="status" aria-live="polite" id="syncchip" title="Sync status — click for settings">⟳ sync: off</span>
     <span style="position:relative">
       <span class="chip" id="themechip" title="Pick theme" style="cursor:pointer">◐ theme</span>
       <div id="themePop" class="theme-pop" role="dialog" aria-label="Pick theme" style="display:none"></div>
@@ -1674,7 +1674,28 @@ const GS_CLIENT_ID = '936411146633-16fq9oc08auslfprvgbl9bpoafbvo9uk.apps.googleu
 const GS_SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
 const GS_TOKEN_KEY = 'yardDashboard.gsToken';
 let gsSyncing = false;
+let gsPulling = false;
+let gsPullRetryTimer = null;
 let gsSyncTimer = null;
+let gsSyncRequested = false;
+let gsRetryNotBefore = 0;
+let gsRetryCount = 0;
+const gsAcknowledgedTabs = new Map();
+function gsRowsFingerprint(rows){
+  const header=(rows[0]||[]).map(v=>String(v??''));
+  const body=rows.slice(1).filter(row=>row.some(v=>v!==''&&v!=null)).map(row=>header.map((_,i)=>String(row[i]??'')));
+  body.sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b)));
+  return JSON.stringify([header,body]);
+}
+function gsTabTargets(){
+  return [
+    ['plants',plantsToSheetRows(),[0]],['plant_tags',tagsToSheetRows(),[0,1]],
+    ['plant_photos',photosToSheetRows(),[0,1]],['log',logToSheetRows(),[0]],
+    ...((state.care?.length||_ensuredTabs.has('care_schedule'))?[['care_schedule',careToSheetRows(),[0]]]:[]),
+    ...((state.overview?.length||_ensuredTabs.has('plant_overview'))?[['plant_overview',overviewToSheetRows(),[0]]]:[]),
+  ];
+}
+function gsHasChanges(){return gsTabTargets().some(([name,rows])=>gsAcknowledgedTabs.get(name)!==gsRowsFingerprint(rows));}
 let gsSuspendSync = false;
 // True only after a pull has successfully loaded real plant data this session.
 // Auto-sync won't push before this, so a transient empty/seed state can never
@@ -1842,7 +1863,7 @@ state.settings.r2 = {
   publicUrl: 'https://pub-59a926166fd84970bea75caf38a52d27.r2.dev',
 };
 state.settings.yardMap = 'https://pub-59a926166fd84970bea75caf38a52d27.r2.dev/photos/yard-map.jpg';
-save();
+saveLocal();
 
 /* ---------- helpers ---------- */
 const $ = s => document.querySelector(s);
@@ -2837,7 +2858,7 @@ async function fetchForecast(force=false){
   if (!force && !stale){
     if (rainStale) fetchRainfallHistory(s).then(r=>{
       if (!current()) return;
-      state.rainfall=r;state.rainfallFetched=Date.now();state.rainfallLocation=weatherKey;save();renderForecast();
+      state.rainfall=r;state.rainfallFetched=Date.now();state.rainfallLocation=weatherKey;saveLocal();renderForecast();
     }).catch(e=>console.warn('[weather] rainfall unavailable'));
     renderForecast();return;
   }
@@ -2872,7 +2893,7 @@ async function fetchForecast(force=false){
     protection:PlantProtection.context(bundle.hourly,s.units,bundle.timezone,state.plants,capturedAt),
     alerts:alertList,alertsAvailable:alertList!==null,capturedAt,
     rainfall:state.rainfallLocation===weatherKey?state.rainfall:[],rainfallFetched:state.rainfallLocation===weatherKey?state.rainfallFetched:null,dayAlerts});
-  save();renderForecast();
+  saveLocal();if(weatherPending.size)queueGsSync();renderForecast();
 }
 $('#refreshForecast').addEventListener('click',async()=>{
   const button=$('#refreshForecast');button.disabled=true;
@@ -5365,20 +5386,34 @@ function rowsToObjects(rows){
 }
 
 async function pullFromSheets(){
+  if(gsPulling)return;
+  if(gsSyncing){setSyncStatus('Changes are syncing; wait before reloading data.');return;}
+  gsPulling=true;clearTimeout(gsPullRetryTimer);
   const setStatus = (msg, kind) => {
     const el = $('#sheetStatus');
     if (el){ el.textContent = msg; el.style.color = kind==='err'?'#e8a06a':kind==='ok'?'var(--accent)':'var(--muted)'; }
   };
   try {
     setStatus('Loading from Google Sheets…');
-    const [plantsRows, tagsRows, photosRows, logRows, careRows, overviewRows] = await Promise.all([
-      fetchSheetTab(SHEETS_GID.plants),
-      fetchSheetTab(SHEETS_GID.plant_tags),
-      fetchSheetTab(SHEETS_GID.plant_photos),
-      fetchSheetTab(SHEETS_GID.log),
-      fetchSheetTabByName('care_schedule').catch(()=>[]),
-      fetchSheetTabByName('plant_overview').catch(()=>[]),
-    ]);
+    let tabs;
+    if(isGsAuthed()){
+      // One fresh authenticated batch read, rather than six potentially stale CSV reads.
+      await gsGidFor('plants');
+      const names=['plants','plant_tags','plant_photos','log','care_schedule','plant_overview'];
+      for(const name of names.slice(0,4))if(_gidByTab[name]==null)throw new Error(`Required sheet tab missing: ${name}`);
+      const present=names.filter(name=>_gidByTab[name]!=null);
+      const params=new URLSearchParams();present.forEach(name=>params.append('ranges',"'"+name+"'"));
+      const result=await gsApiFetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}/values:batchGet?${params}`);
+      if(!Array.isArray(result.valueRanges)||result.valueRanges.length!==present.length)throw new Error('Incomplete Sheets response; kept this device’s data.');
+      const byName=new Map(present.map((name,i)=>[name,(result.valueRanges[i].values||[]).map(row=>row.map(v=>String(v??'')))]));
+      tabs=names.map(name=>byName.get(name)||[]);
+    }else{
+      tabs=await Promise.all([
+        fetchSheetTab(SHEETS_GID.plants),fetchSheetTab(SHEETS_GID.plant_tags),fetchSheetTab(SHEETS_GID.plant_photos),fetchSheetTab(SHEETS_GID.log),
+        fetchSheetTabByName('care_schedule').catch(()=>[]),fetchSheetTabByName('plant_overview').catch(()=>[]),
+      ]);
+    }
+    const [plantsRows,tagsRows,photosRows,logRows,careRows,overviewRows]=tabs;
     const rawPlants = rowsToObjects(plantsRows);
     const rawCare = rowsToObjects(careRows);
     const rawOverview = rowsToObjects(overviewRows);
@@ -5503,14 +5538,17 @@ async function pullFromSheets(){
     });
     const remoteOvIds = new Set(remoteOv.map(o => o.plantId));
     state.overview = [...remoteOv, ...[...localOv.values()].filter(o => !remoteOvIds.has(o.plantId))];
+    // Acknowledge the remote rows, not the merged local copy: an unsynced skip
+    // preserved above must still be sent after this pull, including after reload.
+    ['plants','plant_tags','plant_photos','log','care_schedule','plant_overview'].forEach((name,i)=>gsAcknowledgedTabs.set(name,gsRowsFingerprint(tabs[i])));
     gsPulledOnce = true;
     loadWeatherHistory();
     loadYardViewPins();
-    if (weatherPending.size && isGsAuthed()) queueGsSync();
     gsSuspendSync = true; saveLocal(); gsSuspendSync = false;
     render();
     setStatus(`${state.plants.length} plants loaded at ${new Date().toLocaleTimeString()}`, 'ok');
     setSyncStatus(`loaded ${new Date().toLocaleTimeString()}`, 'ok');
+    if(isGsAuthed()&&(weatherPending.size||gsHasChanges()))queueGsSync();
     if (purged.length){
       console.info('[sheets] removing legacy wishlist rows:', purged.join(', '));
       if (isGsAuthed()){ setSyncStatus(`removing ${purged.length} old wishlist row${purged.length === 1 ? '' : 's'}…`); queueGsSync(); }
@@ -5518,8 +5556,13 @@ async function pullFromSheets(){
   } catch(e){
     console.error('[sheets] pull failed:', e);
     setStatus('Error: '+e.message, 'err');
-    setSyncStatus('error: '+e.message.slice(0,60), 'err');
-  }
+    if(e.status===429&&isGsAuthed()){
+      const delay=Math.max(60000,Number.isFinite(e.retryAfterMs)?e.retryAfterMs:0)+Math.floor(Math.random()*1000);
+      gsRetryNotBefore=Math.max(gsRetryNotBefore,Date.now()+delay);
+      setSyncStatus(`Google busy · retrying load in ${Math.ceil(delay/1000)}s; device data kept`,'err');
+      gsPullRetryTimer=setTimeout(()=>pullFromSheets(),delay);
+    }else setSyncStatus('error: '+e.message.slice(0,60),'err');
+  }finally{gsPulling=false;}
 }
 
 // --- Sheets API write (requires OAuth) ---
@@ -5530,7 +5573,11 @@ async function gsApiFetch(url, opts = {}){
   const r = await fetch(url, { ...opts, headers });
   if (!r.ok){
     const txt = await r.text().catch(()=>'');
-    throw new Error(`Sheets API ${r.status}: ${txt.slice(0,200)}`);
+    const error=new Error(r.status===429?'Google Sheets is temporarily rate-limiting requests.':`Sheets API ${r.status}: ${txt.slice(0,200)}`);
+    error.status=r.status;
+    const retry=r.headers.get('Retry-After');
+    error.retryAfterMs=retry?(Number.isFinite(Number(retry))?Number(retry)*1000:Math.max(0,Date.parse(retry)-Date.now())):0;
+    throw error;
   }
   return r.json();
 }
@@ -5623,12 +5670,15 @@ function overviewToSheetRows(){
 // Look up a tab's real sheetId (gid) by name, cached. Used so row deletes always
 // target the correct tab even if gids ever change (a wrong gid would delete rows
 // from the wrong tab — this prevents that).
-let _gidByTab = null;
+let _gidByTab = null, _gidLoading = null;
 async function gsGidFor(tabName){
   if (!_gidByTab){
+    if(!_gidLoading)_gidLoading=(async()=>{
     const data = await gsApiFetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}?fields=sheets.properties(sheetId,title)`);
     _gidByTab = {};
     for (const s of (data.sheets || [])) _gidByTab[s.properties.title] = s.properties.sheetId;
+    })().finally(()=>{_gidLoading=null;});
+    await _gidLoading;
   }
   return _gidByTab[tabName];
 }
@@ -5648,6 +5698,35 @@ async function gsReconcileTab(tabName, targetRows, keyIdx){
   const data = await gsApiFetch(`${base}/values/${encodeURIComponent(tabName)}?majorDimension=ROWS`);
   const current = data.values || [];
   const currentBody = current.slice(1);
+  if(tabName==='care_schedule'){
+    const updatedColumn=(current[0]||[]).indexOf('updatedAt');
+    const remoteById=new Map(currentBody.map(row=>[String(row[0]??''),row]));
+    const targetIds=new Set(targetBody.map(row=>String(row[0]??'')));
+    for(let i=0;i<targetBody.length;i++){
+      const remote=remoteById.get(String(targetBody[i][0]??''));
+      if(remote&&updatedColumn>=0&&Number(remote[updatedColumn]||0)>Number(targetBody[i][7]||0)){
+        targetBody[i]=header.map(h=>String(remote[(current[0]||[]).indexOf(h)]??''));
+        const local=(state.care||[]).find(t=>t.id===String(targetBody[i][0]));
+        // Do not replace an edit made while the remote read was in flight.
+        if(local&&(local.updatedAt||0)<Number(targetBody[i][7])){
+          const row=targetBody[i];Object.assign(local,{plantId:row[1],task:row[2],start:row[3],end:row[4],notes:row[5],source:row[6],updatedAt:Number(row[7]),skipped:row[8]||''});
+          saveLocal();
+        }
+      }
+    }
+    // Preserve tasks added on another device since our last pull; do not delete them.
+    for(const [id,row]of remoteById)if(id&&!targetIds.has(id)){
+      const knownAtPull=gsAcknowledgedTabs.get(tabName);
+      const knownRows=knownAtPull?JSON.parse(knownAtPull)[1]:[];
+      if(!knownRows.some(r=>r[0]===id)){
+        const cells=header.map(h=>String(row[(current[0]||[]).indexOf(h)]??''));targetBody.push(cells);
+        if(!(state.care||[]).some(t=>t.id===id)){
+          state.care.push({id:cells[0],plantId:cells[1],task:cells[2],start:cells[3],end:cells[4],notes:cells[5],source:cells[6],updatedAt:Number(cells[7])||0,skipped:cells[8]||''});
+          saveLocal();
+        }
+      }
+    }
+  }
 
   const keyOf = row => keyIdx.map(i => (row[i] ?? '')).join('|');
   const pad = row => { const r = []; for (let i = 0; i < width; i++) r.push(row[i] ?? ''); return r; };
@@ -5702,11 +5781,12 @@ async function gsReconcileTab(tabName, targetRows, keyIdx){
       body: JSON.stringify({ requests: deletes.map(rn => ({ deleteDimension: { range: { sheetId: gid, dimension: 'ROWS', startIndex: rn - 1, endIndex: rn } } })) }),
     });
   }
-  return { updated: updates.length, added: appends.length, removed: deletes.length };
+  return { updated: updates.length, added: appends.length, removed: deletes.length, rows:[header,...targetBody] };
 }
 
 async function gsPushNow(force){
   if (!isGsAuthed() || gsSyncing) return;
+  if(gsPulling){gsSyncRequested=true;scheduleGsSync();return;}
   // Never let an empty/unloaded local state drive the sync.
   if (!(state.plants && state.plants.length)){
     setSyncStatus('sync paused: no plants loaded', 'err');
@@ -5718,45 +5798,57 @@ async function gsPushNow(force){
     setSyncStatus('sync paused until loaded', 'err');
     return;
   }
-  gsSyncing = true;
-  try {
-    setSyncStatus('syncing…');
-    // Row-level reconciliation per tab (append/update/delete only — no whole-sheet
-    // clear), so a transient empty state can never wipe the sheet (issue #59).
-    await gsReconcileTab('plants',       plantsToSheetRows(), [0]);     // key: id
-    await gsReconcileTab('plant_tags',   tagsToSheetRows(),   [0, 1]);  // key: plant_id + tag
-    await gsReconcileTab('plant_photos', photosToSheetRows(), [0, 1]);  // key: plant_id + R2 key
-    await gsReconcileTab('log',          logToSheetRows(),    [0]);     // key: id
-    // Care schedule lives in a tab that may not exist yet; create it on first use.
-    // Skipped entirely until there's something to write (or the tab is known),
-    // so sheets without schedules aren't touched.
-    if ((state.care && state.care.length) || _ensuredTabs.has('care_schedule')){
-      await ensureCareTab();
-      await gsReconcileTab('care_schedule', careToSheetRows(), [0]);   // key: id
-    }
-    if ((state.overview && state.overview.length) || _ensuredTabs.has('plant_overview')){
-      await ensureTab('plant_overview');
-      await gsReconcileTab('plant_overview', overviewToSheetRows(), [0]);   // key: plant_id
+  if(Date.now()<gsRetryNotBefore){scheduleGsSync();return;}
+  clearTimeout(gsSyncTimer);
+  gsSyncing=true;gsSyncRequested=false;
+  try{
+    const changed=gsTabTargets().filter(([name,rows])=>gsAcknowledgedTabs.get(name)!==gsRowsFingerprint(rows));
+    if(!changed.length&&!weatherPending.size)return;
+    setSyncStatus('syncing changes…');
+    for(const [name,rows,keys]of changed){
+      if(name==='care_schedule'||name==='plant_overview')await ensureTab(name);
+      const result=await gsReconcileTab(name,rows,keys);
+      gsAcknowledgedTabs.set(name,gsRowsFingerprint(result.rows));
     }
     await syncWeatherHistory();
-    setSyncStatus(`synced ${new Date().toLocaleTimeString()}`, 'ok');
-  } catch(e){
-    console.error('[sheets] sync failed:', e);
-    setSyncStatus('error: '+e.message.slice(0,60), 'err');
-  } finally { gsSyncing = false; }
+    gsRetryCount=0;gsRetryNotBefore=0;
+    if(changed.some(([name])=>name==='care_schedule'))render({brief:1,calendar:1});
+    if(gsHasChanges()||weatherPending.size){gsSyncRequested=true;setSyncStatus('Saved on this device · more changes pending');}
+    else setSyncStatus(`synced ${new Date().toLocaleTimeString()}`,'ok');
+  }catch(e){
+    console.error('[sheets] sync failed:',e);
+    if(e.status===429){
+      const delay=Math.max(Number.isFinite(e.retryAfterMs)?e.retryAfterMs:0,Math.min(300000,60000*2**Math.min(gsRetryCount++,3)))+Math.floor(Math.random()*1000);
+      gsRetryNotBefore=Date.now()+delay;gsSyncRequested=true;
+      setSyncStatus(`Saved on this device · Google busy; retry in ${Math.ceil(delay/1000)}s`,'err');
+    }else setSyncStatus('Not synced · '+e.message.slice(0,100),'err');
+  }finally{
+    gsSyncing=false;
+    if(gsSyncRequested)scheduleGsSync();
+  }
 }
-
-function queueGsSync(){
-  if (gsSuspendSync || !isGsAuthed()) return;
+function scheduleGsSync(){
+  if(gsSuspendSync||!isGsAuthed())return;
   clearTimeout(gsSyncTimer);
-  gsSyncTimer = setTimeout(()=>gsPushNow(), 2000);
+  gsSyncTimer=setTimeout(()=>gsPushNow(),Math.max(2000,gsRetryNotBefore-Date.now()));
 }
+function queueGsSync(){
+  if(gsSuspendSync||!isGsAuthed())return;
+  gsSyncRequested=true;
+  if(!gsSyncing)scheduleGsSync();
+}
+function resumeGsSync(){
+  if(!document.hidden&&gsPulledOnce&&isGsAuthed()&&(gsHasChanges()||weatherPending.size))queueGsSync();
+}
+window.addEventListener('online',resumeGsSync);
+document.addEventListener('visibilitychange',resumeGsSync);
 
 let _syncChipTimer = null;
 function setSyncStatus(label, kind){
   const chip = $('#syncchip');
   const status = $('#gsStatus');
   chip.textContent = '⟳ ' + label;
+  chip.title=label+' — click for Account & storage';
   chip.style.background = kind==='ok' ? '#1f3a25' : kind==='err' ? '#3a2418' : 'var(--chip)';
   chip.style.color = kind==='ok' ? 'var(--accent)' : kind==='err' ? '#e8a06a' : 'var(--ink-soft)';
   if (status) status.textContent = label;

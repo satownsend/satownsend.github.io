@@ -29,7 +29,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <script src="/shared/historical-weather.js?v=2"></script>
 <script src="/shared/hourly-weather-chart.js?v=1"></script>
 <link rel="stylesheet" href="/shared/weather-comparison.css?v=1">
-<script defer src="/shared/weather-comparison.js?v=1"></script>
+<script defer src="/shared/weather-comparison.js?v=2"></script>
 <script src="/shared/growth-story.js?v=1"></script>
 <script src="/shared/plant-protection.js?v=1"></script>
 <script src="/shared/watering-guidance.js?v=1"></script>
@@ -1196,8 +1196,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="compare-controls">
       <label>Period <select id="compareSeason"><option value="full">Full year</option><option value="spring">Spring · Mar–May</option><option value="summer">Summer · Jun–Aug</option><option value="autumn">Autumn · Sep–Nov</option><option value="custom">Custom dates</option></select></label>
       <div id="compareCustom" class="compare-custom" hidden><label>From <input id="compareFrom" type="text" value="10-01" placeholder="MM-DD" maxlength="5" aria-label="Start month and day, MM-DD"></label><label>Through <input id="compareTo" type="text" value="12-31" placeholder="MM-DD" maxlength="5" aria-label="End month and day, MM-DD"></label></div>
+      <label><input id="compareMatching" type="checkbox" style="width:auto"> Compare matching dates</label>
       <button type="button" class="ghost tiny" id="compareRefresh">Refresh stored years</button>
     </div>
+    <p class="small">Compare matching dates shortens every year to the same period: October 1 or later when 2020 is selected, and no later than the current archive cutoff when the current year is selected. Missing imports stay unavailable in either view.</p>
     <p id="compareStatus" class="small" role="status" aria-live="polite">Open to read stored daily estimates. No new weather imports are triggered by this view.</p>
     <div id="compareResults"></div>
   </details>

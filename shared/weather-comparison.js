@@ -20,9 +20,10 @@
   function range(){
     let [from,to]=ranges[$('#compareSeason').value]||[$('#compareFrom').value.trim(),$('#compareTo').value.trim()];
     if(!slots.includes(from)||!slots.includes(to)||from>to)throw new Error('Enter a start and end as MM-DD, within one calendar year (for example, 10-01 to 12-31).');
-    const notes=[];
-    if(years.includes(2020)&&from<'10-01'){from='10-01';notes.push('2020 starts on October 1, your move-in date; all years use that same starting date.');}
-    if(years.includes(yearNow())){
+    const notes=[],matching=$('#compareMatching').checked;
+    if(!matching)notes.push('Showing the entire selected period; dates before the archive began, future dates and missing records remain unavailable.');
+    if(matching&&years.includes(2020)&&from<'10-01'){from='10-01';notes.push('2020 starts on October 1, your move-in date; all years use that same starting date.');}
+    if(matching&&years.includes(yearNow())){
       const data=datasets.get(yearNow()),cutoff=data?.archive?.cutoff||HistoricalWeather.shift(HistoricalWeather.dateAt(Date.now(),location.timezone),-6);
       if(cutoff.slice(0,4)!==String(yearNow())){to='00-00';}
       else if(to>monthDay(cutoff)){to=monthDay(cutoff);notes.push(`All years stop at ${pretty(to)}, the current archive cutoff (${cutoff}).`);}
@@ -105,7 +106,7 @@
     root.addEventListener('change',event=>{
       if(event.target.matches('[data-compare-year]')){
         const next=selection();if(!next.length||next.length>3){event.target.checked=!event.target.checked;$('#compareStatus').textContent='Choose one to three years.';return;}load();
-      }else if(event.target.matches('#compareSeason,#compareFrom,#compareTo')){
+      }else if(event.target.matches('#compareSeason,#compareFrom,#compareTo,#compareMatching')){
         $('#compareCustom').hidden=$('#compareSeason').value!=='custom';selected=0;render();
       }
     });

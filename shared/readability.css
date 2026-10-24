@@ -1,0 +1,27 @@
+/* Explanations are reading text; dates, counts, pills and tables keep their compact scale. */
+p.small,.supporting-copy{font-size:15px;line-height:1.65;color:var(--ink-soft)}
+/* Some legacy hint paragraphs set their muted color inline. Limit the override to prose. */
+p.small[style*="color:var(--muted)"],p.small[style*="color: var(--muted)"],.supporting-copy[style*="color:var(--muted)"]{color:var(--ink-soft)!important}
+.card .card-desc,.card.featured .card-desc{font-size:16px;line-height:1.65;color:var(--ink-soft)}
+.hero .sub{font-size:clamp(16px,1.5vw,18px);line-height:1.6;color:#fff}
+.info-card .notes-block,.info-card .sighting-entry .se-notes{font-size:15px;line-height:1.65;color:var(--ink-soft)}
+.info-card .sighting-entry,.info-card .maint-item,.info-card .ingredient-list li{font-size:15px;line-height:1.6}
+.info-section h3{color:var(--ink-soft)}
+.tasks .why,.care-item .ci-notes{font-size:15px;line-height:1.6;color:var(--ink-soft)}
+.care-item .ci-notes .ci-meta{font-size:12px;color:var(--muted)}
+.upcoming-alerts .ua{font-size:15px;line-height:1.6}
+.upcoming-alerts .ua-detail{color:var(--ink-soft)}
+#weatherView p.small,#weatherHourly p.small,#wcDay p.small{font-size:15px;line-height:1.65;color:var(--ink-soft)}
+#weatherView summary,#weatherHourly summary{font-size:15px;color:var(--ink-soft)}
+#weatherNote,#rainfallNote,#weatherHistoryStatus,#bulkLogPreview{font-size:15px;line-height:1.65;color:var(--ink-soft)}
+.year-page .section-heading p,.year-page .season-note,.year-page .empty-state,.year-page .measurement p,.year-page .visitor p,.year-page .dialog-caption p{font-size:15px;line-height:1.65;color:var(--ink-soft)}
+.year-page .season-milestones li{font-size:15px;line-height:1.6}
+.frame-setup .field-help{font-size:15px;line-height:1.65;color:var(--ink-soft)}
+@media(max-width:700px){
+  .upcoming-alerts .ua{grid-template-columns:auto 1fr}
+  .upcoming-alerts .ua-detail{grid-column:1/-1}
+  .card .card-desc{overflow-wrap:break-word}
+}
+
+#rainfallSummary > .small,.watering-plants li{font-size:15px;line-height:1.65}
+.watering-plants li .small{font-size:15px;line-height:1.65;color:var(--ink-soft)}

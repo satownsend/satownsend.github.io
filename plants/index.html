@@ -25,11 +25,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <script src="/shared/yard-photo-views.js?v=1"></script>
 <script src="/shared/forecast-history.js?v=protection-1"></script>
 <script src="/shared/weather-forecast.js?v=1"></script>
-<script src="/shared/weather-calendar.js?v=2"></script>
+<script src="/shared/weather-calendar.js?v=3"></script>
 <script src="/shared/historical-weather.js?v=2"></script>
 <script src="/shared/hourly-weather-chart.js?v=1"></script>
-<link rel="stylesheet" href="/shared/weather-comparison.css?v=1">
-<script defer src="/shared/weather-comparison.js?v=4"></script>
+<link rel="stylesheet" href="/shared/weather-comparison.css?v=3">
+<script defer src="/shared/weather-comparison.js?v=5"></script>
 <script src="/shared/growth-story.js?v=1"></script>
 <script src="/shared/plant-protection.js?v=1"></script>
 <script src="/shared/watering-guidance.js?v=1"></script>
@@ -797,7 +797,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 .wc-weekday { text-align:center; color:var(--muted); font-size:11px; }
 .wc-tile { min-width:0; min-height:45px; padding:4px 1px; font-size:12px; border:1px solid transparent; color:#fff; display:flex; flex-direction:column; justify-content:space-between; align-items:center; border-radius:5px; }
 .wc-symbols { font-size:10px; min-height:13px; }
-.wc-freezing { background:#254578; color:#fff; }.wc-cool { background:#356877; color:#fff; }.wc-mild { background:#3a6348; color:#fff; }.wc-warm { background:#77552c; color:#fff; }.wc-hot { background:#8c3936; color:#fff; }
+.wc-deep-cold { background:#392c70; color:#fff; }.wc-cold { background:#69518f; color:#fff; }.wc-extreme-hot { background:#722347; color:#fff; }.wc-freezing { background:#254578; color:#fff; }.wc-cool { background:#356877; color:#fff; }.wc-mild { background:#3a6348; color:#fff; }.wc-warm { background:#77552c; color:#fff; }.wc-hot { background:#8c3936; color:#fff; }
 .wc-unknown { background:repeating-linear-gradient(135deg,var(--panel) 0 4px,var(--panel2) 4px 8px); color:var(--muted); border:1px dashed var(--line2); }
 .wc-tile.selected,.wc-tile:focus-visible { outline:3px solid var(--accent); outline-offset:1px; }
 .wc-legend { display:flex; flex-wrap:wrap; gap:8px; }.wc-legend span { padding:5px 8px; border-radius:4px; }
@@ -1187,7 +1187,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
     <p class="small" id="wcHistoricalSource" style="display:none">Estimated past conditions from <a href="https://open-meteo.com/en/docs/historical-forecast-api" target="_blank" rel="noopener">Open-Meteo Historical Forecast</a> · <a href="https://open-meteo.com/en/licence" target="_blank" rel="noopener">CC BY 4.0</a>. Early model-run hours are stitched into a continuous series; this does not reproduce forecasts previously shown here or measure your backyard. Model coverage and versions change over time. Load a year on demand; hourly detail loads separately for one day. Today and future dates are excluded.</p>
     <p class="small" id="wcCoverage" role="status" aria-live="polite"></p>
-    <div class="wc-legend small"><span class="wc-freezing">32°F and below</span><span class="wc-cool">32°F to 50°F</span><span class="wc-mild">50°F to 70°F</span><span class="wc-warm">70°F to 85°F</span><span class="wc-hot">Above 85°F</span><span class="wc-unknown" id="wcUnknownLegend">? No eligible forecast · stripes: high unavailable</span></div>
+    <div class="wc-legend small" id="wcTemperatureLegend"></div>
     <p class="small" id="wcSymbolLegend">Color = predicted high. ● rain chance ≥40% · ❄ frost risk · ☀ heat risk · ≋ strong wind/gusts · ! official alert with a saved validity interval covering this day. Symbols are predictions/alerts as captured, not confirmed events. No symbol does not establish calm weather; values may be missing.</p>
     <div id="wcMonths" class="wc-months"></div>
     <section id="wcDay" tabindex="-1" aria-label="Selected weather calendar day"></section>
@@ -2607,7 +2607,7 @@ function renderWeatherCalendar(){
   $('#wcLoad').hidden=permanent&&!historicalErrors.has(HistoricalWeather.key(historicalCalendarContext,'daily'));$('#wcRefresh').hidden=permanent;
   $('#wcHistoricalControls').style.display=historical?'flex':'none';$('#wcHistoricalSource').style.display=historical?'':'none';
   $('#wcExplanation').textContent=historical?'Historical conditions are imported model estimates for completed days. They are separate from the forecasts saved by this site. Choose a year and load its daily summaries, then select a date for weather, photos and care notes.':'Saved forecasts, not observed weather. Each tile uses the latest capture strictly before that day in the calendar time zone, for one location and unit set. Today’s captures cannot replace yesterday’s prediction. This calendar uses all loaded history, independently of the history date filters.';
-  $('#wcUnknownLegend').textContent=historical?'? Unavailable / not loaded · stripes: high unavailable':'? No eligible forecast · stripes: high unavailable';
+  $('#wcTemperatureLegend').innerHTML=WeatherCalendar.temperatureLegend()+`<span class="wc-unknown">${historical?'? Unavailable / not loaded · stripes: high unavailable':'? No eligible forecast · stripes: high unavailable'}</span>`;
   $('#wcSymbolLegend').textContent=historical?'Color = estimated daily high. ● estimated rain + showers above zero. These are model estimates, not station measurements or official alerts. Missing values remain unavailable.':'Color = predicted high. ● rain chance ≥40% · ❄ frost risk · ☀ heat risk · ≋ strong wind/gusts · ! official alert with a saved validity interval covering this day. Symbols are predictions/alerts as captured, not confirmed events. No symbol does not establish calm weather; values may be missing.';
   if(permanent)$('#wcSymbolLegend').textContent='Color = estimated daily high. ● modeled rain above zero. ERA5 reanalysis is stored separately from forecasts and station measurements; missing dates remain unknown.';
   if(permanent)$('#wcExplanation').textContent='Permanent reanalysis estimates since October 1, 2020. Choose a year or date; stored daily and hourly data loads automatically, separately from saved predictions.';

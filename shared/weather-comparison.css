@@ -10,6 +10,7 @@
 .compare-scroll{overflow-x:auto;margin:16px 0}
 .compare-chart{display:block;width:100%;min-width:var(--comparison-width,1040px);height:auto;touch-action:pan-x pan-y}
 .compare-chart text{fill:var(--ink);font-size:15px}
+.compare-chart rect.wc-deep-cold{fill:#392c70}.compare-chart rect.wc-cold{fill:#69518f}.compare-chart rect.wc-extreme-hot{fill:#722347}
 .compare-chart rect.wc-freezing{fill:#254578}.compare-chart rect.wc-cool{fill:#356877}.compare-chart rect.wc-mild{fill:#3a6348}.compare-chart rect.wc-warm{fill:#77552c}.compare-chart rect.wc-hot{fill:#8c3936}
 .compare-chart rect.wc-unknown{fill:var(--panel2);stroke:var(--muted);stroke-width:.6;stroke-dasharray:2 2}
 .compare-chart rect.wc-not-date{fill:none}

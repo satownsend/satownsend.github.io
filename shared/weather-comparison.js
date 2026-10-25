@@ -9,7 +9,10 @@
   const yearNow=()=>Number(HistoricalWeather.dateAt(Date.now(),location.timezone).slice(0,4));
   const slots=[];
   for(let d='2000-01-01';d<='2000-12-31';d=HistoricalWeather.shift(d,1))slots.push(monthDay(d));
-  const exists=(year,md)=>monthDay(HistoricalWeather.shift(`${year}-${md}`,0))===md;
+  // Do not parse February 29 in a non-leap year: WebKit can reject that
+  // invalid ISO date instead of normalizing it, aborting the entire chart.
+  const leap=year=>year%4===0&&(year%100!==0||year%400===0);
+  const exists=(year,md)=>md!=='02-29'||leap(year);
   const pretty=md=>new Date(`2000-${md}T12:00:00Z`).toLocaleDateString(undefined,{month:'short',day:'numeric',timeZone:'UTC'});
   const color=hi=>!number(hi)?'unknown':hi<=32?'freezing':hi<=50?'cool':hi<=70?'mild':hi<=85?'warm':'hot';
   const colors=['var(--accent)','var(--accent2)','var(--cool)','#b58de8','#ef82b4','#d6b955','#84ba68'];
@@ -90,33 +93,43 @@
     root.querySelectorAll('.compare-cursor').forEach(line=>{line.setAttribute('x1',view.x(selected));line.setAttribute('x2',view.x(selected));});
     if(reveal)root.querySelectorAll('.compare-scroll').forEach(scroll=>{const svg=scroll.querySelector('svg');scroll.scrollLeft=view.x(selected)*svg.getBoundingClientRect().width/view.w-scroll.clientWidth/2;});
   }
+  function showError(error){
+    console.error('[weather comparison]',error);
+    view=null;
+    $('#compareStatus').textContent='Could not display the comparison. Tap Refresh stored years to try again.';
+    $('#compareResults').replaceChildren();
+  }
+  function draw(){try{render();}catch(error){showError(error);}}
   async function load(refresh=false){
     const id=++request;years=selection();errors=new Map();loading=true;$('#compareRefresh').disabled=true;
-    render();
-    await Promise.all(years.map(async year=>{
-      try{const cached=datasets.get(year);const data=cached&&!refresh&&!HistoricalWeather.stale(cached)?cached:await HistoricalWeather.load(HistoricalWeather.context(location,year,'archive_era5'),'daily','',refresh);if(id===request)datasets.set(year,data);}
-      catch(e){if(id===request)errors.set(year,e.message||'Archive unavailable. Try again.');}
-    }));
-    if(id!==request)return;
-    loading=false;$('#compareRefresh').disabled=false;render();
+    try{
+      render();
+      await Promise.all(years.map(async year=>{
+        try{const cached=datasets.get(year);const data=cached&&!refresh&&!HistoricalWeather.stale(cached)?cached:await HistoricalWeather.load(HistoricalWeather.context(location,year,'archive_era5'),'daily','',refresh);if(id===request)datasets.set(year,data);}
+        catch(e){if(id===request)errors.set(year,e.message||'Archive unavailable. Try again.');}
+      }));
+      if(id===request){loading=false;render();}
+    }catch(error){if(id===request)showError(error);}
+    finally{if(id===request){loading=false;$('#compareRefresh').disabled=false;}}
   }
+
   function init(){
     root=document.getElementById('weatherComparePanel');if(!root)return;
     const current=yearNow();
     $('#compareYears').innerHTML='<legend>Choose years</legend>'+Array.from({length:current-2019},(_,i)=>current-i).map(year=>`<label><input type="checkbox" data-compare-year value="${year}" ${year>=current-1?'checked':''}> ${year}</label>`).join('');
     years=selection();
-    root.addEventListener('toggle',()=>{if(root.open&&!view)load();});
+    root.addEventListener('toggle',event=>{if(event.target===root&&root.open&&!view&&!loading)load();});
     root.addEventListener('change',event=>{
       if(event.target.matches('[data-compare-year]')){
         const next=selection();if(!next.length){event.target.checked=!event.target.checked;$('#compareStatus').textContent='Choose at least one year.';return;}load();
       }else if(event.target.matches('#compareSeason,#compareFrom,#compareTo,#compareMatching')){
-        $('#compareCustom').hidden=$('#compareSeason').value!=='custom';selected=0;render();
+        $('#compareCustom').hidden=$('#compareSeason').value!=='custom';selected=0;draw();
       }
     });
     $('#compareRefresh').onclick=()=>load(true);
     root.addEventListener('input',event=>{
       if(event.target.id==='compareDate')inspect(Number(event.target.value),true);
-      else if(event.target.matches('#compareFrom,#compareTo')){selected=0;render();}
+      else if(event.target.matches('#compareFrom,#compareTo')){selected=0;draw();}
     });
     function pointer(event){
       const svg=event.target.closest('svg[data-compare-chart]');if(!svg||!view)return;
@@ -124,6 +137,8 @@
       inspect(Math.floor((point.x-view.left)/view.step));
     }
     root.addEventListener('pointermove',event=>{if(event.pointerType!=='touch')pointer(event);});root.addEventListener('click',pointer);
+    // A restored standalone page can already have an open details panel.
+    if(root.open)load();
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();

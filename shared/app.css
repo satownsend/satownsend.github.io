@@ -1,12 +1,40 @@
 .yard-app-connection{position:fixed;top:env(safe-area-inset-top,0px);left:12px;right:12px;padding:12px;background:var(--panel,#10383b);color:var(--ink,#e3eef0);border:1px solid var(--warn,#e08a4a);border-radius:10px;z-index:100;font-size:15px}
 .yard-app-connection[hidden]{display:none}
 .yard-app-dock{display:none}
-@media (max-width:700px){
-  .yard-app-mobile .wrap{padding-bottom:calc(105px + env(safe-area-inset-bottom,0px))}
+@media (max-width:700px), (max-height:500px) and (pointer:coarse){
+  .yard-app-mobile .wrap{padding-bottom:calc(var(--yard-dock-height,80px) + 84px + env(safe-area-inset-bottom,0px))}
   .yard-app-dock{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;position:fixed;bottom:0;left:0;right:0;z-index:44;padding:8px max(8px,env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left));background:var(--panel,#10383b);border-top:1px solid var(--line2,#2a5159);box-shadow:0 -6px 24px #0002}
   .yard-app-dock button{min-height:48px;padding:8px 2px;background:transparent;color:var(--ink-soft);font-size:14px;border:1px solid transparent;border-radius:9px}
   .yard-app-dock button[aria-current]{color:var(--ink);background:var(--panel2);border-color:var(--line2)}
-  body:has(.modal-back.show) .yard-app-dock{display:none}
+  body:has(.modal-back.show) .yard-app-dock,
+  body:has(.cb-panel.open) .yard-app-dock,
+  body.yard-app-keyboard .yard-app-dock{display:none}
+  html{scroll-padding-bottom:calc(var(--yard-dock-height,0px) + 80px)}
+  body .cb-fab{bottom:calc(max(var(--yard-dock-height,0px),env(safe-area-inset-bottom,0px)) + 12px);right:max(12px,env(safe-area-inset-right,0px));min-height:44px}
+  body:has(.modal-back.show) .cb-fab,body:has(.modal-back.show) .cb-panel,
+  body:has(#undoToast.on) .cb-fab,body:has(#careToast.on) .cb-fab,
+  body.yard-app-keyboard .cb-fab{display:none!important}
+  body .cb-panel{right:max(8px,env(safe-area-inset-right,0px));left:max(8px,env(safe-area-inset-left,0px));width:auto;
+    bottom:calc(var(--yard-keyboard-inset,0px) + var(--yard-toast-height,0px) + 8px + env(safe-area-inset-bottom,0px));
+    height:min(560px,calc(var(--yard-visible-height,100dvh) - var(--yard-toast-height,0px) - 16px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px)))}
+  body .cb-head{flex-wrap:wrap;gap:6px;padding:8px}
+  body .cb-head>div{flex:1 1 140px;min-width:0}
+  body .cb-body,body .cb-saved{min-height:0;overscroll-behavior:contain}
+  body .cb-input{min-width:0;font-size:16px;min-height:44px}
+  body .cb-send,body .cb-x,body .cb-hbtn{min-height:44px;min-width:44px}
+  body .cb-x{color:var(--ink-soft)}
+  .yard-app-mobile #undoToast,.yard-app-mobile #careToast{bottom:calc(var(--yard-dock-height,0px) + var(--yard-keyboard-inset,0px) + 12px);max-width:calc(100vw - 24px);z-index:110}
+  .yard-app-mobile.undo-on #careToast{bottom:calc(var(--yard-dock-height,0px) + var(--yard-keyboard-inset,0px) + var(--yard-undo-height,56px) + 20px)}
+  .yard-app-mobile #undoToast #undoBtn{min-height:44px}
+  .yard-app-mobile .modal-back{bottom:var(--yard-keyboard-inset,0px);padding:max(8px,env(safe-area-inset-top,0px)) max(8px,env(safe-area-inset-right,0px)) calc(max(8px,env(safe-area-inset-bottom,0px)) + var(--yard-toast-height,0px)) max(8px,env(safe-area-inset-left,0px));overflow:auto}
+  .yard-app-mobile .modal-back .modal{max-height:calc(var(--yard-visible-height,100dvh) - var(--yard-toast-height,0px) - 24px);min-width:0;max-width:100%;overscroll-behavior:contain}
+  .yard-app-mobile .modal input,.yard-app-mobile .modal select,.yard-app-mobile .modal textarea,.yard-app-mobile #settingsPanel input,.yard-app-mobile #settingsPanel select{font-size:16px;min-height:44px;min-width:0;max-width:100%}
+  .yard-app-mobile .modal button{min-height:44px}
+  .yard-app-mobile #quickLogPanel .row>*{min-width:0;max-width:100%}
+  .yard-app-mobile #quickLogPanel input,.yard-app-mobile #quickLogPanel select{min-width:0;max-width:100%}
+  .yard-app-mobile #quickLogPanel,.yard-app-mobile #settingsPanel{scroll-margin-bottom:80px}
+  .yard-app-mobile #lightbox>div{height:var(--yard-visible-height,100dvh)!important;max-height:var(--yard-visible-height,100dvh)!important}
+  .yard-app-mobile #lightboxImg{max-height:var(--yard-visible-height,100dvh)}
   .yard-app-mobile #quickLogPanel input,.yard-app-mobile #quickLogPanel select,.yard-app-mobile #quickLogPanel button,.yard-app-mobile #plantFilter{font-size:16px;min-height:44px}
   .yard-app-mobile .plant-view-tabs button{min-height:44px}
   .sitenav-btn{min-height:44px}

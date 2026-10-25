@@ -820,8 +820,8 @@ body.view-only .log-bulk,body.view-only .log-bulk-cell { display:none; }
 <link rel="stylesheet" href="/shared/section-details.css?v=2">
 <link rel="manifest" href="/app/manifest.webmanifest">
 <link rel="apple-touch-icon" sizes="180x180" href="/app/icons/cedar-180.png">
-<link rel="stylesheet" href="/shared/app.css?v=1">
-<script defer src="/shared/app.js?v=1"></script>
+<link rel="stylesheet" href="/shared/app.css?v=2">
+<script defer src="/shared/app.js?v=2"></script>
 <link rel="stylesheet" href="/shared/readability.css?v=1">
 </head>
 <body>
@@ -7174,7 +7174,7 @@ $('#calendarView').addEventListener('click', e => {
 
 // Plants views share state; URL changes participate in Back/Forward navigation.
 const plantViews=['dashboard','weather','calendar','year'];
-function setView(v,{historyMode='push'}={}){
+function setView(v,{historyMode='push',shortcut=null}={}){
   if(!plantViews.includes(v))v='dashboard';
   if(v!=='weather'&&$('#weatherModal').classList.contains('show'))closeWeather();
   const panels={dashboard:'dashboardView',weather:'weatherView',calendar:'calendarView',year:'yearView'};
@@ -7188,7 +7188,7 @@ function setView(v,{historyMode='push'}={}){
   if(v==='calendar')renderCareViews();
   if(v==='year'&&typeof renderYearView==='function')renderYearView();
   if(v==='weather')renderWeatherCalendar();
-  document.dispatchEvent(new Event('yard-app-view'));
+  document.dispatchEvent(new CustomEvent('yard-app-view',{detail:{shortcut}}));
 }
 $$('.plant-view-tabs [data-view]').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.view)));
 document.addEventListener('yard-app-navigate',event=>{
@@ -7200,7 +7200,7 @@ document.addEventListener('yard-app-navigate',event=>{
     $('#gsSaveTokenBtn').scrollIntoView({block:'center'});
     return;
   }
-  setView(target==='plants'||target==='log'?'dashboard':target);
+  setView(target==='plants'||target==='log'?'dashboard':target,{shortcut:target==='log'?'log':null});
   const id={plants:'plantFilter',log:'logPlantBtn',calendar:'plant-tab-calendar',weather:'weatherTitle'}[target];
   const element=document.getElementById(id);
   if(!element.hasAttribute('tabindex')&&target==='weather')element.tabIndex=-1;

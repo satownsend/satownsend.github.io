@@ -12,6 +12,24 @@
   window.addEventListener('appinstalled',()=>{installPrompt=null;installState('App installed. Look for Scott’s Yard on your Home Screen or in your apps.');});
   function init(){
     document.documentElement.classList.toggle('yard-app-standalone',installed());
+    // VisualViewport follows the software keyboard; layout viewport units do not.
+    const viewport=window.visualViewport;
+    let frame=0;
+    const editable=element=>element?.matches('input:not([type=checkbox]):not([type=radio]):not([type=button]):not([type=submit]),textarea,select,[contenteditable="true"]');
+    const geometry=()=>{
+      frame=0;
+      const height=viewport?.height||window.innerHeight,offset=viewport?.offsetTop||0;
+      const inset=Math.max(0,window.innerHeight-height-offset);
+      document.documentElement.style.setProperty('--yard-visible-height',`${height}px`);
+      document.documentElement.style.setProperty('--yard-keyboard-inset',`${inset}px`);
+      const keyboard=inset>120&&editable(document.activeElement);
+      document.body.classList.toggle('yard-app-keyboard',keyboard);
+    };
+    const scheduleGeometry=()=>{if(!frame)frame=requestAnimationFrame(geometry);};
+    viewport?.addEventListener('resize',scheduleGeometry);viewport?.addEventListener('scroll',scheduleGeometry);
+    window.addEventListener('resize',scheduleGeometry);
+    document.addEventListener('focusin',scheduleGeometry);document.addEventListener('focusout',scheduleGeometry);
+    geometry();
     installState();
     const button=document.getElementById('installAppBtn');
     if(button)button.addEventListener('click',async()=>{
@@ -31,13 +49,30 @@
     dock.innerHTML='<button type="button" class="ghost" data-app-target="plants">Plants</button><button type="button" class="ghost" data-app-target="log">Quick log</button><button type="button" class="ghost" data-app-target="calendar">Care</button><button type="button" class="ghost" data-app-target="weather">Weather</button>';
     dock.addEventListener('click',event=>{const button=event.target.closest('[data-app-target]');if(button)document.dispatchEvent(new CustomEvent('yard-app-navigate',{detail:{target:button.dataset.appTarget}}));});
     document.body.appendChild(dock);
-    const current=()=>{
+    // Use actual rendered heights so wrapping/text-size and safe areas are covered.
+    const measure=()=>{
+      const px=element=>element&&getComputedStyle(element).display!=='none'?element.getBoundingClientRect().height:0;
+      const undo=document.getElementById('undoToast'),care=document.getElementById('careToast');
+      document.documentElement.style.setProperty('--yard-dock-height',`${px(dock)}px`);
+      document.documentElement.style.setProperty('--yard-undo-height',`${px(undo)}px`);
+      document.documentElement.style.setProperty('--yard-toast-height',`${px(undo)+px(care)+(px(undo)&&px(care)?8:0)}px`);
+    };
+    if(window.ResizeObserver){const observer=new ResizeObserver(measure);[dock,document.getElementById('undoToast'),document.getElementById('careToast')].filter(Boolean).forEach(element=>observer.observe(element));}
+    window.addEventListener('resize',measure);measure();
+    let shortcut=null;
+    const current=event=>{
       const view=location.hash.slice(1)||'dashboard';
+      if(event?.type==='yard-app-view')shortcut=event.detail?.shortcut||null;
+      else if(event?.type==='hashchange'||event?.type==='popstate')shortcut=null;
+      const activeTarget=view==='dashboard'?(shortcut||'plants'):view;
       dock.querySelectorAll('button').forEach(button=>{
-        const active=button.dataset.appTarget===(view==='dashboard'?'plants':view);
-        if(active)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');
+        if(button.dataset.appTarget===activeTarget)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');
       });
     };
+    document.addEventListener('focusin',event=>{
+      if(event.target.closest('#quickLogPanel')){shortcut='log';current();}
+      else if(event.target.closest('#dashboardView')&&!event.target.closest('#settingsPanel')){shortcut=null;current();}
+    });
     document.addEventListener('yard-app-view',current);window.addEventListener('hashchange',current);window.addEventListener('popstate',current);current();
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();

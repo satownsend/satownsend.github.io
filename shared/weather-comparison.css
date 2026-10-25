@@ -16,8 +16,32 @@
 .compare-chart rect.wc-not-date{fill:none}
 .compare-grid{stroke:var(--muted);stroke-opacity:.22}
 .compare-cursor{stroke:var(--ink);stroke-width:1.5;stroke-dasharray:4 3;pointer-events:none}
-.compare-date-selector{display:flex;align-items:center;gap:12px;margin:12px 0}
-.compare-date-selector input{flex:1;min-width:0;min-height:36px;accent-color:var(--accent)}
+
+.compare-section{min-width:0;margin:24px 0 32px}
+.compare-plot{position:relative}
+.compare-tooltip{position:absolute;top:8px;right:8px;max-width:min(260px,85%);padding:10px 14px;border-radius:8px;border:1px solid var(--line2);background:var(--panel);color:var(--ink);box-shadow:0 4px 16px #0004;font-size:15px;line-height:1.5;pointer-events:none;z-index:3}
+.compare-tooltip[hidden]{display:none}
+.compare-inspect-controls{display:flex;align-items:center;gap:10px;margin:8px 0}
+.compare-inspect-controls label{display:flex;align-items:center;gap:10px;flex:1;min-width:0;font-size:15px}
+.compare-inspect-controls input{flex:1;width:100%;min-width:40px;min-height:44px;accent-color:var(--accent)}
+.compare-inspect-controls button{min-width:44px;min-height:44px;padding:4px 8px}
+.compare-temperature-key button{font:inherit;min-height:44px;padding:6px 9px;border:2px solid transparent;border-radius:5px;cursor:pointer}
+.compare-temperature-key button:focus-visible,.compare-temperature-key .compare-key-active{outline:2px solid var(--ink);outline-offset:2px}
+.compare-temperature-key button[aria-pressed=true]{border-color:var(--ink)}
+.compare-chart rect.compare-dim{opacity:.15}
+.compare-chart rect.compare-match{stroke:var(--ink);stroke-width:1.2}
+#compareBandStatus{min-height:1.6em;color:var(--ink-soft)}
+.compare-date-values{width:100%;font-size:15px;margin-top:4px;border-collapse:collapse}
+.compare-date-values th,.compare-date-values td{padding:8px 10px;background:transparent;position:static;box-shadow:none;white-space:normal}
+.compare-date-values th:first-child{width:25%}
+.compare-day-details{margin:8px 0 16px}
+.compare-day-details summary{cursor:pointer;min-height:44px;display:list-item;align-content:center;font-size:15px;color:var(--ink-soft)}
+.compare-day-record{padding:12px 0;border-bottom:1px solid var(--line)}
+.compare-day-record dl{display:grid;grid-template-columns:minmax(120px,1fr) minmax(0,1fr);gap:6px 12px;font-size:15px;margin:8px 0}
+.compare-day-record dt{color:var(--ink-soft)}
+.compare-day-record dd{margin:0;overflow-wrap:anywhere}
+@media(max-width:450px){.compare-inspect-controls{gap:6px}.compare-inspect-controls label{flex-direction:column;align-items:stretch;gap:0}.compare-date-values th,.compare-date-values td{padding:6px 4px}}
+
 .compare-reading{font-size:16px;line-height:1.7;color:var(--ink);min-height:3.4em;font-variant-numeric:tabular-nums;margin-bottom:24px}
 .compare-year-key{font-weight:700;border-bottom:3px solid var(--year-color);padding-bottom:3px}
 .compare-summaries p{color:var(--ink-soft);font-size:15px;line-height:1.65}

@@ -24,9 +24,12 @@
  */
 (function(){
   const CLIENT_ID = '936411146633-16fq9oc08auslfprvgbl9bpoafbvo9uk.apps.googleusercontent.com';
-  const SCOPE = 'https://www.googleapis.com/auth/spreadsheets';
+  const SCOPE = 'openid https://www.googleapis.com/auth/spreadsheets';
   const TOKEN_KEY = 'satownsend.gsToken';                 // shared across dashboards
   const FAILED_FLAG = 'satownsend.gsSilentFailed';        // sessionStorage: suppress auto-retry this tab
+
+  const STATE_KEY = 'satownsend.gsOAuthState';
+  const STATE_TTL = 10 * 60 * 1000;
 
   function readToken(){
     try { return JSON.parse(localStorage.getItem(TOKEN_KEY) || 'null'); } catch(e){ return null; }
@@ -51,10 +54,14 @@
   }
 
   function authUrl(extra){
+    // Persist before navigating; unavailable storage must fail closed.
+    const state = Array.from(crypto.getRandomValues(new Uint8Array(32)), b => b.toString(16).padStart(2, '0')).join('');
+    sessionStorage.setItem(STATE_KEY, JSON.stringify({ state, created: Date.now(), path: location.pathname }));
     const params = new URLSearchParams(Object.assign({
       client_id: CLIENT_ID,
       redirect_uri: location.origin + location.pathname,
       response_type: 'token',
+      state,
       scope: SCOPE,
       include_granted_scopes: 'true',
     }, extra || {}));
@@ -66,16 +73,29 @@
     const p = new URLSearchParams(location.hash.substring(1));
     const at = p.get('access_token');
     const err = p.get('error');
-    if (at){
-      store(at, p.get('expires_in'));
+    if (!at && !err) return 'none';
+    history.replaceState(null, '', location.pathname + location.search);
+    let pending;
+    try {
+      pending = JSON.parse(sessionStorage.getItem(STATE_KEY) || 'null');
+      sessionStorage.removeItem(STATE_KEY);
+    } catch(e){ pending = null; }
+    const age = pending ? Date.now() - pending.created : NaN;
+    const matched = pending && pending.state && p.get('state') === pending.state &&
+      pending.path === location.pathname && Number.isFinite(age) && age >= 0 && age <= STATE_TTL;
+    const expires = Number(p.get('expires_in'));
+    if (!matched || (at && (!Number.isFinite(expires) || expires <= 0 || p.get('token_type')?.toLowerCase() !== 'bearer'))){
+      try { sessionStorage.setItem(FAILED_FLAG, '1'); } catch(e){}
+      return 'error';
+    }
+    if (at && !err){
+      store(at, expires);
       try { sessionStorage.removeItem(FAILED_FLAG); } catch(e){}
-      history.replaceState(null, '', location.pathname + location.search);
       return 'signed-in';
     }
     if (err){
       // A prompt=none attempt that needs interaction returns here with an error.
       try { sessionStorage.setItem(FAILED_FLAG, '1'); } catch(e){}
-      history.replaceState(null, '', location.pathname + location.search);
       return 'error';
     }
     return 'none';
@@ -94,7 +114,10 @@
     location.href = authUrl();
   }
 
-  function signOut(){ localStorage.removeItem(TOKEN_KEY); }
+  function signOut(){
+    localStorage.removeItem(TOKEN_KEY);
+    try { sessionStorage.removeItem(STATE_KEY); } catch(e){}
+  }
 
   window.GAuth = { token, isAuthed, handleReturn, trySilent, signIn, signOut };
 })();

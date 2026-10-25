@@ -27,25 +27,20 @@ const MODEL_LABELS = {
 const modelLabel = id => MODEL_LABELS[id] || id;
 const PROVIDER = 'Cloudflare Workers AI';
 
-// Owner-only: the chatbot requires a valid Google login for this site's OAuth
-// client (the same one the dashboards use). The browser sends the Google access
-// token; we verify it below before answering. Optionally lock it to specific
-// Google accounts by listing emails here (leave empty to allow anyone who has
-// signed into this app — for a personal/testing OAuth app that's just you).
+// Require an explicit Google account subject allowlist, independently of OAuth
+// consent/testing status. No email scope is needed for tokeninfo's `sub`.
 const GS_CLIENT_ID = '936411146633-16fq9oc08auslfprvgbl9bpoafbvo9uk.apps.googleusercontent.com';
-const ALLOWED_EMAILS = []; // e.g. ['scott@example.com']
 
-async function verifyGoogleToken(token){
-  if(!token) return { ok: false };
+async function verifyGoogleToken(token, allowedSubjects){
+  if(!token || !allowedSubjects.length) return { ok: false };
   try {
     const r = await fetch('https://oauth2.googleapis.com/tokeninfo?access_token=' + encodeURIComponent(token));
     if(!r.ok) return { ok: false };
     const info = await r.json();
-    // Must be a token minted for THIS app.
-    if(info.aud !== GS_CLIENT_ID && info.azp !== GS_CLIENT_ID) return { ok: false };
-    // Optional per-email allowlist (only enforced if an email is present + list non-empty).
-    if(ALLOWED_EMAILS.length && info.email && !ALLOWED_EMAILS.includes(info.email)) return { ok: false };
-    return { ok: true, email: info.email || null };
+    if(info.aud !== GS_CLIENT_ID || (info.azp && info.azp !== GS_CLIENT_ID)) return { ok: false };
+    if(!Number.isFinite(Number(info.expires_in)) || Number(info.expires_in) <= 0) return { ok: false };
+    if(typeof info.sub !== 'string' || !allowedSubjects.includes(info.sub)) return { ok: false };
+    return { ok: true };
   } catch(e){ return { ok: false }; }
 }
 
@@ -517,7 +512,11 @@ export default {
     // Owner-only gate: require a valid Google login for this app.
     const auth = request.headers.get('Authorization') || '';
     const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
-    const v = await verifyGoogleToken(token);
+    const allowedSubjects = String(env.ALLOWED_GOOGLE_SUBJECTS || '').split(',').map(s => s.trim()).filter(Boolean);
+    if(!allowedSubjects.length) return new Response(JSON.stringify({ error: 'Assistant access is not configured.' }), {
+      status: 503, headers: { ...cors, 'Content-Type': 'application/json' },
+    });
+    const v = await verifyGoogleToken(token, allowedSubjects);
     if(!v.ok){
       return new Response(JSON.stringify({ error: 'Sign in with Google to use the assistant.' }), {
         status: 401, headers: { ...cors, 'Content-Type': 'application/json' },

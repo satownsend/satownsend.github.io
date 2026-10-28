@@ -8,7 +8,7 @@ The repository's existing Cloudflare Workers Builds connection deploys `chatbot-
 
 On the first ticks the importer fills the latest two available months, then the oldest missing month per tick. The initial 2020–present backfill should take roughly a day at this cadence, subject to provider/runtime availability. It is deliberately not a single long request. The calendar shows imported month count, continuous complete daily coverage from move-in, and the latest stored day; these are different measures. It reads stored data automatically, checks progress while visible, and never initiates source imports. No need to manually load or reload years.
 
-After backfill, the cron checks the manifest but downloads only the latest two months once per New York calendar day, revisiting recent estimates and month boundaries. ERA5 is published with about five days' delay; the importer uses a **six-day buffer**. Recent uncovered days remain unknown; current forecasts and the on-demand historical-forecast choices remain separate. This is not activation of deferred PR #113's Google Sheets forecast collector.
+After backfill, the cron checks recent months every **three hours**, revisiting later provider releases and month boundaries. ERA5 is normally published with **5–7 days of delay**; the importer requests through five days ago and preserves prior values when later days are still unavailable. The canonical calendar/archive stays ERA5-only. Compare years separately adds labeled recent model estimates through yesterday; these never overwrite the canonical archive. This is not activation of deferred PR #113's Google Sheets forecast collector.
 
 ## Storage contract
 
@@ -28,6 +28,7 @@ A successful month writes its immutable payload before conditionally publishing 
 
 - `https://satownsend-chatbot.satownsend.workers.dev/weather-archive/status` — progress, cutoff, continuous coverage, latest date, pause/error state.
 - `/weather-archive?year=2020` — canonical daily summaries plus monthly provenance.
+- `/weather-archive?year=2026&recent=1` — comparison daily data: canonical ERA5 wins over separately labeled provisional recent estimates. Returns freshness/source metadata.
 - `/weather-archive?month=2020-10` — stored hourly estimates and provenance for that month.
 
 No POST endpoint runs imports. After deployment verify the binding, cron trigger, first R2 manifest/payload and changing status. Check the move-in date, a daylight-saving day, current source-delay gap, and another device/browser. If the build or provider fails, inspect Workers logs and status; the existing archive is retained. A missing binding returns a setup message rather than fetching directly from Open-Meteo on visitor requests.
@@ -43,3 +44,29 @@ Sources: [Historical Weather API](https://open-meteo.com/en/docs/historical-weat
 ## Validation performed
 
 No tests were added, per the user's preference. Changed JS parses and whitespace checks pass. A read-only live import of October 2020 returned 31 daily summaries and all 744 local-day hours, starting October 1, with ERA5 units/grid metadata and null gusts. The browser verified the default permanent-source choice, automatic attempt, 2020 year minimum and an explicit not-yet-deployed message against the older live Worker. The existing on-demand Best match choice still loaded 366/366 days for 2024. Production R2 writes, scheduler/lease behavior, complete multi-year import and cross-device reading require the merged Worker deployment and have not yet been exercised.
+
+## Keeping Compare years current
+
+The comparison view opts into `recent=1`. Recent complete local days come from
+Open-Meteo’s Forecast API past-day time series (`best_match`, not observations).
+They are stored separately at `weather/v1/lilly-recent/daily.json`, as a rolling
+14-day window. Cron refreshes this cache at most once per hour. A comparison
+read can fetch fresh recent estimates if the stored copy is older than one
+hour or belongs to yesterday’s cutoff; that read never writes R2. Read failures
+retain the saved copy and expose an error. Pausing the importer also suppresses
+read-through provider calls. Ordinary canonical archive reads are unaffected.
+
+Only complete high/low/precipitation recent rows can fill unavailable dates;
+canonical complete ERA5 rows always win. No current/future day or old gap is
+filled. Daily source flags, source-specific detail text, outlined temperature
+days, and hollow precipitation points identify provisional estimates. Totals
+include them explicitly and still stop at the first missing precipitation day.
+The recent values can change when ERA5 arrives.
+
+The browser checks for newer comparison data every minute while open and uses
+a 15-minute cache lifetime, also checking when reopened or resumed. Refresh is
+deferred during active input; focused controls are restored after rendering. Selection, horizontal chart
+position, and daily-detail expansion survive background refresh. See
+`tests/weather-freshness.cjs` for provider, merge, failure, unit and date-boundary
+checks. Source behavior: [Forecast API](https://open-meteo.com/en/docs) and
+[Historical Weather API](https://open-meteo.com/en/docs/historical-weather-api).

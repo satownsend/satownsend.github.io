@@ -61,3 +61,7 @@
 .compare-watering-reading section{padding:8px 0;border-bottom:1px solid var(--line)}
 .compare-watering-reading li{margin:8px 0;overflow-wrap:anywhere}
 .compare-watering-reading p{margin:6px 0}
+
+.compare-watering-jump{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 0;color:var(--ink)}
+.compare-watering-jump select{min-height:44px;font-size:16px;max-width:100%;min-width:0}
+.compare-watering-reading ul{max-height:320px;overflow:auto;padding-right:8px}

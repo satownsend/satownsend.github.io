@@ -65,3 +65,11 @@
 .compare-watering-jump{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 0;color:var(--ink)}
 .compare-watering-jump select{min-height:44px;font-size:16px;max-width:100%;min-width:0}
 .compare-watering-reading ul{max-height:320px;overflow:auto;padding-right:8px}
+
+.compare-year-control{font:inherit;color:var(--ink);background:transparent;border:0;border-bottom:3px solid var(--year-color);border-radius:4px 4px 0 0;padding:6px 10px;min-width:44px;min-height:44px;cursor:pointer}
+.compare-year-control:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.compare-year-control.compare-year-active{background:var(--panel2);box-shadow:0 0 0 1px var(--year-color)}
+.compare-year-line{transition:opacity .12s ease}
+.compare-year-line.compare-year-dim{opacity:.16}
+.compare-year-line.compare-year-highlight path{stroke-width:5}
+@media(prefers-reduced-motion:reduce){.compare-year-line{transition:none}}

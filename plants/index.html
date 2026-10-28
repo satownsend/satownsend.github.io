@@ -4517,11 +4517,14 @@ function refreshLogPlantBtn(){
     btn.textContent = `${first} + ${n - 1} more`;
   }
 }
+function renderLogPlantMatches(living){
+  const q = (logPlantState.search || '').toLowerCase();
+  const filtered = q ? living.filter(p => (p.name||'').toLowerCase().includes(q)) : living;
+  $('#lppList').innerHTML = `${filtered.map(p => `<label><input type="checkbox" data-id="${p.id}" ${logPlantState.selected.has(p.id) ? 'checked' : ''}> ${escapeHtml(p.name)}</label>`).join('') || '<div style="padding:10px;color:var(--muted);text-align:center;font-size:12px">No matches.</div>'}`;
+}
 function buildLogPlantPop(){
   const pop = $('#logPlantPop');
   const living = state.plants.filter(p => !p.dead && !p.wishlist).slice().sort((a,b) => (a.name||'').localeCompare(b.name||''));
-  const q = (logPlantState.search || '').toLowerCase();
-  const filtered = q ? living.filter(p => (p.name||'').toLowerCase().includes(q)) : living;
   pop.innerHTML = `
     <input class="lpp-search" type="search" id="lppSearch" placeholder="Filter…" value="${escapeHtml(logPlantState.search)}">
     <label class="lpp-yard"><input type="checkbox" id="lppYard" ${logPlantState.yardWide ? 'checked' : ''}> 🌿 Yard-wide event (single entry, no plant)</label>
@@ -4532,14 +4535,14 @@ function buildLogPlantPop(){
       </div>
       <span class="small" style="color:var(--muted)" id="lppCount"></span>
     </div>
-    <div class="lpp-list" id="lppList">
-      ${filtered.map(p => `<label><input type="checkbox" data-id="${p.id}" ${logPlantState.selected.has(p.id) ? 'checked' : ''}> ${escapeHtml(p.name)}</label>`).join('') || '<div style="padding:10px;color:var(--muted);text-align:center;font-size:12px">No matches.</div>'}
-    </div>
+    <div class="lpp-list" id="lppList"></div>
     <button type="button" class="tiny lpp-done" id="lppDone">Done</button>
   `;
   pop.classList.toggle('is-yard', logPlantState.yardWide);
   $('#lppCount').textContent = logPlantState.yardWide ? 'yard-wide' : `${logPlantState.selected.size} selected`;
-  $('#lppSearch').addEventListener('input', e => { logPlantState.search = e.target.value; buildLogPlantPop(); $('#lppSearch').focus(); });
+  renderLogPlantMatches(living);
+  // Keep the active input intact: rebuilding it resets the caret while typing.
+  $('#lppSearch').addEventListener('input', e => { logPlantState.search = e.target.value; renderLogPlantMatches(living); });
   $('#lppYard').addEventListener('change', e => {
     logPlantState.yardWide = e.target.checked;
     if (logPlantState.yardWide) logPlantState.selected.clear();

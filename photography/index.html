@@ -290,15 +290,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
     <div style="margin-bottom:16px">
       <h3 style="margin:0 0 8px">Photo storage (Cloudflare R2)</h3>
-      <div class="small supporting-copy" style="color:var(--muted);margin-bottom:6px">Enter these once while signed in with Google. They're saved to a private Google vault, so signing in on any other device loads them automatically.</div>
-      <input type="text" id="r2KeyInput" placeholder="Access Key ID" style="width:100%;margin-bottom:6px">
-      <input type="password" id="r2SecretInput" placeholder="Secret Access Key" style="width:100%">
+      <div class="small supporting-copy" style="color:var(--muted);margin-bottom:6px">Sign in with the owner Google account to upload and delete photos. No storage keys are needed.</div>
       <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
-        <button id="r2SaveBtn" class="ghost tiny">Save</button>
-        <button id="r2TestBtn" class="ghost tiny">Test</button>
-        <button id="r2ClearBtn" class="ghost tiny" style="color:#f59a8a">Forget</button>
+        <button id="r2TestBtn" class="ghost tiny">Check connection</button>
       </div>
-      <div class="small" id="r2Status" style="margin-top:6px;color:var(--muted)">Not configured.</div>
+      <div class="small" id="r2Status" style="margin-top:6px;color:var(--muted)">Sign in to manage photos.</div>
     </div>
 
     <div style="text-align:right;margin-top:20px">
@@ -308,6 +304,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 </div>
 
 <script src="/shared/gauth.js"></script>
+<script src="/shared/media-storage.js"></script>
 <script>
 /* ── Helpers ── */
 const $ = s => document.querySelector(s);
@@ -367,7 +364,6 @@ const R2_CONFIG = {
   accountId: '5321847b835f166ceacebf2c8c142610',
   publicUrl: 'https://pub-59a926166fd84970bea75caf38a52d27.r2.dev',
 };
-const R2_CREDS_KEY = 'photographyDashboard.r2creds';
 
 function r2PublicUrl(key){ return `${R2_CONFIG.publicUrl}/${key}`; }
 
@@ -884,12 +880,6 @@ function refreshGsStatus(){
 }
 $('#gsSaveTokenBtn').onclick = ()=> GAuth.signIn();
 
-/* ── R2 credentials ── */
-function getR2Creds(){ try { return JSON.parse(localStorage.getItem(R2_CREDS_KEY) || '{}'); } catch(e){ return {}; } }
-function setR2Creds(c){
-  if (c && c.accessKey && c.secretKey) localStorage.setItem(R2_CREDS_KEY, JSON.stringify(c));
-  else localStorage.removeItem(R2_CREDS_KEY);
-}
 
 /* ── Google Sheets API (writes need the signed-in token) ── */
 async function sheetsApi(url, opts = {}){
@@ -902,8 +892,7 @@ async function sheetsApi(url, opts = {}){
 }
 const SHEET_BASE = () => `https://sheets.googleapis.com/v4/spreadsheets/${PHOTO_SHEET_ID}`;
 
-/* ── R2 credential vault (issue #47) ── */
-const R2_VAULT_TITLE = 'satownsend • R2 vault (private — do not share)';
+/* Shared dashboard configuration (featured photos and labels). */
 
 async function gsReadConfig(){
   try {
@@ -931,129 +920,7 @@ async function gsWriteConfigValue(key, value){
     method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ values: rows }),
   });
 }
-async function gsCreateVault(){
-  const data = await sheetsApi('https://sheets.googleapis.com/v4/spreadsheets', {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ properties:{ title: R2_VAULT_TITLE }, sheets:[{ properties:{ title:'r2' } }] }),
-  });
-  return data.spreadsheetId;
-}
-async function gsReadVaultCreds(vaultId){
-  const data = await sheetsApi(`https://sheets.googleapis.com/v4/spreadsheets/${vaultId}/values/r2!A2:B2`);
-  const row = (data.values || [])[0] || [];
-  const accessKey = (row[0]||'').trim(), secretKey = (row[1]||'').trim();
-  return (accessKey && secretKey) ? { accessKey, secretKey } : null;
-}
-async function gsWriteVaultCreds(vaultId, creds){
-  await sheetsApi(`https://sheets.googleapis.com/v4/spreadsheets/${vaultId}/values/r2!A1?valueInputOption=RAW`, {
-    method:'PUT', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ values: [['accessKey','secretKey'], [creds.accessKey, creds.secretKey]] }),
-  });
-}
-async function saveR2CredsToVault(creds){
-  if (!isGsAuthed()) return;
-  const cfg = await gsReadConfig();
-  let vaultId = cfg.r2_vault_id;
-  if (!vaultId){ vaultId = await gsCreateVault(); await gsWriteConfigValue('r2_vault_id', vaultId); }
-  await gsWriteVaultCreds(vaultId, creds);
-}
-// Public sheets of the other dashboards. Their config tabs hold an
-// `r2_vault_id` pointer (public — the id isn't a secret). Photography's own
-// sheet is new and has no pointer yet, so we fall back to a sibling's, which
-// makes the SAME R2 keys the other dashboards already use load here
-// automatically — no per-dashboard re-entry (which is where typos → 403s crept in).
-const SIBLING_SHEETS = [
-  '1BXFTqV6xCZU63IutRAeAFPrZKLyDPkuGQ-SykIdAy_k', // beer
-  '1Q1kRZG0jjkYF7pCSZXZIgE5B_kCorDovO2I7ATE3vUM', // plants
-  '1dWWWIFBpWvNOIBuxA1EIoaffKckDFhsHvPDzhbxdnYg', // instruments
-  '1Uq2Fgzron3yDZqYFWsUx1cYigp4w8GmQP2pmk33DG54', // wildlife
-];
-async function discoverVaultIdFromSiblings(){
-  for(const id of SIBLING_SHEETS){
-    try {
-      const r = await fetch(`https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(CONFIG_TAB)}`, {cache:'no-store'});
-      if(!r.ok) continue;
-      const rows = csvToObjects(parseCSV((await r.text()).replace(/^﻿/,'')));
-      for(const row of rows){ if(row.key === 'r2_vault_id' && row.value) return row.value; }
-    } catch(e){ /* try next sibling */ }
-  }
-  return '';
-}
-async function autoLoadR2CredsFromVault(){
-  if (!isGsAuthed()) return false;
-  const have = getR2Creds();
-  if (have.accessKey && have.secretKey) return false;
-  try {
-    let vaultId = (await gsReadConfig()).r2_vault_id;
-    if (!vaultId) vaultId = await discoverVaultIdFromSiblings();
-    if (!vaultId) return false;
-    const creds = await gsReadVaultCreds(vaultId);
-    if (!creds) return false;
-    setR2Creds(creds);
-    // Cache the pointer in this sheet's own config so next load is a single read.
-    try { await gsWriteConfigValue('r2_vault_id', vaultId); } catch(e){ /* best-effort */ }
-    if (typeof refreshR2Input === 'function') refreshR2Input();
-    return true;
-  } catch(e){ console.warn('[vault] auto-load failed:', e); return false; }
-}
 
-/* ── SigV4 signing ── */
-async function sha256hex(data){
-  const buf = typeof data === 'string' ? new TextEncoder().encode(data) : data;
-  const hash = await crypto.subtle.digest('SHA-256', buf);
-  return [...new Uint8Array(hash)].map(b=>b.toString(16).padStart(2,'0')).join('');
-}
-async function hmacRaw(key, data){
-  const k = typeof key === 'string' ? new TextEncoder().encode(key) : key;
-  const d = typeof data === 'string' ? new TextEncoder().encode(data) : data;
-  const ck = await crypto.subtle.importKey('raw', k, {name:'HMAC', hash:'SHA-256'}, false, ['sign']);
-  return new Uint8Array(await crypto.subtle.sign('HMAC', ck, d));
-}
-async function hmacHex(key, data){
-  const sig = await hmacRaw(key, data);
-  return [...sig].map(b=>b.toString(16).padStart(2,'0')).join('');
-}
-async function sigv4Request({method, key, body, contentType}){
-  const creds = getR2Creds();
-  if (!creds.accessKey || !creds.secretKey) throw new Error('R2 credentials not set');
-  const host = `${R2_CONFIG.accountId}.r2.cloudflarestorage.com`;
-  const path = `/${R2_CONFIG.bucket}/${key.split('/').map(encodeURIComponent).join('/')}`;
-  const url = `https://${host}${path}`;
-  const region = 'auto', service = 's3';
-  const now = new Date();
-  const amzDate = now.toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');
-  const date = amzDate.slice(0,8);
-  const payload = body ? (body instanceof ArrayBuffer ? new Uint8Array(body) : body) : new Uint8Array();
-  const payloadHash = await sha256hex(payload);
-  const headers = { host, 'x-amz-content-sha256': payloadHash, 'x-amz-date': amzDate };
-  if (contentType) headers['content-type'] = contentType;
-  const sortedHeaderNames = Object.keys(headers).sort();
-  const canonicalHeaders = sortedHeaderNames.map(n=>`${n}:${headers[n]}`).join('\n') + '\n';
-  const signedHeaders = sortedHeaderNames.join(';');
-  const canonicalRequest = `${method}\n${path}\n\n${canonicalHeaders}\n${signedHeaders}\n${payloadHash}`;
-  const crHash = await sha256hex(canonicalRequest);
-  const credentialScope = `${date}/${region}/${service}/aws4_request`;
-  const stringToSign = `AWS4-HMAC-SHA256\n${amzDate}\n${credentialScope}\n${crHash}`;
-  const kDate    = await hmacRaw('AWS4' + creds.secretKey, date);
-  const kRegion  = await hmacRaw(kDate, region);
-  const kService = await hmacRaw(kRegion, service);
-  const kSigning = await hmacRaw(kService, 'aws4_request');
-  const signature = await hmacHex(kSigning, stringToSign);
-  const auth = `AWS4-HMAC-SHA256 Credential=${creds.accessKey}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
-  const fetchHeaders = { ...headers, Authorization: auth };
-  delete fetchHeaders.host;
-  let r2;
-  try {
-    r2 = await fetch(url, { method, headers: fetchHeaders, body: body || undefined });
-  } catch(netErr){
-    // R2's error responses (e.g. 403 on bad/missing credentials) don't carry
-    // CORS headers, so the browser hides them behind a generic "Failed to
-    // fetch". Translate that into an actionable message instead.
-    throw new Error('R2 request blocked — this is almost always wrong or missing credentials (a hidden 403). Open Settings → Photo storage, enter your R2 keys, and hit Test.');
-  }
-  if (!r2.ok){ const txt = await r2.text(); throw new Error(`R2 ${method} ${r2.status}: ${txt.slice(0,200)}`); }
-  return r2;
-}
 
 /* ── HEIC / EXIF / Resize ── */
 function isHeic(file){ return /^image\/hei[cf]/i.test(file.type || '') || /\.hei[cf]$/i.test(file.name || ''); }
@@ -1258,8 +1125,7 @@ async function loadFeaturedKey(){
 
 /* ── Upload ── */
 async function uploadPhoto(file, category, subcategory, caption, dateOverride, onStatus){
-  const creds = getR2Creds();
-  if (!creds.accessKey || !creds.secretKey) throw new Error('Save R2 credentials first (Settings → Photo storage)');
+  if (!isGsAuthed()) throw new Error('Sign in with Google to upload photos.');
   const today = ymd(new Date());
   const rand = Math.random().toString(36).slice(2,8);
   const catSlug = slug(category);
@@ -1270,13 +1136,14 @@ async function uploadPhoto(file, category, subcategory, caption, dateOverride, o
   const row = (key, date) => [id, key, category, '', date, caption, 'FALSE', subcategory];
 
   if(isVideo(file)){
+    if(file.size > 90*1024*1024) throw new Error('Videos must be no larger than 90 MiB.');
     const ext = (file.name.match(/\.(mp4|mov|webm)$/i)||['.mp4'])[0].toLowerCase();
     const vidDate = dateOverride || captureDateFromFile(file) || today;
     const key = `${prefix}/${vidDate}-${rand}${ext}`;
     const ct = ext==='.webm' ? 'video/webm' : ext==='.mov' ? 'video/quicktime' : 'video/mp4';
     if(onStatus) onStatus('Uploading video…');
     const buf = await file.arrayBuffer();
-    await sigv4Request({ method:'PUT', key, body: buf, contentType: ct });
+    await MediaStorage.request({ method:'PUT', key, body: buf, contentType: ct });
     await appendPhotoRow(row(key, vidDate));
     state.photos.push({ id, key, category, subcategory, title:'', date: vidDate, caption });
     return;
@@ -1296,12 +1163,12 @@ async function uploadPhoto(file, category, subcategory, caption, dateOverride, o
   const key = `${prefix}/${photoDate}-${rand}.jpg`;
   if (onStatus) onStatus('Uploading…');
   const buf = await resized.arrayBuffer();
-  await sigv4Request({ method:'PUT', key, body: buf, contentType:'image/jpeg' });
+  await MediaStorage.request({ method:'PUT', key, body: buf, contentType:'image/jpeg' });
   // Thumbnail next to the original (issue #20): 640px long edge, ~40 KB, used by
   // tables, grids and the photo wall; full image stays for lightbox/slideshows.
   try {
     const tb = await resizeImage(new Blob([buf], { type:'image/jpeg' }), 640, 0.8);
-    await sigv4Request({ method:'PUT', key: key + '.thumb.jpg', body: await tb.arrayBuffer(), contentType:'image/jpeg' });
+    await MediaStorage.request({ method:'PUT', key: key + '.thumb.jpg', body: await tb.arrayBuffer(), contentType:'image/jpeg' });
   } catch(e){ console.warn('thumbnail upload failed (original is fine):', e); }
   await appendPhotoRow(row(key, photoDate));
   state.photos.push({ id, key, category, subcategory, title:'', date: photoDate, caption });
@@ -1464,7 +1331,7 @@ $('#lightboxDelete').onclick = async ()=>{
   if(!p) return;
   if(!confirm('Delete this photo? This cannot be undone.')) return;
   try {
-    await sigv4Request({ method:'DELETE', key: p.key });
+    await MediaStorage.request({ method:'DELETE', key: p.key });
     await deletePhotoRow(p);
     const gi = state.photos.findIndex(x=>x.key===p.key);
     if(gi>=0) state.photos.splice(gi, 1);
@@ -1487,43 +1354,17 @@ document.addEventListener('keydown', e=>{
   }
 });
 
-/* ── R2 credential UI ── */
+/* ── Photo storage status ── */
 function refreshR2Input(){
-  const creds = getR2Creds();
-  const has = creds.accessKey && creds.secretKey;
-  $('#r2KeyInput').value = creds.accessKey || '';
-  $('#r2SecretInput').value = creds.secretKey || '';
-  $('#r2Status').textContent = has ? 'Credentials saved locally.' : 'Not configured.';
-}
-$('#r2SaveBtn').onclick = async ()=>{
-  const creds = { accessKey: $('#r2KeyInput').value.trim(), secretKey: $('#r2SecretInput').value.trim() };
-  setR2Creds(creds);
-  refreshR2Input();
-  if (creds.accessKey && creds.secretKey && isGsAuthed()){
-    const st = $('#r2Status');
-    st.textContent = 'Saving to your private Google vault…';
-    try { await saveR2CredsToVault(creds); st.textContent = 'Saved. Signing in with Google on any device now loads these automatically.'; }
-    catch(e){ st.textContent = 'Saved on this device, but vault sync failed: ' + e.message; }
-  }
-};
-$('#r2ClearBtn').onclick = async ()=>{
-  setR2Creds(null); refreshR2Input();
-  // Immediately try to repopulate from your vault (the keys the other
-  // dashboards use), so "Forget" doubles as "reset to my known-good keys".
-  if(isGsAuthed()){
-    const st = $('#r2Status'); st.textContent = 'Loading your saved keys from the vault…';
-    const ok = await autoLoadR2CredsFromVault();
-    st.textContent = ok ? 'Loaded your saved R2 keys from the vault — hit Test.' : 'Not configured.';
-  }
-};
-$('#r2TestBtn').onclick = async ()=>{
   const st = $('#r2Status');
-  st.textContent = 'Testing…';
-  try { await sigv4Request({ method:'HEAD', key: 'photography/.keep' }); st.textContent = 'Connected ✓'; }
-  catch(e){
-    if(e.message.includes('404') || e.message.includes('NoSuchKey')) st.textContent = 'Connected ✓ (test file not found, but auth works)';
-    else st.textContent = 'Error: ' + e.message;
-  }
+  if(st) st.textContent = isGsAuthed() ? 'Google sign-in ready. Check connection to verify photo access.' : 'Sign in with Google to manage photos.';
+}
+$('#r2TestBtn').onclick = async ()=>{
+  const st = $('#r2Status'), btn = $('#r2TestBtn');
+  btn.disabled = true; st.textContent = 'Checking photo access…';
+  try { await MediaStorage.check(); st.textContent = 'Photo storage connected.'; }
+  catch(e){ st.textContent = e.message; }
+  finally { btn.disabled = false; }
 };
 
 /* ── Init ── */
@@ -1532,7 +1373,7 @@ if(savedTheme && savedTheme !== 'default') applyTheme(savedTheme);
 GAuth.handleReturn();
 if(!GAuth.trySilent()){
   refreshGsStatus();
-  autoLoadR2CredsFromVault();
+
   loadFeaturedKey();
   loadData();
 }

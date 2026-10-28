@@ -89,3 +89,27 @@ Validation: syntax/whitespace checks and a live read-only loader call against pr
 ## Permanent weather archive
 
 This Worker also serves the read-only R2 weather archive and imports ERA5 history from 2020-10-01 in scheduled resumable batches. The bucket binding and cron are declared in `wrangler.toml`, so the existing GitHub build deploys them alongside chatbot updates. See [WEATHER_ARCHIVE.md](WEATHER_ARCHIVE.md) for rollout, monitoring, storage/provenance, pause and recovery details. No AI inference is used for archive work.
+
+## Required account authorization (#163)
+
+Before deploying the security update, configure the Worker secret
+`ALLOWED_GOOGLE_SUBJECTS` with the owner's Google account `sub` identifier
+(comma-separated for multiple authorized accounts). An OAuth client ID alone
+is not owner authorization. With no allowlist, AI POST requests return 503;
+unlisted accounts return 401. Public model information and weather reads are
+unchanged. Setup, regression checks, and remaining risks are documented in
+[the security review](../docs/security-review.md). Never put an access token in
+this setting, source control, or an issue.
+
+## Owner media API (#49)
+
+`/media/status`, `/media/list`, and `/media/object` use the same explicit Google
+subject allowlist as the AI endpoints. The native `WEATHER_ARCHIVE` binding
+already points to `plant-photos`; it also serves these constrained media
+operations. No R2 access-key secret or new bucket is required. The media routes
+cannot address archive objects. Public photo URLs are unchanged.
+
+Deploy the Worker and confirm the build succeeds before publishing the new
+client pages. Follow [the rollout and credential-retirement checklist](../docs/r2-media-storage.md).
+Run `node tests/security-auth.cjs` and `node tests/media-storage.cjs` from the
+repository root before release.

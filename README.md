@@ -90,9 +90,11 @@ tab GIDs are constants at the top of each page's `<script>`.
 
 ### Photos & videos — Cloudflare R2 (`plant-photos` bucket)
 
-- Uploads are signed **in the browser with AWS SigV4** (R2 is S3-compatible) and
-  served from R2's public URL. Images are resized and HEIC-converted before
-  upload; videos are uploaded as-is.
+- Uploads and deletes go through the **owner-authenticated Cloudflare Worker**,
+  using its native R2 bucket binding. The browser sends its Google token and
+  never receives R2 keys. Public photo URLs stay the same. Images are resized
+  and HEIC-converted before upload; videos are uploaded as-is. Limits are
+  20 MiB per image and 90 MiB per video.
 - **Thumbnails:** every image upload also writes a 640px `<key>.thumb.jpg`
   next to the original. Tables, card grids and the photo wall load the
   thumbnail (with an automatic fallback to the original if a thumb doesn't
@@ -100,12 +102,11 @@ tab GIDs are constants at the top of each page's `<script>`.
   before this existed, Plants → Settings → Account & storage → Advanced →
   **Build thumbnails** scans the bucket and makes the missing ones for all five
   sections (resumable; videos skipped).
-- **R2 credential vault:** rather than re-entering R2 keys on every device, they
-  live in a **private Google Sheet** the app auto-creates. Signing in with Google
-  auto-loads them (the vault's id is stored in a `config` tab of the main sheet;
-  the id isn't a secret, but the vault itself is private). See issue #47.
-- Note: the R2 secret still reaches the browser to sign uploads (same exposure as
-  before, just no retyping). Moving that behind a Worker is tracked in issue #49.
+- **Credential migration (#49):** the dashboards no longer read or create a
+  Google credential vault. Loading the shared media client removes legacy R2
+  credentials from that device's localStorage. After deployment and a successful
+  owner upload/delete check, revoke the old R2 API token in Cloudflare and remove
+  its saved vault copy. See [the migration checklist](docs/r2-media-storage.md).
 
 ### The chatbot (`shared/chat.js` + `chatbot-worker/`)
 
@@ -493,11 +494,3 @@ The Plants shortcut bar reports its rendered height (including safe-area padding
 On narrow screens and short touch-device landscape viewports, VisualViewport supplies visible height and keyboard inset. Chat and dialogs size to the visible area; the dock and Ask hide while an editable field has a software keyboard, and focused form fields remain scrollable. Mobile chat controls and form actions use 44px touch targets and 16px inputs. Desktop positioning remains unchanged. No service worker, offline queue or auth changes are introduced.
 
 Validation: JavaScript syntax/whitespace checks, narrow browser preview of the real shared chat/app scripts with isolated mock authentication (no data writes), dock/Ask geometry, chat, dialog and notice stacking, light/dark colors, Quick log focus state, and the real Plants desktop forecast dialog/navigation (no horizontal overflow). Installed iPhone, real keyboard, landscape and increased OS text-size checks still require the owner's device after deployment; the preview does not substitute for those checks. No automated tests added.
-
-### Inspecting comparison charts (#177)
-
-Each chart now has its own date slider, previous/next buttons, and a local year-by-year readout, so the precipitation plot stays near its controls on a phone. Both controls and cursors stay synchronized, and moving either slider centers the selected date horizontally in both charts without moving the page vertically. The precipitation readout separates the selected day's amount from the running period total, making individual storm jumps readable. Temperature readouts show daily highs and lows. Expand **More about this date** below either chart for each year's high/low, daily precipitation, rain, running total and maximum wind; this uses already loaded archive data. No extra weather imports or writes are triggered.
-
-Mouse/pointer inspection shows a tooltip for the heat-strip row or nearest available precipitation line. Touch users tap the chart or use the local controls/readout. Temperature-key entries are buttons: hover or keyboard focus temporarily highlights matching days across every year and reports counts; click/tap pins the highlight, and repeating it clears it. Unavailable days have their own key and inapplicable leap-day slots do not count.
-
-Validation: syntax/whitespace checks; browser checks of pin/clear and keyboard key highlighting, synchronized sliders, arrow-key/day-button navigation, exact May 13, 2025 tooltip and daily/total precipitation, daily-detail expansion, seven selected years, missing data and leap-day behavior. A 390px iframe of the real Plants page confirmed the precipitation chart, its slider and readout together. Physical iPhone touch/hover differences remain to be checked after deployment. No test files added; the temporary viewport preview was removed.

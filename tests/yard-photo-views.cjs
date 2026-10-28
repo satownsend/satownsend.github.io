@@ -18,7 +18,7 @@ const saveSource=page.slice(page.indexOf('function saveYardViewTags(){'),page.in
 function editor(authed=true,owner='yard'){
  const photo={key:'sample',viewTags:['Porch']},nodes={'#lightboxViewTags':{value:'Office window, Porch'},'#lightboxViewTagsStatus':{textContent:''}};
  let saved=0,rendered=0;
- const context={YardPhotoViews:views,YARD_ID:'yard',state:{yardPhotos:[photo],_lightboxPhotos:[photo]},lightboxIdx:0,$:key=>nodes[key],isGsAuthed:()=>authed,getCanonicalPhoto:()=>({owner:{id:owner},target:photo}),save(){saved++},renderYardPhotos(){rendered++}};
+ const context={YardPhotoViews:views,YARD_ID:'yard',state:{yardPhotos:[photo],_lightboxPhotos:[photo]},lightboxIdx:0,$:key=>nodes[key],isGsAuthed:()=>authed,getCanonicalPhoto:()=>({owner:{id:owner},target:photo}),save(){saved++},renderYardPhotos(){rendered++},renderYardMap(){}};
  vm.createContext(context);vm.runInContext(saveSource+';saveYardViewTags();',context);
  return{photo,nodes,context,saved:()=>saved,rendered:()=>rendered};
 }
@@ -29,7 +29,7 @@ edit=editor(true,'normal-plant');assert.equal(edit.saved(),0);assert.deepEqual(e
 const uploadSource=page.slice(page.indexOf('async function uploadPhoto('),page.indexOf('async function deletePhotoFromR2('));
 (async()=>{
  const plant={id:'yard',photos:[]};let localSaves=0;
- const context={YARD_ID:'yard',YardPhotoViews:views,Blob,Math,Date,console,getR2Creds:()=>({accessKey:'test',secretKey:'test'}),exifDateFromFile:async()=> '2026-05-01',isHeic:()=>false,resizeImage:async()=>new Blob(['test']),sigv4Request:async()=>{},saveLocal(){localSaves++},isGsAuthed:()=>{throw Error('batch upload must not sync per photo')}};
+ const context={YARD_ID:'yard',YardPhotoViews:views,Blob,Math,Date,console,exifDateFromFile:async()=> '2026-05-01',isHeic:()=>false,resizeImage:async()=>new Blob(['test']),MediaStorage:{request:async()=>{}},saveLocal(){localSaves++},isGsAuthed:()=>true,gsPushNow:()=>{throw Error('batch upload must not sync per photo')},queueGsSync:()=>{throw Error('batch upload must not queue per-photo sync')}};
  vm.createContext(context);vm.runInContext(uploadSource,context);await context.uploadPhoto(plant,{},null,{sync:false,viewTags:['Office window','Porch']});
  assert.deepEqual(plant.photos[0].viewTags,['Office window','Porch']);assert.equal(localSaves,1);
  const normal={id:'maple',photos:[]};await context.uploadPhoto(normal,{},null,{sync:false,viewTags:['Porch']});assert.ok(!Object.hasOwn(normal.photos[0],'viewTags'));

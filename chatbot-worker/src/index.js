@@ -1,3 +1,4 @@
+import { mediaResponse } from './media.js';
 import { archiveResponse, updateArchive } from './weather-archive.js';
 import { loadWeatherContext } from './weather.js';
 
@@ -44,6 +45,23 @@ async function verifyGoogleToken(token, allowedSubjects){
   } catch(e){ return { ok: false }; }
 }
 
+async function authorizeOwner(request, env, cors){
+  const auth = request.headers.get('Authorization') || '';
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+  const allowedSubjects = String(env.ALLOWED_GOOGLE_SUBJECTS || '').split(',').map(s => s.trim()).filter(Boolean);
+  if(!allowedSubjects.length) return new Response(JSON.stringify({ error: 'Owner access is not configured.' }), {
+    status: 503, headers: { ...cors, 'Content-Type': 'application/json' },
+  });
+  const v = await verifyGoogleToken(token, allowedSubjects);
+  if(!v.ok){
+    return new Response(JSON.stringify({ error: 'Sign in with an authorized Google account.' }), {
+      status: 401, headers: { ...cors, 'Content-Type': 'application/json' },
+    });
+  }
+
+  return null;
+}
+
 // gid → tab by number; sheet → tab by name (used for the photography `photos`
 // tab, which is auto-created so its gid isn't fixed).
 const SHEETS = {
@@ -70,9 +88,10 @@ function corsHeaders(origin){
   const allow = ALLOW_ORIGINS.includes(origin) ? origin : 'https://satownsend.com';
   return {
     'Access-Control-Allow-Origin': allow,
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, HEAD, POST, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Max-Age': '86400',
+    'Vary': 'Origin',
   };
 }
 
@@ -497,7 +516,15 @@ export default {
     const origin = request.headers.get('Origin') || '';
     const cors = corsHeaders(origin);
 
+    const media = new URL(request.url).pathname.startsWith('/media/');
+    if(media && origin && !ALLOW_ORIGINS.includes(origin)) return new Response('Origin not allowed.', {status:403});
+
     if(request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
+
+    if(media){
+      const denied = await authorizeOwner(request, env, cors);
+      return denied || mediaResponse(request, env, cors);
+    }
 
     if(['/weather-archive','/weather-archive/status'].includes(new URL(request.url).pathname))return archiveResponse(request,env,cors);
 
@@ -509,19 +536,8 @@ export default {
     }
     if(request.method !== 'POST') return new Response('POST only', { status: 405, headers: cors });
 
-    // Owner-only gate: require a valid Google login for this app.
-    const auth = request.headers.get('Authorization') || '';
-    const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
-    const allowedSubjects = String(env.ALLOWED_GOOGLE_SUBJECTS || '').split(',').map(s => s.trim()).filter(Boolean);
-    if(!allowedSubjects.length) return new Response(JSON.stringify({ error: 'Assistant access is not configured.' }), {
-      status: 503, headers: { ...cors, 'Content-Type': 'application/json' },
-    });
-    const v = await verifyGoogleToken(token, allowedSubjects);
-    if(!v.ok){
-      return new Response(JSON.stringify({ error: 'Sign in with Google to use the assistant.' }), {
-        status: 401, headers: { ...cors, 'Content-Type': 'application/json' },
-      });
-    }
+    const denied = await authorizeOwner(request, env, cors);
+    if(denied) return denied;
 
     try {
       const body = await request.json();

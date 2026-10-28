@@ -48,3 +48,7 @@
 #compareStatus{line-height:1.6}
 
 .compare-line-legend{display:flex;flex-wrap:wrap;gap:24px;margin:12px 0}
+
+/* Recent past-day estimates stay visually distinct from ERA5 history. */
+.compare-chart rect.compare-provisional{stroke:var(--ink);stroke-width:1.2;stroke-dasharray:2 2}
+.compare-recent-label{display:block;color:var(--muted);font-weight:normal;font-size:12px}

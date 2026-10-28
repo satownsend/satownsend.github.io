@@ -25,7 +25,7 @@
   if(!value){try{const rows=JSON.parse(localStorage.getItem(CACHE)||'[]');value=rows.find(r=>r.key===k)?.value;if(value&&value.version===1&&Array.isArray(value.items)&&value.kind===kind&&value.timezone===c.timezone&&value.model===c.model&&value.units===c.units)memory.set(k,value);else value=null;}catch(_){value=null;}}
   return value||null;
  }
- function stale(value){if(!value)return true;if(value.model==='archive_era5'){const age=Date.now()-Date.parse(value.checkedAt||value.retrievedAt);return !Number.isFinite(age)||age<0||age>(value.archive?.backfillComplete?6*3600000:60000);}const recent=value.end>=shift(dateAt(Date.now(),value.timezone),-7),age=Date.now()-Date.parse(value.retrievedAt);return !Number.isFinite(age)||age<0||age>(recent?6*3600000:30*86400000);}
+ function stale(value){if(!value)return true;if(value.comparison){const age=Date.now()-Date.parse(value.checkedAt||'');return !Number.isFinite(age)||age<0||age>=15*60000||value.comparison.cutoff!==shift(dateAt(Date.now(),value.timezone),-1);}if(value.model==='archive_era5'){const age=Date.now()-Date.parse(value.checkedAt||value.retrievedAt);return !Number.isFinite(age)||age<0||age>(value.archive?.backfillComplete?6*3600000:60000);}const recent=value.end>=shift(dateAt(Date.now(),value.timezone),-7),age=Date.now()-Date.parse(value.retrievedAt);return !Number.isFinite(age)||age<0||age>(recent?6*3600000:30*86400000);}
  function remember(k,value){
   memory.set(k,value);
   // Four years of daily summaries and eight days of hourly detail, bounded in both stores.
@@ -58,8 +58,8 @@
   items.sort((a,b)=>(a.time||a.date).localeCompare(b.time||b.date));
   return {...c,version:1,kind,sourceType:'imported-model-estimate',provider:'Open-Meteo Historical Forecast',modelSelection:c.model,resolvedModel:c.model==='best_match'?null:c.model,start:kind==='daily'?c.start:date,end:kind==='daily'?c.end:date,retrievedAt:new Date().toISOString(),requestUrl,requestStart:kind==='daily'?c.start:shift(date,-1),requestEnd:kind==='daily'?c.end:shift(date,1),responseTimezone:json.timezone,responseLocation:{lat:json.latitude,lon:json.longitude,elevation:json.elevation},responseUnits:u,items};
  }
- async function loadArchive(c,kind,date,refresh){
-  const month=date.slice(0,7),requestUrl=ARCHIVE_URL+(kind==='daily'?'?year='+c.start.slice(0,4):'?month='+month);
+ async function loadArchive(c,kind,date,refresh,comparison=false){
+  const month=date.slice(0,7),requestUrl=ARCHIVE_URL+(kind==='daily'?'?year='+c.start.slice(0,4)+(comparison?'&recent=1':''):'?month='+month);
   let payload=kind==='hourly'?archiveMonths.get(month):null;
   if(!payload||refresh||Date.now()-payload.loadedAt>60000){
    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),25000);
@@ -69,8 +69,16 @@
   const convert=(v,type)=>v==null?null:type==='temp'?(c.units==='F'?v*9/5+32:v):type==='precip'?(c.units==='F'?v/25.4:v):v;
   const items=payload.items.filter(d=>kind==='daily'?d.date>=c.start&&d.date<=c.end:d.date===date).map(d=>({...d,...Object.fromEntries((kind==='daily'?['hi','lo','pcp','rain','wind','gust']:['temp','pcp','wind','gust']).map(k=>[k,convert(numeric(d[k]),['hi','lo','temp'].includes(k)?'temp':['pcp','rain'].includes(k)?'precip':'wind')]))}));
   const first=payload.monthlyProvenance?.[0];
-  const value={...c,version:1,kind,sourceType:'imported-reanalysis-estimate',provider:'Open-Meteo Historical Weather (stored in R2)',modelSelection:'era5',resolvedModel:'era5',start:kind==='daily'?c.start:date,end:kind==='daily'?c.end:date,retrievedAt:payload.retrievedAt||new Date().toISOString(),checkedAt:new Date().toISOString(),requestUrl,requestStart:c.start,requestEnd:c.end,responseTimezone:c.timezone,responseLocation:first?.responseLocation||{},responseUnits:first?.responseUnits||{},monthlyProvenance:payload.monthlyProvenance||[],archive:payload.archive,documentation:'https://open-meteo.com/en/docs/historical-weather-api',items,persisted:true};
-  value.persisted=remember(key(c,kind,date),value);return value;
+  const value={...c,comparison:comparison?payload.comparison||{cutoff:shift(dateAt(Date.now(),c.timezone),-1),recentError:'Recent comparison estimates are not available yet.'}:null,version:1,kind,sourceType:comparison?'mixed-reanalysis-and-recent-estimates':'imported-reanalysis-estimate',provider:comparison?'Open-Meteo ERA5 with provisional recent estimates':'Open-Meteo Historical Weather (stored in R2)',modelSelection:comparison?'era5 + best_match':'era5',resolvedModel:comparison?null:'era5',start:kind==='daily'?c.start:date,end:kind==='daily'?c.end:date,retrievedAt:payload.retrievedAt||new Date().toISOString(),checkedAt:new Date().toISOString(),requestUrl,requestStart:c.start,requestEnd:c.end,responseTimezone:c.timezone,responseLocation:first?.responseLocation||{},responseUnits:first?.responseUnits||{},monthlyProvenance:payload.monthlyProvenance||[],archive:payload.archive,documentation:'https://open-meteo.com/en/docs/historical-weather-api',items,persisted:true};
+  value.persisted=remember(key(c,kind,date)+(comparison?':comparison':''),value);return value;
+ }
+ async function loadComparison(c,refresh=false){
+  if(c.model!=='archive_era5')throw new Error('Comparison requires the Lilly archive.');
+  const k=key(c,'daily')+':comparison',cached=memory.get(k);
+  if(cached&&!refresh&&!stale(cached))return cached;
+  if(pending.has(k))return pending.get(k);
+  const task=loadArchive(c,'daily','',refresh,true);pending.set(k,task);
+  try{return await task;}finally{pending.delete(k);}
  }
  async function load(c,kind='daily',date='',refresh=false){
   if(!['daily','hourly'].includes(kind))throw new Error('Invalid historical request.');
@@ -80,5 +88,5 @@
   const task=c.model==='archive_era5'?loadArchive(c,kind,date,refresh):(async()=>{const control=new AbortController(),timer=setTimeout(()=>control.abort(),25000),requestUrl=url(c,kind,date);try{const r=await fetch(requestUrl,{signal:control.signal,cache:refresh?'reload':'default'});if(!r.ok)throw new Error(r.status===429?'Open-Meteo request limit reached; try again later.':`Historical weather unavailable (HTTP ${r.status}).`);const json=await r.json();if(json.error)throw new Error('Historical weather unavailable for this selection.');const value=normalize(json,c,kind,date,requestUrl);value.persisted=true;value.persisted=remember(k,value);return value;}catch(e){if(e.name==='AbortError')throw new Error('Historical weather request timed out. Try again.');throw e;}finally{clearTimeout(timer);}})();
   pending.set(k,task);try{return await task;}finally{pending.delete(k);}
  }
- return {models,context,key,peek,stale,load,dateAt,shift};
+ return {models,context,key,peek,stale,load,loadComparison,dateAt,shift};
 });

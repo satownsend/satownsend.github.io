@@ -24,6 +24,7 @@
   const $=s=>root.querySelector(s);
   const WATERING_KEY='plants.compareWatering';
   let showWatering=false,watering=new Map(),wateringSignature='';
+  let hoveredYear=null,focusedYear=null,pinnedYear=null;
   try{showWatering=localStorage.getItem(WATERING_KEY)==='1';}catch(_){}
   function updateWatering(){
     const records=typeof window.getComparisonWatering==='function'?window.getComparisonWatering():[];
@@ -76,7 +77,8 @@
     let period;
     try{period=range();}catch(e){$('#compareStatus').textContent=e.message;$('#compareResults').innerHTML='';view=null;return;}
     if(!period.days.length){$('#compareStatus').textContent='This period has no completed, archived dates in common. Choose a different period or change the years.';$('#compareResults').innerHTML='';view=null;return;}
-    hoverBand=null;focusBand=null;
+    hoverBand=null;focusBand=null;hoveredYear=null;focusedYear=null;
+    if(pinnedYear!==null&&!years.includes(pinnedYear))pinnedYear=null;
     const rows=years.map(y=>series(y,period.days)),w=Math.max(680,period.days.length*3+100),left=76,right=24,plot=w-left-right,step=plot/period.days.length;
     const x=i=>left+(i+.5)*step;
     selected=Math.min(selected,period.days.length-1);
@@ -98,7 +100,7 @@
         path+=`${last?'L':'M'}${x(i).toFixed(2)},${y(p.total).toFixed(2)} `;last=true;
         return `<circle cx="${x(i)}" cy="${y(p.total)}" r="${p.day?.provisional?3.5:2}" fill="${p.day?.provisional?'var(--panel)':yearColor(row.year)}" stroke="${yearColor(row.year)}"/>`;
       }).join('');
-      return `<path d="${path}" fill="none" stroke="${yearColor(row.year)}" stroke-width="3" stroke-dasharray="${yearDash(row.year)}"/>${points}`;
+      return `<g class="compare-year-line" data-compare-line-year="${row.year}"><path d="${path}" fill="none" stroke="${yearColor(row.year)}" stroke-width="3" stroke-dasharray="${yearDash(row.year)}"/>${points}</g>`;
     }).join('');
     const rainHeight=showWatering?h+24+rows.length*30:h;
     const wateringLanes=showWatering?rows.map((row,r)=>{
@@ -117,7 +119,7 @@
     $('#compareStatus').textContent=`${loading?'Loading latest years… ':''}${pretty(period.from)}–${pretty(period.to)} in each selected year. ${period.notes.join(' ')} ${freshness} Checks for newer data automatically while open. Missing data stays empty.`;
     const temperatureKey=WeatherCalendar.temperatureLegend().replace(/<span class="wc-([^\"]+)"/g,'<button type="button" class="wc-$1" data-temperature-band="$1" aria-pressed="false"').replace(/<\/span>/g,'</button>');
     const controls=(kind)=>`<div class="compare-inspect-controls"><button type="button" class="ghost" data-compare-step="-1" data-chart-kind="${kind}" aria-label="Previous ${kind==='rain'?'precipitation':'temperature'} date">←</button><label>Inspect date <input id="${kind==='rain'?'compareRainDate':'compareDate'}" data-compare-slider="${kind}" type="range" min="0" max="${period.days.length-1}" value="${selected}" step="1" aria-label="Inspect ${kind==='rain'?'precipitation':'temperature'} comparison date"></label><button type="button" class="ghost" data-compare-step="1" data-chart-kind="${kind}" aria-label="Next ${kind==='rain'?'precipitation':'temperature'} date">→</button></div><div id="${kind==='rain'?'compareRainReading':'compareReading'}" data-compare-reading="${kind}" class="compare-reading"></div><details class="compare-day-details"><summary>More about this date <span data-compare-detail-date></span></summary><div data-compare-detail-values></div></details>`;
-    const focused=document.activeElement,focusedId=root.contains(focused)?focused.id:'',focusedBand=root.contains(focused)?focused.dataset?.temperatureBand:null;
+    const focused=document.activeElement,focusedId=root.contains(focused)?focused.id:'',focusedBand=root.contains(focused)?focused.dataset?.temperatureBand:null,focusedLineYear=root.contains(focused)?focused.dataset?.compareHighlightYear:null;
     const scrollPositions=[...root.querySelectorAll('.compare-scroll')].map(el=>el.scrollLeft);
     const detailStates=[...root.querySelectorAll('.compare-day-details')].map(el=>el.open);
     $('#compareResults').innerHTML=`
@@ -132,7 +134,8 @@
         <h3 id="compareRainTitle">Accumulated precipitation</h3>
         <label class="compare-watering-toggle"><input id="compareWatering" type="checkbox" ${showWatering?'checked':''}> Show watering events</label>
         ${showWatering?'<p class="small">Watering log markers appear in a separate row for each year below the precipitation plot. Tap a marker or use the date slider to see which plants were watered.</p>':''}
-        <div class="compare-line-legend">${rows.map(row=>`<span class="compare-year-key" style="--year-color:${yearColor(row.year)};border-bottom-style:${yearBorder(row.year)}">${row.year}</span>`).join('')}</div>
+        <div class="compare-line-legend" aria-label="Highlight a precipitation year">${rows.map(row=>`<button type="button" class="compare-year-key compare-year-control" data-compare-highlight-year="${row.year}" aria-pressed="${pinnedYear===row.year}" aria-label="Highlight ${row.year} precipitation" style="--year-color:${yearColor(row.year)};border-bottom-style:${yearBorder(row.year)}">${row.year}</button>`).join('')}</div>
+        <p class="small">Hover or focus a year to highlight its line. Click or tap to keep it highlighted; select it again or press Escape to clear.</p><p id="compareYearStatus" class="small" aria-live="polite"></p>
         <div class="compare-plot"><div class="compare-scroll" tabindex="0" role="region" aria-label="Accumulated precipitation chart; scroll horizontally"><svg data-compare-chart="rain" class="compare-chart" style="--comparison-width:${w}px" viewBox="0 0 ${w} ${rainHeight}" role="img" aria-label="Accumulated estimated precipitation in inches by year${showWatering?', with separate watering event rows':''}. Use the date controls directly below for exact values.">${grid}${lines}${labels(h-20)}<line class="compare-cursor" x1="${x(selected)}" x2="${x(selected)}" y1="${top}" y2="${h-bottom}"/>${wateringLanes}</svg></div><div class="compare-tooltip" data-compare-tooltip hidden aria-hidden="true"></div></div>
         ${controls('rain')}
         ${showWatering?`<label class="compare-watering-jump">Watering date <select id="compareWateringJump"><option value="">Choose a watering date…</option>${period.days.map((md,i)=>{
@@ -146,10 +149,25 @@
       <details><summary>Daily comparison data</summary><div class="hourly-scroll" tabindex="0" role="region" aria-label="Year comparison daily data"><table><thead><tr><th scope="col">Date</th>${rows.map(r=>`<th scope="col">${r.year} high (°F)</th><th scope="col">${r.year} precip. (in)</th><th scope="col">${r.year} running total (in)</th><th scope="col">${r.year} source</th>`).join('')}</tr></thead><tbody>${period.days.map((md,i)=>`<tr><th scope="row">${esc(pretty(md))}</th>${rows.map(row=>{const p=row.points[i];return p.applicable?`<td>${esc(format(p.day?.hi,''))}</td><td>${esc(format(p.day?.pcp,'',3))}</td><td>${esc(format(p.total,'',2))}</td><td>${p.day?.provisional?'Provisional recent estimate':p.day?'ERA5':'Unavailable'}</td>`:'<td>Not a date</td><td>Not a date</td><td>Not a date</td><td>Not a date</td>';}).join('')}</tr>`).join('')}</tbody></table></div></details>`;
     root.querySelectorAll('.compare-scroll').forEach((el,i)=>{if(scrollPositions[i]!=null)el.scrollLeft=scrollPositions[i];});
     root.querySelectorAll('.compare-day-details').forEach((el,i)=>{el.open=!!detailStates[i];});
-    highlight();
+    highlight();highlightYear();
     inspect(selected);
-    const focusTarget=focusedId?document.getElementById(focusedId):focusedBand?root.querySelector(`[data-temperature-band="${focusedBand}"]`):null;
+    const focusTarget=focusedId?document.getElementById(focusedId):focusedBand?root.querySelector(`[data-temperature-band="${focusedBand}"]`):focusedLineYear?root.querySelector(`[data-compare-highlight-year="${focusedLineYear}"]`):null;
     if(focusTarget&&focusTarget!==document.activeElement)focusTarget.focus({preventScroll:true});
+  }
+  function highlightYear(){
+    const active=hoveredYear??focusedYear??pinnedYear;
+    root.querySelectorAll('[data-compare-line-year]').forEach(line=>{
+      const match=Number(line.dataset.compareLineYear)===active;
+      line.classList.toggle('compare-year-dim',active!==null&&!match);
+      line.classList.toggle('compare-year-highlight',match);
+    });
+    root.querySelectorAll('[data-compare-highlight-year]').forEach(button=>{
+      const year=Number(button.dataset.compareHighlightYear);
+      button.setAttribute('aria-pressed',String(year===pinnedYear));
+      button.classList.toggle('compare-year-active',year===active);
+    });
+    const status=$('#compareYearStatus');
+    if(status)status.textContent=active===null?'':`${active} precipitation highlighted${active===pinnedYear?' · highlight kept':''}.`;
   }
   function highlight(){
     if(!view)return;
@@ -255,6 +273,8 @@
       let row;
       if(kind==='temperature')row=view.rows[Math.max(0,Math.min(view.rows.length-1,Math.floor((point.y-38)/48)))];
       else row=view.rows.filter(row=>number(row.points[index].total)).sort((a,b)=>Math.abs(view.y(a.points[index].total)-point.y)-Math.abs(view.y(b.points[index].total)-point.y))[0]||view.rows[0];
+      const activeYear=hoveredYear??focusedYear??pinnedYear;
+      if(kind==='rain'&&activeYear!==null)row=view.rows.find(row=>row.year===activeYear)||row;
       if(!row){tip.hidden=true;return;}
       if(marker)row=view.rows.find(row=>row.year===Number(marker.dataset.wateringYear))||row;
       const p=row.points[index];
@@ -264,6 +284,8 @@
     }
     root.addEventListener('pointermove',event=>{if(event.pointerType!=='touch')pointer(event);});
     root.addEventListener('click',event=>{
+      const yearKey=event.target.closest('[data-compare-highlight-year]');
+      if(yearKey){const year=Number(yearKey.dataset.compareHighlightYear);pinnedYear=pinnedYear===year?null:year;hoveredYear=null;focusedYear=null;highlightYear();return;}
       const marker=event.target.closest('[data-watering-index]');
       if(marker){inspect(Number(marker.dataset.wateringIndex),true,'rain');return;}
       const key=event.target.closest('[data-temperature-band]');
@@ -272,14 +294,16 @@
       if(step){inspect(selected+Number(step.dataset.compareStep),true,step.dataset.chartKind);return;}
       pointer(event);
     });
-    root.addEventListener('pointerover',event=>{const key=event.target.closest('[data-temperature-band]');if(key&&event.pointerType!=='touch'){hoverBand=key.dataset.temperatureBand;highlight();}});
+    root.addEventListener('pointerover',event=>{const yearKey=event.target.closest('[data-compare-highlight-year]');if(yearKey&&event.pointerType!=='touch'){hoveredYear=Number(yearKey.dataset.compareHighlightYear);highlightYear();}const key=event.target.closest('[data-temperature-band]');if(key&&event.pointerType!=='touch'){hoverBand=key.dataset.temperatureBand;highlight();}});
     root.addEventListener('pointerout',event=>{
+      const yearKey=event.target.closest('[data-compare-highlight-year]');if(yearKey&&!yearKey.contains(event.relatedTarget)){hoveredYear=null;highlightYear();}
       const key=event.target.closest('[data-temperature-band]');if(key&&!key.contains(event.relatedTarget)){hoverBand=null;highlight();}
       const plot=event.target.closest('.compare-plot');if(plot&&!plot.contains(event.relatedTarget))plot.querySelector('[data-compare-tooltip]').hidden=true;
     });
-    root.addEventListener('focusin',event=>{const key=event.target.closest('[data-temperature-band]');if(key){focusBand=key.dataset.temperatureBand;highlight();}});
-    root.addEventListener('focusout',event=>{if(event.target.closest('[data-temperature-band]')){focusBand=null;highlight();}});
+    root.addEventListener('focusin',event=>{const yearKey=event.target.closest('[data-compare-highlight-year]');if(yearKey){focusedYear=Number(yearKey.dataset.compareHighlightYear);highlightYear();}const key=event.target.closest('[data-temperature-band]');if(key){focusBand=key.dataset.temperatureBand;highlight();}});
+    root.addEventListener('focusout',event=>{if(event.target.closest('[data-compare-highlight-year]')){focusedYear=null;highlightYear();}if(event.target.closest('[data-temperature-band]')){focusBand=null;highlight();}});
     root.addEventListener('scroll',event=>{if(event.target.matches('.compare-scroll'))event.target.closest('.compare-plot').querySelector('[data-compare-tooltip]').hidden=true;},true);
+    root.addEventListener('keydown',event=>{if(event.key==='Escape'){pinnedYear=null;hoveredYear=null;focusedYear=null;highlightYear();}});
     function autoRefresh(){
       if(root.open&&!loading&&!document.hidden&&Date.now()-lastInteraction>10000&&years.some(year=>HistoricalWeather.stale(datasets.get(year))))load(true);
     }

@@ -34,13 +34,14 @@
   function wateringFor(year,md){return watering.get(`${year}-${md}`)||[];}
   function wateringSummary(year,md){
     const events=wateringFor(year,md);
-    return `${year}-${md}: ${events.length} watering record${events.length===1?'':'s'}${events.length?' — '+[...new Set(events.map(e=>e.name))].join(', '):''}`;
+    const names=[...new Set(events.map(e=>e.name))];
+    return `${year}-${md}: ${events.length} watering record${events.length===1?'':'s'}${events.length?' — '+names.slice(0,4).join(', '):''}${names.length>4?`; +${names.length-4} more. Inspect the date for all plants.`:''}`;
   }
   function wateringReading(md){
     if(!showWatering)return;
     $('#compareWateringReading').innerHTML=`<h4>Watering on ${esc(pretty(md))}</h4>${years.map(year=>{
       const events=wateringFor(year,md);
-      return `<section><strong class="compare-year-key" style="--year-color:${yearColor(year)}">${year}</strong>${!exists(year,md)?'<p>Not a date in this year.</p>':events.length?`<ul>${events.map(e=>`<li><strong>${esc(e.name)}</strong>${e.time?` · ${esc(e.time)}`:''}${e.note?`<p>${esc(e.note)}</p>`:''}</li>`).join('')}</ul>`:'<p>No watering recorded for this date.</p>'}</section>`;
+      return `<section><strong class="compare-year-key" style="--year-color:${yearColor(year)}">${year}</strong>${events.length?` · ${events.length} record${events.length===1?'':'s'}`:''}${!exists(year,md)?'<p>Not a date in this year.</p>':events.length?`<ul tabindex="0" aria-label="${year} watering records">${events.map(e=>`<li><strong>${esc(e.name)}</strong>${e.time?` · ${esc(e.time)}`:''}${e.note?`<p>${esc(e.note)}</p>`:''}</li>`).join('')}</ul>`:'<p>No watering recorded for this date.</p>'}</section>`;
     }).join('')}<p class="small">These are logged actions. No record does not mean a plant was not watered; no water amount is inferred or added to precipitation.</p>`;
   }
   function selection(){return [...root.querySelectorAll('[data-compare-year]:checked')].map(el=>Number(el.value)).sort((a,b)=>a-b);}
@@ -104,7 +105,8 @@
       const laneY=h+18+r*30;
       return `<text x="8" y="${laneY+5}">${row.year}</text><line class="compare-water-line" x1="${left}" x2="${w-right}" y1="${laneY}" y2="${laneY}"/>${row.points.map((p,i)=>{
         const events=wateringFor(row.year,p.md);if(!p.applicable||!events.length)return '';
-        return `<g data-watering-year="${row.year}" data-watering-index="${i}"><title>${esc(wateringSummary(row.year,p.md))}</title><rect x="${x(i)-8}" y="${laneY-12}" width="16" height="24" fill="transparent"/><path d="M ${x(i)} ${laneY-8} C ${x(i)-10} ${laneY+2}, ${x(i)-5} ${laneY+8}, ${x(i)} ${laneY+8} C ${x(i)+5} ${laneY+8}, ${x(i)+10} ${laneY+2}, ${x(i)} ${laneY-8} Z" fill="${yearColor(row.year)}"/></g>`;
+        const markerWidth=Math.min(16,step*.8);
+        return `<g data-watering-year="${row.year}" data-watering-index="${i}"><title>${esc(wateringSummary(row.year,p.md))}</title><rect x="${x(i)-markerWidth/2}" y="${laneY-12}" width="${markerWidth}" height="24" fill="transparent"/><path transform="translate(${x(i)} ${laneY}) scale(${markerWidth/16} 1)" d="M 0 -8 C -10 2, -5 8, 0 8 C 5 8, 10 2, 0 -8 Z" fill="${yearColor(row.year)}"/></g>`;
       }).join('')}`;
     }).join(''):'';
     const summaries=rows.map((row,r)=>`<p><span class="compare-year-key" style="--year-color:${yearColor(row.year)}">${row.year}</span> · Daily highs ${row.temperatures}/${row.expected} days · Precipitation ${row.available}/${row.expected} days · ${row.complete?'Total':'Available-day sum'}: <strong>${row.available?format(row.sum,' in',2):'unavailable'}</strong>${row.complete?'':' (incomplete; totals cannot be compared)'}${row.points.some(p=>p.day?.provisional)?' · Includes provisional recent estimates':''}${errors.has(row.year)?` · ${esc(errors.get(row.year))}`:''}</p>`).join('');
@@ -133,6 +135,10 @@
         <div class="compare-line-legend">${rows.map(row=>`<span class="compare-year-key" style="--year-color:${yearColor(row.year)};border-bottom-style:${yearBorder(row.year)}">${row.year}</span>`).join('')}</div>
         <div class="compare-plot"><div class="compare-scroll" tabindex="0" role="region" aria-label="Accumulated precipitation chart; scroll horizontally"><svg data-compare-chart="rain" class="compare-chart" style="--comparison-width:${w}px" viewBox="0 0 ${w} ${rainHeight}" role="img" aria-label="Accumulated estimated precipitation in inches by year${showWatering?', with separate watering event rows':''}. Use the date controls directly below for exact values.">${grid}${lines}${labels(h-20)}<line class="compare-cursor" x1="${x(selected)}" x2="${x(selected)}" y1="${top}" y2="${h-bottom}"/>${wateringLanes}</svg></div><div class="compare-tooltip" data-compare-tooltip hidden aria-hidden="true"></div></div>
         ${controls('rain')}
+        ${showWatering?`<label class="compare-watering-jump">Watering date <select id="compareWateringJump"><option value="">Choose a watering date…</option>${period.days.map((md,i)=>{
+          const counts=rows.map(row=>{const n=wateringFor(row.year,md).length;return n?`${row.year}: ${n} record${n===1?'':'s'}`:'';}).filter(Boolean);
+          return counts.length?`<option value="${i}" ${i===selected?'selected':''}>${esc(pretty(md))} · ${esc(counts.join(' / '))}</option>`:'';
+        }).join('')}</select></label>`:''}
         <div id="compareWateringReading" class="compare-watering-reading" aria-live="polite" ${showWatering?'':'hidden'}></div>
         <p class="small">Outlined temperature days and hollow precipitation points are provisional recent model estimates; ERA5 replaces them as it becomes available. Each line starts from zero at the beginning of this period. Daily precipitation includes rain and snow water equivalent. A line stops at the first unavailable day, because its later total is unknown.</p>
       </section>
@@ -185,6 +191,7 @@
       output.dataset.date=md;
       output.innerHTML=view.rows.map(row=>{const p=row.points[selected],d=p.day;return `<div class="compare-day-record"><strong>${row.year}-${esc(md)}</strong>${!p.applicable?'<p>February 29 is not a date in this year.</p>':`<dl><dt>Source</dt><dd>${d?.provisional?'Provisional recent model estimate':d?'ERA5 reanalysis estimate':'Unavailable'}</dd><dt>High / low</dt><dd>${format(d?.hi,'°F')} / ${format(d?.lo,'°F')}</dd><dt>Daily precipitation</dt><dd>${format(d?.pcp,' in',3)}</dd><dt>Rain (excludes snow)</dt><dd>${format(d?.rain,' in',3)}</dd><dt>Running total</dt><dd>${format(p.total,' in',2)}</dd><dt>Maximum wind</dt><dd>${format(d?.wind,' mph')}</dd></dl>`}</div>`;}).join('')+'<p class="small">Open-Meteo regional estimates: ERA5 history plus recent past-day model estimates. Recent values are provisional and may change when ERA5 arrives. Running totals start at this period’s beginning and become unavailable after the first missing day. Gusts are unavailable for ERA5 history.</p>';
     });
+    const wateringJump=$('#compareWateringJump');if(wateringJump)wateringJump.value=String(selected);
     wateringReading(md);
     root.querySelectorAll('.compare-cursor').forEach(line=>{line.setAttribute('x1',view.x(selected));line.setAttribute('x2',view.x(selected));});
     if(reveal)root.querySelectorAll('.compare-scroll').forEach(scroll=>{const svg=scroll.querySelector('svg');scroll.scrollLeft=view.x(selected)*svg.getBoundingClientRect().width/view.w-scroll.clientWidth/2;});
@@ -218,7 +225,9 @@
     document.addEventListener('yard-log-change',()=>{if(updateWatering()&&root.open&&showWatering)draw();});
     root.addEventListener('toggle',event=>{if(event.target===root&&root.open&&!loading){updateWatering();if(!view||years.some(year=>HistoricalWeather.stale(datasets.get(year))))load();else if(showWatering)draw();}});
     root.addEventListener('change',event=>{
-      if(event.target.matches('#compareWatering')){
+      if(event.target.matches('#compareWateringJump')){
+        if(event.target.value!=='')inspect(Number(event.target.value),true,'rain');
+      }else if(event.target.matches('#compareWatering')){
         showWatering=event.target.checked;
         try{localStorage.setItem(WATERING_KEY,showWatering?'1':'0');}catch(_){}
         updateWatering();draw();

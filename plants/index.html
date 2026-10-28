@@ -26,10 +26,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <script src="/shared/forecast-history.js?v=protection-1"></script>
 <script src="/shared/weather-forecast.js?v=1"></script>
 <script src="/shared/weather-calendar.js?v=3"></script>
-<script src="/shared/historical-weather.js?v=2"></script>
+<script src="/shared/historical-weather.js?v=3"></script>
 <script src="/shared/hourly-weather-chart.js?v=1"></script>
-<link rel="stylesheet" href="/shared/weather-comparison.css?v=3">
-<script defer src="/shared/weather-comparison.js?v=5"></script>
+<link rel="stylesheet" href="/shared/weather-comparison.css?v=5">
+<script defer src="/shared/watering-events.js?v=1"></script>
+<script defer src="/shared/weather-comparison.js?v=7"></script>
 <script src="/shared/growth-story.js?v=1"></script>
 <script src="/shared/plant-protection.js?v=1"></script>
 <script src="/shared/watering-guidance.js?v=1"></script>
@@ -1732,9 +1733,10 @@ function load(){
   try { return Object.assign({}, defaultState, JSON.parse(localStorage.getItem(KEY)||'{}')); }
   catch(e){ return structuredClone(defaultState) }
 }
-function saveLocal(){ localStorage.setItem(KEY, JSON.stringify(state)); }
+function saveLocal(){ localStorage.setItem(KEY, JSON.stringify(state)); document.dispatchEvent(new Event('yard-log-change')); }
 function save(){ saveLocal(); queueGsSync(); }
 let state = load();
+window.getComparisonWatering = ()=>WateringEvents.collect(state.log,state.plants,HistoricalWeather.dateAt(Date.now(),'America/New_York'));
 if (!state.plants || !state.plants.length) state.plants = structuredClone(defaultState.plants);
 if (!Array.isArray(state.care)) state.care = [];
 // Migration: extract leading "$NN" or "$NN.NN" from notes into p.price.

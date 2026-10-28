@@ -64,8 +64,9 @@ cached reads cost the same on both.
   24k context — the dataset has outgrown it (issue #70), so without a key the
   chatbot will error on large sheets. `@cf/openai/gpt-oss-120b` (128k) is the
   Workers AI alternative if you ever drop the key.
-- **Data:** all sheets are already public (read via CSV export). The Worker
-  holds no secrets, so its source can live in the repo safely.
+- **Data:** sheets are read via public CSV exports. Runtime secrets (such as the
+  Anthropic API key and owner subject allowlist) stay in Cloudflare settings,
+  never in source control. R2 access uses a native bucket binding.
 - **CORS:** allowed origins are listed in `ALLOW_ORIGINS` in `src/index.js`
   (satownsend.com, the github.io domain, and localhost for testing).
 

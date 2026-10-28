@@ -56,7 +56,7 @@ Shared per-dashboard features:
 Browser (static HTML/JS)
 ├── reads data     ──► Google Sheets (public CSV export)         no login needed
 ├── writes data    ──► Google Sheets API v4                      requires Google login
-├── photos/videos  ──► Cloudflare R2 (S3 API, signed in-browser) requires R2 creds
+├── photos/videos  ──► Cloudflare Worker ──► R2 bucket binding requires owner Google login
 └── chatbot        ──► Cloudflare Worker ──► Claude (Anthropic)  requires Google login
 ```
 

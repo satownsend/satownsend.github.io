@@ -79,14 +79,14 @@
     if(!period.days.length){$('#compareStatus').textContent='This period has no completed, archived dates in common. Choose a different period or change the years.';$('#compareResults').innerHTML='';view=null;return;}
     hoverBand=null;focusBand=null;hoveredYear=null;focusedYear=null;
     if(pinnedYear!==null&&!years.includes(pinnedYear))pinnedYear=null;
-    const rows=years.map(y=>series(y,period.days)),w=Math.max(680,period.days.length*3+100),left=76,right=24,plot=w-left-right,step=plot/period.days.length;
+    const rows=years.map(y=>series(y,period.days)),w=Math.max(280,Math.round(root.querySelector('.compare-scroll')?.clientWidth||(root.clientWidth-(window.matchMedia('(max-width:700px)').matches?0:172)))),left=76,right=24,plot=w-left-right,step=plot/period.days.length;
     const x=i=>left+(i+.5)*step;
     selected=Math.min(selected,period.days.length-1);
     view={period,rows,w,left,step,x};
-    const ticks=period.days.map((md,i)=>({md,i})).filter(({md,i})=>i===0||md.endsWith('-01'));
+    const ticks=period.days.map((md,i)=>({md,i})).filter(({md,i})=>i===0||(md.endsWith('-01')&&i*step>=65&&Math.floor(Number(md.slice(0,2))-1)%Math.max(1,Math.ceil(65/(step*30)))===0));
     const labels=(y)=>ticks.map(({md,i})=>`<text x="${left+i*step}" y="${y}">${esc(new Date(`2000-${md}T12:00:00Z`).toLocaleDateString(undefined,{month:'short',timeZone:'UTC'}))}</text>`).join('');
     const heatHeight=35+rows.length*48;
-    const heat=rows.map((row,r)=>`<text x="8" y="${58+r*48}">${row.year}</text>${row.points.map((p,i)=>`<rect x="${left+i*step}" y="${38+r*48}" width="${Math.max(.5,step-.4)}" height="28" class="wc-${p.applicable?color(p.day?.hi):'not-date'}${p.day?.provisional?' compare-provisional':''}" data-day-index="${i}"><title>${esc(`${row.year}-${p.md}: ${p.applicable?(p.day?.provisional?'provisional recent high ':'ERA5 estimated high ')+format(p.day?.hi,'°F'):'not a date in this year'}`)}</title></rect>`).join('')}`).join('');
+    const heat=rows.map((row,r)=>`<text x="8" y="${58+r*48}">${row.year}</text>${row.points.map((p,i)=>`<rect x="${left+i*step}" y="${38+r*48}" width="${Math.max(.15,step-Math.min(.4,step*.15))}" height="28" class="wc-${p.applicable?color(p.day?.hi):'not-date'}${p.day?.provisional?' compare-provisional':''}" data-day-index="${i}"><title>${esc(`${row.year}-${p.md}: ${p.applicable?(p.day?.provisional?'provisional recent high ':'ERA5 estimated high ')+format(p.day?.hi,'°F'):'not a date in this year'}`)}</title></rect>`).join('')}`).join('');
     const max=Math.max(1,...rows.flatMap(row=>row.points.map(p=>p.total||0))),ceil=Math.ceil(max/4)*4,h=290,top=24,bottom=48,plotH=h-top-bottom,y=n=>top+(ceil-n)*plotH/ceil;
     view.y=y;
     let grid='';
@@ -127,7 +127,7 @@
         <h3 id="compareHeatTitle">Daily high temperatures</h3>
         <div class="wc-legend small compare-temperature-key" aria-label="Highlight temperature range">${temperatureKey}<button type="button" class="wc-unknown" data-temperature-band="unknown" aria-pressed="false">Unavailable</button></div>
         <p class="small">Hover or focus a color to highlight matching days. Tap a color to keep it highlighted; tap again to clear.</p><p id="compareBandStatus" class="small" role="status"></p>
-        <div class="compare-plot"><div class="compare-scroll" tabindex="0" role="region" aria-label="Temperature calendar; scroll horizontally"><svg data-compare-chart="temperature" class="compare-chart" style="--comparison-width:${w}px" viewBox="0 0 ${w} ${heatHeight}" role="img" aria-label="Daily estimated high temperature by year. Use the date controls directly below for exact values.">${labels(22)}${heat}<line class="compare-cursor" x1="${x(selected)}" x2="${x(selected)}" y1="30" y2="${heatHeight}"/></svg></div><div class="compare-tooltip" data-compare-tooltip hidden aria-hidden="true"></div></div>
+        <div class="compare-plot"><div class="compare-scroll" tabindex="0" role="region" aria-label="Temperature calendar"><svg data-compare-chart="temperature" class="compare-chart" viewBox="0 0 ${w} ${heatHeight}" role="img" aria-label="Daily estimated high temperature by year. Use the date controls directly below for exact values.">${labels(22)}${heat}<line class="compare-cursor" x1="${x(selected)}" x2="${x(selected)}" y1="30" y2="${heatHeight}"/></svg></div><div class="compare-tooltip" data-compare-tooltip hidden aria-hidden="true"></div></div>
         ${controls('temperature')}
       </section>
       <section class="compare-section" data-compare-section="rain" aria-labelledby="compareRainTitle">
@@ -136,7 +136,7 @@
         ${showWatering?'<p class="small">Watering log markers appear in a separate row for each year below the precipitation plot. Tap a marker or use the date slider to see which plants were watered.</p>':''}
         <div class="compare-line-legend" aria-label="Highlight a precipitation year">${rows.map(row=>`<button type="button" class="compare-year-key compare-year-control" data-compare-highlight-year="${row.year}" aria-pressed="${pinnedYear===row.year}" aria-label="Highlight ${row.year} precipitation" style="--year-color:${yearColor(row.year)};border-bottom-style:${yearBorder(row.year)}">${row.year}</button>`).join('')}</div>
         <p class="small">Hover or focus a year to highlight its line. Click or tap to keep it highlighted; select it again or press Escape to clear.</p><p id="compareYearStatus" class="small" aria-live="polite"></p>
-        <div class="compare-plot"><div class="compare-scroll" tabindex="0" role="region" aria-label="Accumulated precipitation chart; scroll horizontally"><svg data-compare-chart="rain" class="compare-chart" style="--comparison-width:${w}px" viewBox="0 0 ${w} ${rainHeight}" role="img" aria-label="Accumulated estimated precipitation in inches by year${showWatering?', with separate watering event rows':''}. Use the date controls directly below for exact values.">${grid}${lines}${labels(h-20)}<line class="compare-cursor" x1="${x(selected)}" x2="${x(selected)}" y1="${top}" y2="${h-bottom}"/>${wateringLanes}</svg></div><div class="compare-tooltip" data-compare-tooltip hidden aria-hidden="true"></div></div>
+        <div class="compare-plot"><div class="compare-scroll" tabindex="0" role="region" aria-label="Accumulated precipitation chart"><svg data-compare-chart="rain" class="compare-chart" viewBox="0 0 ${w} ${rainHeight}" role="img" aria-label="Accumulated estimated precipitation in inches by year${showWatering?', with separate watering event rows':''}. Use the date controls directly below for exact values.">${grid}${lines}${labels(h-20)}<line class="compare-cursor" x1="${x(selected)}" x2="${x(selected)}" y1="${top}" y2="${h-bottom}"/>${wateringLanes}</svg></div><div class="compare-tooltip" data-compare-tooltip hidden aria-hidden="true"></div></div>
         ${controls('rain')}
         ${showWatering?`<label class="compare-watering-jump">Watering date <select id="compareWateringJump"><option value="">Choose a watering date…</option>${period.days.map((md,i)=>{
           const counts=rows.map(row=>{const n=wateringFor(row.year,md).length;return n?`${row.year}: ${n} record${n===1?'':'s'}`:'';}).filter(Boolean);
@@ -237,6 +237,9 @@
 
   function init(){
     root=document.getElementById('weatherComparePanel');if(!root)return;
+    let measuredWidth=0;
+    const resize=new ResizeObserver(()=>{const width=Math.round(root.clientWidth);if(width>0&&width!==measuredWidth){measuredWidth=width;if(view&&root.open)draw();}});
+    resize.observe(root);
     const current=yearNow();
     $('#compareYears').innerHTML='<legend>Choose years</legend>'+Array.from({length:current-2019},(_,i)=>current-i).map(year=>`<label><input type="checkbox" data-compare-year value="${year}" ${year>=current-1?'checked':''}> ${year}</label>`).join('');
     years=selection();updateWatering();

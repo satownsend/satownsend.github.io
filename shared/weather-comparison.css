@@ -52,3 +52,12 @@
 /* Recent past-day estimates stay visually distinct from ERA5 history. */
 .compare-chart rect.compare-provisional{stroke:var(--ink);stroke-width:1.2;stroke-dasharray:2 2}
 .compare-recent-label{display:block;color:var(--muted);font-weight:normal;font-size:12px}
+
+.compare-watering-toggle{display:inline-flex;align-items:center;gap:8px;min-height:44px;cursor:pointer;color:var(--ink)}
+.compare-watering-toggle input{width:20px;height:20px;accent-color:var(--accent)}
+.compare-water-line{stroke:var(--line);stroke-width:1}
+.compare-chart [data-watering-index]{cursor:pointer}
+.compare-watering-reading{margin:12px 0 20px;padding:14px;border:1px solid var(--line);border-radius:10px}
+.compare-watering-reading section{padding:8px 0;border-bottom:1px solid var(--line)}
+.compare-watering-reading li{margin:8px 0;overflow-wrap:anywhere}
+.compare-watering-reading p{margin:6px 0}

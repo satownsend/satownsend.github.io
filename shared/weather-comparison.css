@@ -7,8 +7,8 @@
 .compare-custom{display:flex;gap:12px;flex-wrap:wrap}
 .compare-custom[hidden]{display:none}
 .compare-custom input{width:100px}
-.compare-scroll{overflow-x:auto;margin:16px 0}
-.compare-chart{display:block;width:100%;min-width:var(--comparison-width,1040px);height:auto;touch-action:pan-x pan-y}
+.compare-scroll{min-width:0;margin:16px 0}
+.compare-chart{display:block;width:100%;height:auto;touch-action:pan-y}
 .compare-chart text{fill:var(--ink);font-size:15px}
 .compare-chart rect.wc-deep-cold{fill:#392c70}.compare-chart rect.wc-cold{fill:#69518f}.compare-chart rect.wc-extreme-hot{fill:#722347}
 .compare-chart rect.wc-freezing{fill:#254578}.compare-chart rect.wc-cool{fill:#356877}.compare-chart rect.wc-mild{fill:#3a6348}.compare-chart rect.wc-warm{fill:#77552c}.compare-chart rect.wc-hot{fill:#8c3936}
@@ -18,9 +18,11 @@
 .compare-cursor{stroke:var(--ink);stroke-width:1.5;stroke-dasharray:4 3;pointer-events:none}
 
 .compare-section{min-width:0;margin:24px 0 32px}
-.compare-plot{position:relative}
-.compare-tooltip{position:absolute;top:8px;right:8px;max-width:min(260px,85%);padding:10px 14px;border-radius:8px;border:1px solid var(--line2);background:var(--panel);color:var(--ink);box-shadow:0 4px 16px #0004;font-size:15px;line-height:1.5;pointer-events:none;z-index:3}
-.compare-tooltip[hidden]{display:none}
+.compare-plot{display:grid;grid-template-columns:160px minmax(0,1fr);gap:12px;align-items:start}
+.compare-plot>.compare-scroll{grid-column:2;grid-row:1}
+.compare-tooltip{grid-column:1;grid-row:1;margin-top:16px;padding:10px;border-radius:8px;border:1px solid var(--line2);background:var(--panel);color:var(--ink);font-size:15px;line-height:1.5;overflow-wrap:anywhere;pointer-events:none}
+.compare-tooltip[hidden]{display:block;visibility:hidden}
+@media(max-width:700px){.compare-plot{grid-template-columns:minmax(0,1fr);gap:0}.compare-plot>.compare-scroll{grid-column:1;grid-row:2}.compare-tooltip{grid-row:1;min-height:92px;box-sizing:border-box;margin-top:0;justify-self:start;width:min(100%,260px)}}
 .compare-inspect-controls{display:flex;align-items:center;gap:10px;margin:8px 0}
 .compare-inspect-controls label{display:flex;align-items:center;gap:10px;flex:1;min-width:0;font-size:15px}
 .compare-inspect-controls input{flex:1;width:100%;min-width:40px;min-height:44px;accent-color:var(--accent)}

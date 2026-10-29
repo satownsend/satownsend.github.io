@@ -17,6 +17,7 @@
     { href:'/wildlife',    label:'Wildlife',    icon:'\u{1F989}', key:'wildlife' },
     { href:'/photography', label:'Photography', icon:'\u{1F4F7}', key:'photography' },
     { href:'/backyard-year/', label:'Backyard year', icon:'\u{1F343}', key:'backyard-year' },
+    { href:'/yard-3d/', label:'Yard in 3D', icon:'\u{1F9CA}', key:'yard-3d' },
     { href:'/photo-frame/', label:'Photo frame', icon:'\u{1F5BC}', key:'photo-frame' },
     { href:'/app/', label:'Install app', icon:'↗', key:'app' },
   ];

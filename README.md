@@ -27,6 +27,7 @@ theming, navigation, auth, and photo pipeline.
 | **[Instruments](https://satownsend.com/instruments)** | Instrument collection | Maintenance log (string changes, setups), string/pickup specs, value stats (hidden unless signed in) |
 | **[Wildlife](https://satownsend.com/wildlife)** | Sighting log | One row per species (grouped sightings), calendar view, seasonal patterns, life list, first-of-year tracking, **photo _and_ video** support |
 | **[Photography](https://satownsend.com/photography)** | Photo wall | Standalone photos (a photo _is_ the record) in a masonry wall that loads a page at a time as you scroll, category chips (astro/landscape/trips/misc/Puck + auto-discovered), full-screen slideshow, larger/less-compressed uploads |
+| **[The yard in 3D](https://satownsend.com/yard-3d/)** | Interactive 3D views | Nine three.js scenes built live from the plant, weather, care, photo and wildlife data (see [The yard in 3D](#the-yard-in-3d)) |
 | **[Home](https://satownsend.com)** | Hub | A full-bleed **combined slideshow** of photos from every dashboard with the site name over it, one photo card per section with live counts, and the [chatbot](#the-chatbot) |
 
 Shared per-dashboard features:
@@ -498,3 +499,28 @@ The Plants shortcut bar reports its rendered height (including safe-area padding
 On narrow screens and short touch-device landscape viewports, VisualViewport supplies visible height and keyboard inset. Chat and dialogs size to the visible area; the dock and Ask hide while an editable field has a software keyboard, and focused form fields remain scrollable. Mobile chat controls and form actions use 44px touch targets and 16px inputs. Desktop positioning remains unchanged. No service worker, offline queue or auth changes are introduced.
 
 Validation: JavaScript syntax/whitespace checks, narrow browser preview of the real shared chat/app scripts with isolated mock authentication (no data writes), dock/Ask geometry, chat, dialog and notice stacking, light/dark colors, Quick log focus state, and the real Plants desktop forecast dialog/navigation (no horizontal overflow). Installed iPhone, real keyboard, landscape and increased OS text-size checks still require the owner's device after deployment; the preview does not substitute for those checks. No automated tests added.
+
+### The yard in 3D
+
+`/yard-3d/` holds nine interactive three.js scenes (three@0.170.0 from jsDelivr via an import map). It's also in the site menu.
+Each scene is its own module in `yard-3d/scenes/`, loaded on demand. They share a stage
+(`yard-3d/core.js`: renderer, orbit controls, bloom, hover picking, text labels,
+fly-to and disposal) and one set of memoized loaders (`yard-3d/data.js`) that read the same public sheet tabs and
+the ERA5 weather archive the dashboards use.
+
+| Scene | Data |
+|---|---|
+| Six years of weather | ERA5 daily highs, lows and rain since Oct 2020; freeze dates and growing season per year; frost / frost-damage log entries |
+| Frost valley | ERA5 hourly temperatures for one month as terrain, a 32°F ice slab, sunrise/sunset lines, frost and protection log pins |
+| Rain & the watering can | ERA5 daily rain over a wall calendar; one drop per plant watered from the log; days-since-rain shading |
+| The colors of the yard | `plant_overview` color calendars wrapped into a tower (or disc), with a month lens |
+| Care orrery | `care_schedule` windows as arcs by kind of care, stacked by overlap; done from the log, skipped from the task |
+| Yard viewpoints | Yard map + `yard_view_pins` cameras and view cones; yard photos in each cone only when signed in |
+| Memory tunnel | Plant and wildlife photos in time order (texture atlases, nearest-first loading), year portals, sightings, journal fireflies |
+| Dawn redwood time machine | Trunk measurements (girth), overview color calendar (seasons), the tree's photos on an easel and a timeline ring |
+| Rings of the yard | Plants on yearly growth rings by arrival date; ring width = plantings that year; this month's color from overviews |
+
+Privacy matches the dashboards: hidden photos are left out and yard photos only
+appear when signed in. A forecast-drift scene was considered and left out
+until the saved-forecast archive has more history.
+

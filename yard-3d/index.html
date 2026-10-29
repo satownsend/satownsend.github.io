@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#08191c">
+<title>The yard in 3D · satownsend.com</title>
+<meta name="description" content="Nine interactive 3D views of the yard: six years of weather, frost nights, rain and watering, seasonal color, the care calendar, photo viewpoints, a memory tunnel, the dawn redwood and planting history.">
+<meta property="og:title" content="The yard in 3D">
+<meta property="og:description" content="Nine interactive 3D views of the plants, weather, seasons and backyard year.">
+<link rel="stylesheet" href="/shared/styles.css?v=readability-1"><script src="/shared/themes.js"></script>
+<script defer src="/shared/nav.js?v=yard3d-1"></script>
+<script src="/shared/gauth.js"></script>
+<link rel="stylesheet" href="/yard-3d/style.css?v=1">
+<link rel="manifest" href="/app/manifest.webmanifest">
+<link rel="apple-touch-icon" sizes="180x180" href="/app/icons/cedar-180.png">
+<link rel="stylesheet" href="/shared/app.css?v=2">
+<script defer src="/shared/app.js?v=2"></script>
+<link rel="stylesheet" href="/shared/readability.css?v=1">
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js">
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+<script type="module" src="/yard-3d/app.js?v=1"></script>
+</head>
+<body>
+<main class="y3-page">
+  <header class="y3-header"><div id="siteNav"></div>
+    <div class="header-controls"><label>Theme<select id="themeSelect" aria-label="Color theme"></select></label></div>
+  </header>
+
+  <section class="y3-hero">
+    <p class="y3-eyebrow">Plants · weather · seasons · care · backyard year</p>
+    <h1>The yard in 3D</h1>
+    <p class="y3-lede">Nine ways to walk around the yard’s own records: six years of weather, the frost nights, every watering, the colors each plant puts on, the care calendar, where the photos are taken, and the dawn redwood growing up. Everything is live from the dashboards.</p>
+  </section>
+
+  <nav class="y3-picker" id="picker" aria-label="Choose a visualization"></nav>
+
+  <section class="y3-viewer" id="viewer" aria-labelledby="sceneTitle">
+    <div class="y3-titlebar">
+      <div class="y3-titles">
+        <span class="y3-num" id="sceneNum">01</span>
+        <div><h2 id="sceneTitle">The yard in 3D</h2><p id="sceneBlurb"></p></div>
+      </div>
+      <div class="y3-actions">
+        <button type="button" class="y3-btn ghost" id="resetView" title="Put the camera back where this view started">Reset view</button>
+        <button type="button" class="y3-btn ghost" id="snapBtn" title="Download this view as a PNG">Save image</button>
+        <button type="button" class="y3-btn ghost" id="fullBtn">Full screen</button>
+      </div>
+    </div>
+    <div class="y3-stage" id="stage">
+      <div class="y3-tip" id="tip" role="status" hidden></div>
+      <div class="y3-loading" id="loading" role="status" aria-live="polite"><span class="y3-spin"></span><span>Getting the yard ready…</span></div>
+      <div class="y3-readout" id="readout" hidden></div>
+      <p class="y3-hint" id="hint"></p>
+    </div>
+    <div class="y3-controls" id="controls" aria-label="View controls"></div>
+    <div class="y3-legend" id="legend"></div>
+    <div class="y3-about">
+      <div id="sceneAbout"></div>
+      <p class="y3-source" id="sceneSource"></p>
+    </div>
+    <div class="y3-prevnext">
+      <button type="button" class="y3-btn ghost plain" id="prevScene">←</button>
+      <span class="y3-keys">Shift + ← / → to flip through</span>
+      <button type="button" class="y3-btn ghost plain" id="nextScene">→</button>
+    </div>
+  </section>
+
+  <noscript><p>These views need JavaScript and WebGL. The same records are on <a href="/plants/">Plants</a> and <a href="/backyard-year/">Backyard year</a>.</p></noscript>
+  <footer class="y3-foot">Built with <a href="https://threejs.org/" target="_blank" rel="noopener">three.js</a>. Weather is the Open-Meteo ERA5 estimate for Lilly, PA (<a href="https://open-meteo.com/en/licence" target="_blank" rel="noopener">CC BY 4.0</a>), not a backyard station. Plant, care, photo and wildlife records come from the dashboards; yard photos appear only when you’re signed in.</footer>
+</main>
+</body>
+</html>

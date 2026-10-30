@@ -517,7 +517,7 @@ the ERA5 weather archive the dashboards use.
 | Care orrery | `care_schedule` windows as arcs by kind of care, stacked by overlap; done from the log, skipped from the task |
 | Yard viewpoints | Yard map + `yard_view_pins` cameras and view cones; yard photos in each cone only when signed in |
 | Memory tunnel | Plant and wildlife photos in time order (texture atlases, nearest-first loading), year portals, sightings, journal fireflies |
-| Dawn redwood time machine | Trunk measurements (girth), overview color calendar (seasons), the tree's photos on an easel and a timeline ring |
+| Dawn redwood time machine | Trunk measurements (girth; growth between them falls only while the tree is in leaf, so it stands still when bare), overview color calendar (seasons), the tree's photos on an easel and a timeline ring |
 | Rings of the yard | Plants on yearly growth rings by arrival date; ring width = plantings that year; this month's color from overviews |
 
 Privacy matches the dashboards: hidden photos are left out and yard photos only

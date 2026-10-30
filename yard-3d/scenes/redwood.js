@@ -1,6 +1,7 @@
 /* 08 · Dawn redwood time machine: the yard's most photographed tree, grown
  * on a timeline from the day it arrived. Trunk girth follows the trunk
- * measurements in the journal (interpolated between them); needle color follows
+ * measurements in the journal, with the growth between them falling only while
+ * the tree is in leaf, so it stands still through bare winters; needle color follows
  * its AI overview's color calendar, so it flushes lime, turns russet and goes
  * bare on schedule. The photo nearest each date stands beside it, and a ring
  * on the ground marks every photo and measurement. World units are feet. */
@@ -49,20 +50,39 @@ export default {
     const end = new Date(); end.setHours(12, 0, 0, 0);
     const span = (end - start) / MS;
 
-    // Girth (inches at the base) at any date: measurements interpolated; before the
-    // first one we ease back toward an estimated sapling girth at arrival.
-    const pts = meas.map(m => ({ t: (data.parseDate(m.date) - start) / MS, v: m.value }));
-    const g0 = pts.length ? Math.max(3, pts[0].v * 0.55) : 6;
-    function girth(day){
-      if (!pts.length) return g0 + day / 365 * 5;
-      if (day <= pts[0].t) return g0 + (pts[0].v - g0) * Math.max(0, day) / Math.max(1, pts[0].t);
-      for (let i = 1; i < pts.length; i++) if (day <= pts[i].t){ const a = pts[i - 1], b = pts[i]; return a.v + (b.v - a.v) * (day - a.t) / (b.t - a.t); }
-      return pts[pts.length - 1].v;
-    }
     const heightOf = g => 3.0 * Math.pow(g, 0.62);      // illustrative height (ft) from girth
     const inMonth = (e, m) => e.s <= e.e ? (m >= e.s && m <= e.e) : (m >= e.s || m <= e.e);
     const foliageOf = m => cal.find(e => (e.k === 'foliage' || e.k === 'evergreen') && inMonth(e, m));
     const monthColor = m => { const f = foliageOf(m); return f ? new THREE.Color(f.c) : null; };
+    // How much of its foliage the tree has on a date (0 bare … 1 full), from the color calendar.
+    function leafAmount(date){
+      const m = date.getMonth() + 1, frac = Math.min(1, (date.getDate() - 1) / 30);
+      const now = !!foliageOf(m), next = !!foliageOf(m % 12 + 1);
+      if (now && next) return 1;
+      if (!now && !next) return 0;
+      return now ? 1 - Math.max(0, (frac - 0.35) / 0.65) : Math.max(0, (frac - 0.5) * 2);   // shedding : leafing out
+    }
+    // The tree's "growing clock": days counted only by how leafed-out it was, so
+    // it stands still while bare. growClock(day) is the total up to that day.
+    const growth = [0];
+    for (let d = 1; d <= Math.ceil(span) + 1; d++) growth[d] = growth[d - 1] + leafAmount(new Date(start.getTime() + d * MS));
+    const growClock = day => { const c = Math.max(0, Math.min(growth.length - 1, day)), i = Math.floor(c); return growth[i] + ((growth[i + 1] ?? growth[i]) - growth[i]) * (c - i); };
+    // Girth (inches at the base) at any date. Measurements are exact; the change
+    // between two of them is spread over growing time, not calendar time. Before the
+    // first one we ease back toward an estimated sapling girth at arrival.
+    const pts = meas.map(m => ({ t: (data.parseDate(m.date) - start) / MS, v: m.value }));
+    const g0 = pts.length ? Math.max(3, pts[0].v * 0.55) : 6;
+    const growPerYear = growClock(span) / Math.max(1, span / 365.25);
+    function girth(day){
+      if (!pts.length) return g0 + growClock(day) / Math.max(1, growPerYear) * 5;
+      if (day <= pts[0].t){ const total = growClock(pts[0].t); return g0 + (pts[0].v - g0) * (total > 0 ? growClock(day) / total : Math.max(0, day) / Math.max(1, pts[0].t)); }
+      for (let i = 1; i < pts.length; i++) if (day <= pts[i].t){
+        const a = pts[i - 1], b = pts[i], total = growClock(b.t) - growClock(a.t);
+        // Two measurements inside one dormant spell have no growing time between them.
+        return a.v + (b.v - a.v) * (total > 0 ? (growClock(day) - growClock(a.t)) / total : (day - a.t) / (b.t - a.t));
+      }
+      return pts[pts.length - 1].v;
+    }
 
     /* ---------- scene ---------- */
     scene.background = new THREE.Color(colors.light ? '#dfeaf0' : '#0a1517');
@@ -206,13 +226,10 @@ export default {
       trunk.scale.set(rVis, h * 0.97, rVis);
       crown.scale.set(h, h, h);
       // Seasonal foliage: color by month, eased within the month; bare months drop fronds.
-      const frac = (date.getDate() - 1) / 30;
+      const frac = Math.min(1, (date.getDate() - 1) / 30);
       const cNow = monthColor(m), cNext = monthColor(m % 12 + 1);
-      let amount = 1, col = cNow;
-      if (!cNow && !cNext) amount = 0;
-      else if (!cNow){ amount = Math.max(0, (frac - 0.5) * 2); col = cNext; }          // leafing out late in the month
-      else if (!cNext){ amount = 1 - Math.max(0, (frac - 0.35) / 0.65); }                 // shedding
-      else col = cNow.clone().lerp(cNext, Math.max(0, frac - 0.6) / 0.4);
+      const amount = leafAmount(date);
+      const col = !cNow ? cNext : cNext ? cNow.clone().lerp(cNext, Math.max(0, frac - 0.6) / 0.4) : cNow;
       placeFronds(amount);
       if (col) frondMat.color.copy(col);
       // ground + particles
@@ -232,11 +249,11 @@ export default {
       current.photo = ph; showPhoto(ph);
       // marker on the ring
       const a = angOfDay(day); nowMarker.position.set(Math.sin(a) * RING, 1.3, -Math.cos(a) * RING);
-      const mk = `${date.getFullYear()}-${m}-${Math.round(h)}-${measuredNear ? 1 : 0}`;
+      const mk = `${date.getFullYear()}-${m}-${g.toFixed(1)}-${measuredNear ? 1 : 0}-${amount === 0 ? 1 : 0}`;
       if (mk !== lastMonthKey){
         lastMonthKey = mk;
         const season = o && o.seasons[SEASON(m)];
-        ui.readout(`<strong>${MONTH_FULL[m - 1]} ${date.getFullYear()}</strong>${Math.max(0, (date - start) / (365.25 * MS)).toFixed(1)} years in the yard${tree.notes && /age at purchase:\s*(\d+)/i.test(tree.notes) ? ` · about ${Math.floor(+tree.notes.match(/age at purchase:\s*(\d+)/i)[1] + (date - start) / (365.25 * MS))} years old` : ''}<br><span class="k">Trunk</span> ${measuredNear ? `${measuredNear.value} in at the base (measured)` : `≈ ${g.toFixed(1)} in at the base${day < (pts[0] || { t: 0 }).t ? ' (estimated before the first measurement)' : pts.length && day > pts[pts.length - 1].t ? ` (last measured ${data.fmtDate(meas[meas.length - 1].date, { month: 'short', day: 'numeric', year: 'numeric' })})` : ' (between measurements)'}`}${season ? `<br><span class="k">${season.slice(0, 120)}</span>` : ''}`);
+        ui.readout(`<strong>${MONTH_FULL[m - 1]} ${date.getFullYear()}</strong>${Math.max(0, (date - start) / (365.25 * MS)).toFixed(1)} years in the yard${tree.notes && /age at purchase:\s*(\d+)/i.test(tree.notes) ? ` · about ${Math.floor(+tree.notes.match(/age at purchase:\s*(\d+)/i)[1] + (date - start) / (365.25 * MS))} years old` : ''}<br><span class="k">Trunk</span> ${measuredNear ? `${measuredNear.value} in at the base (measured)` : `≈ ${g.toFixed(1)} in at the base${day < (pts[0] || { t: 0 }).t ? ' (estimated before the first measurement)' : pts.length && day > pts[pts.length - 1].t ? ` (last measured ${data.fmtDate(meas[meas.length - 1].date, { month: 'short', day: 'numeric', year: 'numeric' })})` : ' (between measurements)'}`}${amount === 0 ? '<br><span class="k">Dormant: bare, so not growing</span>' : ''}${season ? `<br><span class="k">${season.slice(0, 120)}</span>` : ''}`);
       }
       slider.set(Math.round(day));
     }
@@ -257,7 +274,7 @@ export default {
     dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
     function openPhoto(ph){ dlg.querySelector('img').src = data.imageURL(ph.key); dlg.querySelector('img').alt = tree.name; dlg.querySelector('p').textContent = `${tree.name} · ${data.fmtDate(ph.date)}${ph.caption ? ' · ' + ph.caption : ''}`; dlg.showModal(); }
 
-    ctx.about(`<p>The <strong>${data.esc(tree.name)}</strong> (${data.esc(tree.type || 'Metasequoia')}), from the day it arrived on ${data.fmtDate(tree.purchased || data.isoDate(start))} to today. Its trunk thickens with the <strong>${meas.length} trunk measurements</strong> you logged at the base, eased in between them; its needles follow the color calendar from its AI overview, flushing lime green in spring, deepening for summer, going russet in fall and dropping for winter, when the cinnamon bark shows.</p><p>The easel shows the photo you took nearest each date (${pics.length} in all), and the ring on the ground is the timeline: white dots are photos, gold pegs are measurements. Click any of them to jump there, or press <strong>Grow</strong>. Girth is measured; the height is illustrative, worked out from the girth.</p>`);
+    ctx.about(`<p>The <strong>${data.esc(tree.name)}</strong> (${data.esc(tree.type || 'Metasequoia')}), from the day it arrived on ${data.fmtDate(tree.purchased || data.isoDate(start))} to today. Its trunk thickens with the <strong>${meas.length} trunk measurements</strong> you logged at the base. Between measurements it only grows while it’s in leaf, so it <strong>stands still through the bare winter months</strong> and puts on all its growth from spring to fall. Its needles follow the color calendar from its AI overview, flushing lime green in spring, deepening for summer, going russet in fall and dropping for winter, when the cinnamon bark shows.</p><p>The easel shows the photo you took nearest each date (${pics.length} in all), and the ring on the ground is the timeline: white dots are photos, gold pegs are measurements. Click any of them to jump there, or press <strong>Grow</strong>. Girth is measured; the height is illustrative, worked out from the girth.</p>`);
 
     camera.position.set(-9, 17, 46); controls.target.set(3, 12.5, 0);
     controls.maxDistance = 90; controls.maxPolarAngle = Math.PI * 0.49;

@@ -134,7 +134,7 @@ async function load(id, { keepCamera = false } = {}){
   stage.clear(); ui.clear(); stage.resetCameraDefaults();
   setLoading('Loading ' + meta.title.toLowerCase() + '…');
   try {
-    const mod = await import(`./scenes/${meta.id}.js?v=1`);
+    const mod = await import(`./scenes/${meta.id}.js?v=2`);
     if (token !== loadToken) return;
     const colors = themeColors();
     stage.scene.background = new THREE.Color(colors.bg);

@@ -106,7 +106,7 @@ export async function plantPhotos({ includeHidden = false } = {}){
 /** Yard photos by view tag. Signed-in only, exactly like the dashboard. */
 export async function yardPhotos(){
   if (!isAuthed()) return [];
-  return (await rawPhotos()).filter(p => p.plant_id === 'yard').map(p => ({ key: p.key, date: (p.date || '').slice(0, 10), caption: p.caption || '',
+  return (await rawPhotos()).filter(p => p.plant_id === 'yard' && !bool(p.hideFromGallery)).map(p => ({ key: p.key, date: (p.date || '').slice(0, 10), caption: p.caption || '',
     views: (p.viewTags || '').split('|').map(s => s.trim()).filter(Boolean) }));
 }
 

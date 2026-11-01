@@ -1,7 +1,7 @@
 /* The yard in 3D: page shell. Picks a scene from the hash, loads its module
  * on demand, and hands it a context (stage + data + UI helpers). */
 import { Stage, THREE, textSprite, glyphSprite, glowTexture, themeColors, reducedMotion, TEMP_GRADIENT } from './core.js';
-import * as Data from './data.js';
+import * as Data from './data.js?v=2';
 
 export const SCENES = [
   { id: 'ridgelines', n: '01', title: 'Six years of weather', blurb: 'Every day’s high and low since 2020, one ridge per year', source: 'Weather', href: '/plants/#weather' },
@@ -134,7 +134,7 @@ async function load(id, { keepCamera = false } = {}){
   stage.clear(); ui.clear(); stage.resetCameraDefaults();
   setLoading('Loading ' + meta.title.toLowerCase() + '…');
   try {
-    const mod = await import(`./scenes/${meta.id}.js?v=2`);
+    const mod = await import(`./scenes/${meta.id}.js?v=3`);
     if (token !== loadToken) return;
     const colors = themeColors();
     stage.scene.background = new THREE.Color(colors.bg);

@@ -10,6 +10,9 @@ const MAP = 'photos/yard-map.jpg';
 export default {
   async build(ctx){
     const { THREE, scene, camera, controls, data, ui, colors, reducedMotion } = ctx;
+    // Reference photos and map pins are not reconstructed geometry.
+    ctx.stage.bloomPass.strength = 0;
+    let showNames = false, showCones = false;
     ctx.status('Unrolling the yard map…');
     const authed = data.isAuthed();
     const [pins, photos, plants] = await Promise.all([data.viewPins(), data.yardPhotos().catch(() => []), data.plants().catch(() => [])]);
@@ -65,6 +68,7 @@ export default {
       const e1 = dirOf(p.angle - p.fov / 2).multiplyScalar(L), e2 = dirOf(p.angle + p.fov / 2).multiplyScalar(L);
       const edges = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0.05, 0), e1.setY(0.05), new THREE.Vector3(0, 0.05, 0), e2.setY(0.05)]), new THREE.LineBasicMaterial({ color: coneCol, transparent: true, opacity: 0.7 }));
       grp.add(edges);
+      cone.visible = edges.visible = false;
       // the little camera on a pole
       const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, EYE, 10), poleMat); pole.position.y = EYE / 2; pole.castShadow = true; grp.add(pole);
       const cam = new THREE.Group(); cam.position.y = EYE + 0.18; cam.rotation.y = -p.angle * Math.PI / 180; grp.add(cam);
@@ -73,7 +77,8 @@ export default {
       const bump = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.08, 0.12), bodyMat); bump.position.set(-0.14, 0.22, 0); cam.add(bump);
       const label = ctx.text(nice(p.name) + (authed ? ` · ${list.length}` : ''), { size: 0.42, color: colors.ink, bg: colors.light ? 'rgba(255,255,255,.88)' : 'rgba(8,22,25,.82)', weight: 700 });
       label.position.set(0, EYE + 0.95, 0); grp.add(label);
-      const v = { p, pos, dir, list, grp, cam, label, cards: [] };
+      label.visible = false;
+      const v = { p, pos, dir, list, grp, cam, label, cone, edges, cards: [] };
       views.push(v);
       const tip = () => `<span class="t-head">📷 ${data.esc(nice(p.name))}</span>Faces ${compass(p.angle)} · ${Math.round(p.fov)}° view`
         + (authed ? `<br>${list.length ? `${list.length} photo${list.length > 1 ? 's' : ''}, ${data.fmtDate(list[list.length - 1].date, { month: 'short', year: 'numeric' })} – ${data.fmtDate(list[0].date, { month: 'short', year: 'numeric' })}` : 'No photos tagged from here yet'}` : '<span class="t-sub">Sign in on Plants to see the photos taken from here</span>')
@@ -141,6 +146,24 @@ export default {
 
     // Standing at a viewpoint
     let inside = null;
+    const scanDialog = document.createElement('dialog');
+    scanDialog.style.cssText = 'width: min(1400px,96vw);height:90vh;max-width:96vw;padding:12px;background:var(--panel);color:var(--ink);border:1px solid var(--line2);border-radius:12px';
+    const closeScan = document.createElement('button'); closeScan.type = 'button'; closeScan.textContent = 'Close 3D scan'; closeScan.className = 'y3-btn ghost';
+    scanDialog.append(closeScan); document.body.append(scanDialog);
+    closeScan.onclick = () => scanDialog.close();
+    scanDialog.addEventListener('close', () => scanDialog.querySelector('iframe')?.remove());
+    ui.button({ label: 'Load 3D yard scan', onClick: () => {
+      if (!scanDialog.querySelector('iframe')) {
+        const frame = document.createElement('iframe'); frame.title = 'Detailed 3D yard scan'; frame.src = '/yard-3d/scan/';
+        frame.style.cssText = 'width:100%;height:calc(100% - 52px);border:0;display:block;margin-top:8px'; scanDialog.append(frame);
+      }
+      scanDialog.showModal();
+    }});
+    ui.toggle({ label: 'Viewpoint names', value: false, onChange: on => { showNames = on; views.forEach(v => { v.label.visible = on && !inside; }); }});
+    ui.toggle({ label: 'Camera view cones', value: false, onChange: on => { showCones = on; views.forEach(v => { v.cone.visible = v.edges.visible = on && !inside; }); }});
+    const viewpointSelect = ui.select({ label: 'Stand at', value: '', options: [{ value: '', label: 'Choose a viewpoint…' }, ...views.map((v, i) => ({ value: String(i), label: nice(v.p.name) }))], onChange: value => { if (value !== '') enter(views[Number(value)]); else leave(); } });
+    const latestPhoto = ui.button({ label: 'Open latest full-resolution photo', onClick: () => { if (inside?.list.length) openPhoto(inside.list[0], nice(inside.p.name)); } });
+    latestPhoto.hidden = true;
     const overviewBtn = ui.button({ label: '← Back to the whole yard', onClick: () => leave() });
     overviewBtn.hidden = true;
     function enter(v){
@@ -150,20 +173,23 @@ export default {
       ctx.flyTo(eye, look, 1400);
       controls.minDistance = 0.5;
       overviewBtn.hidden = false;
-      views.forEach(o => { o.label.visible = o === v || !authed; });
+      viewpointSelect.value = String(views.indexOf(v));
+      latestPhoto.hidden = !v.list.length;
+      views.forEach(o => { o.label.visible = o.cone.visible = o.edges.visible = false; });
       ui.readout(`<strong>📷 ${data.esc(nice(v.p.name))}</strong>Facing ${compass(v.p.angle)}${authed ? ` · ${v.list.length} photo${v.list.length === 1 ? '' : 's'} from here` : ''}${authed && v.list.length ? '<br><span class="k">Click a photo to open it</span>' : ''}`);
     }
     function leave(){
       inside = null; overviewBtn.hidden = true;
-      views.forEach(o => { o.label.visible = true; });
+      latestPhoto.hidden = true; viewpointSelect.value = '';
+      views.forEach(o => { o.label.visible = showNames; o.cone.visible = o.edges.visible = showCones; });
       ctx.stage.goHome(1200);
       ui.readout(summary());
     }
     const total = views.reduce((s, v) => s + v.list.length, 0);
-    const summary = () => `<strong>${views.length} viewpoints</strong>${authed ? `${total} yard photos tagged to them` : 'Sign in on Plants to see the yard photos from each one'}${placed.length ? `<br>${placed.length} plant${placed.length > 1 ? 's' : ''} placed on this device’s map` : ''}`;
+    const summary = () => `<strong>Yard reference map · ${views.length} viewpoints</strong>${authed ? `${total} yard photos tagged to them` : 'Sign in on Plants to see the yard photos from each one'}<br><span class="k">Aerial map and photo references, not a 3D scan. Load a reconstructed yard scan for photo-real 3D.</span>${placed.length ? `<br>${placed.length} plant${placed.length > 1 ? 's' : ''} placed on this device’s map` : ''}`;
     ui.readout(summary());
     ui.legend([{ color: coneCol, label: 'View cone (the camera’s field of view)', shape: 'bar' }, ...(placed.length ? [{ color: '#4f9a52', label: 'Plants you placed on the yard map', shape: 'dot' }] : [])]);
-    ctx.about(`<p>The yard map from the Plants dashboard, laid flat, with a little camera at every <strong>viewpoint</strong> you’ve pinned. Each one faces the way you set it, and the pale cone on the grass is what its photos take in. ${authed ? 'The yard photos tagged to each viewpoint stand inside its cone, newest at the front.' : 'Yard photos are private, so they only appear here when you’re signed in.'}</p><p>Click a camera to drop down to eye level and look the way it looks${authed ? '; click any photo to open it full size' : ''}. ${placed.length ? 'The small trees and shrubs are plants you’ve placed on the yard map on this device.' : 'Plants you place on the yard map on this device also show up here.'}</p>`);
+    ctx.about(`<p>The yard map from the Plants dashboard, laid flat, with a little camera at every <strong>viewpoint</strong> you’ve pinned. Each one faces the way you set it, and you can enable Camera view cones to see what its photos take in. ${authed ? 'The yard photos tagged to each viewpoint stand inside its cone, newest at the front.' : 'Yard photos are private, so they only appear here when you’re signed in.'}</p><p>Use Load 3D yard scan to open a reconstructed Gaussian splat locally; the reference map itself is not a reconstruction. Viewpoint names are optional to keep the yard unobstructed.</p><p>Choose a viewpoint or click a camera to drop down to eye level and look the way it looks${authed ? '; click any photo to open it full size' : ''}. ${placed.length ? 'The small trees and shrubs are plants you’ve placed on the yard map on this device.' : 'Plants you place on the yard map on this device also show up here.'}</p>`);
 
     // Frame the cluster of viewpoints rather than the whole map.
     const mid = views.reduce((a, v) => a.add(v.pos), new THREE.Vector3()).divideScalar(views.length);
@@ -175,7 +201,7 @@ export default {
         if (reducedMotion) return;
         for (const v of views) v.cam.position.y = EYE + 0.18 + Math.sin(t * 1.4 + v.pos.x) * 0.02;
       },
-      dispose(){ dlg.remove(); fadeTex.dispose(); },
+      dispose(){ dlg.remove(); scanDialog.querySelector('iframe')?.remove(); scanDialog.remove(); fadeTex.dispose(); },
     };
   },
 };

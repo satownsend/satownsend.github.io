@@ -175,3 +175,15 @@ button.y3-pill:hover{border-color:var(--accent)}
 .y3-controls:has([aria-label="Recorded plant event"]) .y3-field{min-width:0;max-width:100%}
 .y3-controls [aria-label="Recorded plant event"]{max-width:min(650px,75vw)}
 @media(max-width:700px){.y3-detective{padding:14px}.y3-controls [aria-label="Recorded plant event"]{max-width:65vw}}
+
+.y3-heartbeat{margin-top:20px;padding:20px;border:1px solid var(--line2);border-radius:14px;background:var(--panel);color:var(--ink);overflow-wrap:anywhere}
+.y3-heartbeat h3{font:600 22px var(--font-display);margin:0 0 12px}.y3-heartbeat h4{font:600 20px var(--font-display);margin:16px 0}
+.y3-heartbeat h5{font:600 16px var(--font-display);margin:20px 0 8px}.y3-heartbeat p,.y3-heartbeat li{font-size:14px;line-height:1.65}
+.y3-heartbeat a{color:var(--accent)}.y3-heartbeat-status,.y3-heartbeat-playing{color:var(--muted)}
+.y3-heartbeat ul{padding-left:20px;max-height:400px;overflow:auto}.y3-heartbeat li{padding:8px 0;border-bottom:1px solid var(--line2)}.y3-heartbeat li p{margin:6px 0}
+.y3-heartbeat-note{white-space:pre-wrap}.y3-heartbeat details{margin-top:20px}.y3-heartbeat summary{cursor:pointer;min-height:44px;align-content:center}
+.y3-heartbeat ul:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.y3-controls:has([aria-label="Heartbeat date"]) button,.y3-controls:has([aria-label="Heartbeat date"]) select,.y3-controls:has([aria-label="Heartbeat date"]) input[type=range]{min-height:44px}
+.y3-heartbeat [hidden]{display:none}.y3-heartbeat-swatch{display:inline-block;width:12px;height:12px;border:1px solid var(--line2);border-radius:3px;vertical-align:middle;margin:0 5px}
+.y3-heartbeat-photos{display:flex;flex-wrap:wrap;gap:14px}.y3-heartbeat-photos a{max-width:220px;font-size:13px}.y3-heartbeat-photos img{display:block;width:200px;max-width:100%;height:150px;object-fit:cover;border-radius:9px}
+@media(max-width:700px){.y3-heartbeat{padding:14px}.y3-heartbeat-photos a{max-width:100%}}

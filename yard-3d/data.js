@@ -40,9 +40,11 @@ export function parseCSV(text){
 function toObjects(rows){
   if (!rows.length) return [];
   const h = rows[0].map(x => (x || '').trim());
-  return rows.slice(1).filter(r => r.some(c => (c || '').trim())).map(r => {
+  const objects = rows.slice(1).filter(r => r.some(c => (c || '').trim())).map(r => {
     const o = {}; h.forEach((k, i) => { if (k) o[k] = (r[i] || '').trim(); }); return o;
   });
+  Object.defineProperty(objects, 'columns', { value: h });
+  return objects;
 }
 // Google's CSV endpoint occasionally returns an empty body or a 5xx: retry.
 async function csv(url, { allowEmpty = false } = {}){
@@ -88,10 +90,17 @@ export const plants = () => once('plants', async () => (await tab('plants')).fil
 })));
 export const plantsById = async () => new Map((await plants()).map(p => [p.id, p]));
 
-export const log = () => once('log', async () => (await tab('log', { allowEmpty: true })).filter(l => l.date).map(l => ({
+export function logRecordSource(id, column){
+  if (!id || !Number.isInteger(column) || column < 0) return null;
+  let letters = ''; for (let n = column + 1; n; n = Math.floor((n - 1) / 26)) letters = String.fromCharCode(65 + (n - 1) % 26) + letters;
+  return `https://docs.google.com/spreadsheets/d/${PLANTS_SHEET}/gviz/tq?tqx=out:html&sheet=log&tq=${encodeURIComponent('select * where ' + letters + ' = ' + JSON.stringify(String(id)))}`;
+}
+export const log = () => once('log', async () => {
+  const rows = await tab('log', { allowEmpty: true }), column = rows.columns?.indexOf('id') ?? -1;
+  return rows.filter(l => l.date).map(l => ({
   id: l.id, plantId: l.plantId || '', action: (l.action || '').toLowerCase(), date: l.date.slice(0, 10), time: l.time || '',
-  note: l.note || '', value: num(l.value), temp: num(l.temp), causedBy: l.causedBy || '',
-})));
+  note: l.note || '', value: num(l.value), temp: num(l.temp), causedBy: l.causedBy || '', sourceURL: logRecordSource(l.id, column),
+})); });
 
 const rawPhotos = () => once('plantPhotos', async () => (await tab('plant_photos', { allowEmpty: true })).filter(p => p.key));
 /** Plant photos the current visitor may see (gallery rules), newest last. */
@@ -158,11 +167,14 @@ async function archive(query){
   return j;
 }
 /** Daily estimates for one year: [{date, hi, lo (°F), pcp, rain (in), wind (mph)}]. */
-export const weatherYear = y => once('wy' + y, async () => {
-  const j = await archive('year=' + y);
-  return j.items.filter(d => d.date && d.hi != null && d.lo != null)
-    .map(d => ({ date: d.date, hi: cToF(d.hi), lo: cToF(d.lo), pcp: mmToIn(d.pcp) ?? 0, rain: mmToIn(d.rain) ?? 0, wind: d.wind }));
-});
+export async function weatherYear(y, { preserveMissing = false } = {}){
+  const rows = await once('wy' + y, async () => {
+    const j = await archive('year=' + y);
+    return j.items.filter(d => d.date).map(d => ({ date: d.date, hi: cToF(d.hi), lo: cToF(d.lo), pcp: mmToIn(d.pcp), rain: mmToIn(d.rain), wind: d.wind }));
+  });
+  // Existing scenes keep their historical contract; investigations must retain gaps.
+  return preserveMissing ? rows : rows.filter(d => d.hi != null && d.lo != null).map(d => ({ ...d, pcp: d.pcp ?? 0, rain: d.rain ?? 0 }));
+}
 export const archiveInfo = () => once('archiveInfo', async () => (await archive('year=' + new Date().getFullYear())).archive || {});
 const hourFmt = new Intl.DateTimeFormat('en-US', { timeZone: TZ, hour: 'numeric', hourCycle: 'h23' });
 /** Hourly estimates for one month ('YYYY-MM'), local hour of day attached. */

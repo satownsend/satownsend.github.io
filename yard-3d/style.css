@@ -136,3 +136,22 @@ button.y3-pill:hover{border-color:var(--accent)}
   .y3-prevnext button.y3-btn{max-width:48%;overflow:hidden;text-overflow:ellipsis}
 }
 @media (prefers-reduced-motion:reduce){.y3-card{transition:none}.y3-spin{animation-duration:2s}}
+
+/* Planetarium's HTML companion keeps every constellation accessible without a canvas. */
+.y3-sky-records{margin-top:20px;padding:20px;border:1px solid var(--line2);border-radius:14px;background:var(--panel);color:var(--ink)}
+.y3-sky-heading h3{margin:0;font:600 20px var(--font-display)}
+.y3-sky-summary{font-size:13px;color:var(--muted);line-height:1.6}
+.y3-sky-list{display:flex;flex-wrap:wrap;gap:8px;max-height:180px;overflow:auto;padding:3px}
+.y3-sky-list button[aria-pressed=true]{border-color:var(--accent);color:var(--accent)}
+.y3-sky-list button span{margin-left:6px;opacity:.7}
+.y3-sky-detail{margin-top:18px;max-height:520px;overflow:auto;overflow-wrap:anywhere}
+.y3-sky-detail h4{font:600 22px var(--font-display);margin:0 0 8px}
+.y3-sky-detail h4:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.y3-sky-detail p{font-size:13px;line-height:1.65;margin:6px 0}
+.y3-sky-detail ol{list-style:none;margin:14px 0 0;padding:0}
+.y3-sky-detail li{padding:16px 0;border-top:1px solid var(--line2)}
+.y3-sky-detail time{font-weight:650}.y3-sky-detail a{color:var(--accent);font-size:13px}
+.y3-sky-note{white-space:pre-wrap}.y3-sky-first{font-size:11px;color:var(--ink);background:color-mix(in srgb,#f4d87e 18%,var(--panel));padding:3px 7px;border-radius:8px}
+.y3-sky-photos{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
+.y3-sky-photos img{display:block;width:180px;height:130px;object-fit:cover;border-radius:9px}
+@media(max-width:700px){.y3-sky-records{padding:14px}.y3-controls .y3-field{max-width:100%}.y3-controls .y3-field select{max-width:240px}.y3-sky-photos img{width:140px;height:110px}}

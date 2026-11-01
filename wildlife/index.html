@@ -522,6 +522,14 @@ async function loadData(){
     renderLifeList();
     renderSeasonalPatterns();
     refreshGallery();
+    // Links from the planetarium open the species and the exact source entry.
+    const linkedId = new URLSearchParams(location.search).get('sighting');
+    const linked = linkedId && state.sightings.find(s => s.id === linkedId);
+    if (linked){
+      openInfo(linked.species);
+      const entry = [...document.querySelectorAll('[data-sighting-id]')].find(el => el.dataset.sightingId === linkedId);
+      if (entry){ entry.tabIndex = -1; entry.scrollIntoView({ block: 'center' }); entry.focus({ preventScroll: true }); }
+    }
   } catch(e){
     console.error(e);
     setSyncStatus('failed to load data', 'err');

@@ -57,7 +57,6 @@ async function csv(url, { allowEmpty = false } = {}){
     } catch(e){ last = e; }
     await new Promise(res => setTimeout(res, 400 * (attempt + 1)));
   }
-  if (allowEmpty) return [];
   throw new Error('Could not read the spreadsheet (' + (last && last.message) + ')');
 }
 const tab = (name, opts) => csv(`https://docs.google.com/spreadsheets/d/${PLANTS_SHEET}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(name)}`, opts);
@@ -148,7 +147,7 @@ export const forecasts = () => once('forecasts', async () => {
 /* ---------- wildlife sheet ---------- */
 export const sightings = () => once('sightings', async () => (await gid(WILDLIFE_SHEET, 0, { allowEmpty: true })).filter(s => s.species && s.date)
   .map(s => ({ id: s.id, species: s.species, category: s.category || 'Other', date: s.date.slice(0, 10), location: s.location || '', notes: s.notes || '' })));
-export const wildlifePhotos = () => once('wildlifePhotos', async () => (await gid(WILDLIFE_SHEET, 518293746, { allowEmpty: true })).filter(p => p.key)
+export const wildlifePhotos = () => once('wildlifePhotos', async () => (await gid(WILDLIFE_SHEET, 518293746, { allowEmpty: true })).filter(p => p.key && !bool(p.hideFromGallery) && !/\.(mp4|webm|mov|m4v)(?:$|\?)/i.test(p.key))
   .map(p => ({ key: p.key, sightingId: p.sighting_id, date: (p.date || '').slice(0, 10), caption: p.caption || '' })));
 
 /* ---------- weather archive (ERA5) ---------- */

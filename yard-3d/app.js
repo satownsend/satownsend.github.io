@@ -1,7 +1,7 @@
 /* The yard in 3D: page shell. Picks a scene from the hash, loads its module
  * on demand, and hands it a context (stage + data + UI helpers). */
 import { Stage, THREE, textSprite, glyphSprite, glowTexture, themeColors, reducedMotion, TEMP_GRADIENT } from './core.js';
-import * as Data from './data.js?v=2';
+import * as Data from './data.js?v=3';
 
 export const SCENES = [
   { id: 'ridgelines', n: '01', title: 'Six years of weather', blurb: 'Every day’s high and low since 2020, one ridge per year', source: 'Weather', href: '/plants/#weather' },
@@ -13,6 +13,7 @@ export const SCENES = [
   { id: 'tunnel',     n: '07', title: 'Memory tunnel',       blurb: 'Fly through every photo, sighting and journal entry in time', source: 'Backyard year', href: '/backyard-year/' },
   { id: 'redwood',    n: '08', title: 'Dawn redwood time machine', blurb: 'The most photographed tree, grown from its measurements and seasons', source: 'Plants', href: '/plants/' },
   { id: 'rings',      n: '09', title: 'Rings of the yard',   blurb: 'Every plant on the growth ring of the year it arrived', source: 'Backyard year', href: '/backyard-year/' },
+  { id: 'planetarium', n: '10', title: 'Wildlife planetarium', blurb: 'Every species a constellation, every sighting a star', source: 'Wildlife', href: '/wildlife/' },
 ];
 
 const $ = s => document.querySelector(s);

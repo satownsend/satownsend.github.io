@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Detailed yard scan</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#0b1619;color:#e3eef0;font:16px/1.5 system-ui,sans-serif}main{height:100dvh;display:flex;flex-direction:column}header{padding:12px 16px;background:#10292e;border-bottom:1px solid #34535b}h1{font-size:20px;margin:0 0 6px}p{margin:6px 0}nav{display:flex;gap:10px;flex-wrap:wrap;align-items:center}button,.file{font:inherit;color:inherit;background:#173b42;border:1px solid #42656e;border-radius:8px;padding:8px 12px;min-height:44px;cursor:pointer}.file{max-width:100%;min-width:0}.file:focus-within{outline:2px solid #4dd0c1}input[type=file]{max-width:100%;font:inherit}select{font:inherit;padding:8px;background:#173b42;color:inherit;border:1px solid #42656e;border-radius:6px;min-height:44px}#viewport{position:relative;flex:1;min-height:220px}canvas{display:block;width:100%;height:100%;touch-action:none}#empty{position:absolute;inset:0;display:grid;place-content:center;padding:24px;text-align:center;pointer-events:none}#empty[hidden]{display:none}#status{font-size:14px;color:#b8d3d9}details{font-size:14px;max-width:1000px}summary{cursor:pointer}a{color:#75ded2}button:disabled{opacity:.5;cursor:default}@media(max-width:500px){header{padding:10px}h1{font-size:18px}}
+</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/","@sparkjsdev/spark":"https://cdn.jsdelivr.net/npm/@sparkjsdev/spark@2.4.0/dist/spark.module.js"}}</script>
+<script type="module" src="./viewer.js?v=1"></script>
+</head>
+<body><main>
+<header><h1>Your yard, reconstructed in 3D</h1>
+<nav><label class="file">Open scan <input id="scanFile" type="file" accept=".ply,.splat,.spz,.ksplat,.sog" aria-label="Open a reconstructed yard scan"></label><button id="reset" disabled>Reset view</button><button id="flip" disabled>Flip upright</button><label>Detail <select id="quality"><option value="1">Balanced</option><option value="2">High</option><option value="0.5">Performance</option></select></label></nav>
+<p id="status" role="status" aria-live="polite">Choose a Gaussian splat scan (.ply, .splat, .spz, .ksplat or bundled .sog). Files stay on this device.</p>
+<details><summary>How to turn yard photos into a scan</summary><p>Capture a slow walk around and through the yard, with sharp, overlapping views of each tree, bed and building. Use one session in calm, even light. Photos from different seasons should be separate scans.</p><p>Reconstruct with COLMAP + Nerfstudio Splatfacto, or export a Gaussian splat from a capture app. Clean away floating artifacts in SuperSplat and export a bundled SPZ, SOG or PLY. Open that file here. Ordinary photos and an aerial map cannot reveal unseen sides of the yard.</p><p><a href="https://docs.nerf.studio/quickstart/custom_dataset.html" target="_blank" rel="noopener">Capture and reconstruction guide</a> · <a href="https://developer.playcanvas.com/user-manual/supersplat/editor/import-export/" target="_blank" rel="noopener">Scan cleanup and export</a></p></details>
+</header>
+<div id="viewport"><div id="empty"><div><strong>No yard scan loaded yet</strong><p>A reconstructed scan supplies the actual 3D detail.<br>This viewer does not generate a yard from the map.</p></div></div></div>
+</main></body></html>

@@ -15,6 +15,7 @@ export const SCENES = [
   { id: 'rings',      n: '09', title: 'Rings of the yard',   blurb: 'Every plant on the growth ring of the year it arrived', source: 'Backyard year', href: '/backyard-year/' },
   { id: 'planetarium', n: '10', title: 'Wildlife planetarium', blurb: 'Every species a constellation, every sighting a star', source: 'Wildlife', href: '/wildlife/' },
   { id: 'detective', n: '11', title: 'Weather detective', blurb: 'Investigate the weather, care and photos around a recorded plant event', source: 'Plants & weather', href: '/plants/' },
+  { id: 'heartbeat', n: '12', title: 'The yard’s heartbeat', blurb: 'Play a year of weather, watering, seasonal colors and wildlife together', source: 'The whole yard', href: '/backyard-year/' },
 ];
 
 const $ = s => document.querySelector(s);
@@ -136,7 +137,7 @@ async function load(id, { keepCamera = false } = {}){
   stage.clear(); ui.clear(); stage.resetCameraDefaults();
   setLoading('Loading ' + meta.title.toLowerCase() + '…');
   try {
-    const mod = await import(`./scenes/${meta.id}.js?v=6`);
+    const mod = await import(`./scenes/${meta.id}.js?v=7`);
     if (token !== loadToken) return;
     const colors = themeColors();
     stage.scene.background = new THREE.Color(colors.bg);

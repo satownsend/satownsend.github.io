@@ -78,7 +78,7 @@ export default {
       const label = ctx.text(nice(p.name) + (authed ? ` · ${list.length}` : ''), { size: 0.42, color: colors.ink, bg: colors.light ? 'rgba(255,255,255,.88)' : 'rgba(8,22,25,.82)', weight: 700 });
       label.position.set(0, EYE + 0.95, 0); grp.add(label);
       label.visible = false;
-      const v = { p, pos, dir, list, grp, cam, label, cone, edges, cards: [] };
+      const v = { p, pos, dir, list, grp, cam, pole, label, cone, edges, cards: [] };
       views.push(v);
       const tip = () => `<span class="t-head">📷 ${data.esc(nice(p.name))}</span>Faces ${compass(p.angle)} · ${Math.round(p.fov)}° view`
         + (authed ? `<br>${list.length ? `${list.length} photo${list.length > 1 ? 's' : ''}, ${data.fmtDate(list[list.length - 1].date, { month: 'short', year: 'numeric' })} – ${data.fmtDate(list[0].date, { month: 'short', year: 'numeric' })}` : 'No photos tagged from here yet'}` : '<span class="t-sub">Sign in on Plants to see the photos taken from here</span>')
@@ -175,13 +175,13 @@ export default {
       overviewBtn.hidden = false;
       viewpointSelect.value = String(views.indexOf(v));
       latestPhoto.hidden = !v.list.length;
-      views.forEach(o => { o.label.visible = o.cone.visible = o.edges.visible = false; });
+      views.forEach(o => { o.cam.visible = o.pole.visible = o.label.visible = o.cone.visible = o.edges.visible = false; });
       ui.readout(`<strong>📷 ${data.esc(nice(v.p.name))}</strong>Facing ${compass(v.p.angle)}${authed ? ` · ${v.list.length} photo${v.list.length === 1 ? '' : 's'} from here` : ''}${authed && v.list.length ? '<br><span class="k">Click a photo to open it</span>' : ''}`);
     }
     function leave(){
       inside = null; overviewBtn.hidden = true;
       latestPhoto.hidden = true; viewpointSelect.value = '';
-      views.forEach(o => { o.label.visible = showNames; o.cone.visible = o.edges.visible = showCones; });
+      views.forEach(o => { o.cam.visible = o.pole.visible = true; o.label.visible = showNames; o.cone.visible = o.edges.visible = showCones; });
       ctx.stage.goHome(1200);
       ui.readout(summary());
     }

@@ -1,0 +1,15 @@
+# Weather detective (#205)
+
+Open `/yard-3d/#detective`, choose a plant and a dated recorded event, and set 1–84 preceding days and 0–28 following days. The window includes both endpoints, spans calendar years and leap days, and ends no later than today in America/New_York. The initial event favors a recorded damage, bloom or measurement when available. Plants whose metadata is unavailable remain selectable by their recorded IDs.
+
+The miniature landscape aligns daily modeled high/low temperature, daily modeled precipitation, matching care/watering logs, permitted photo records and a gold event-date plane. Click a date column, use Inspect day with arrow keys, or use Previous day / Next day / Return to event. The full notes, measurements and links remain available in HTML without interacting with the canvas. Year-end windows fetch the required archive years independently; one unavailable year does not discard the other.
+
+Temperature is °F. Precipitation is inches of rain plus snow water equivalent. Daily ERA5 estimates come from the existing Worker archive. They are regional modeled context, not a backyard gauge and not observed frost. Missing temperature or precipitation is unavailable, never zero-filled in this investigation. Coverage counts each variable separately. Dates before the archive began and the source's recent-data delay remain visible as gaps. This scene does not silently mix recent provisional estimates into ERA5.
+
+Care markers count recorded actions without inferring water volume. The selected plant's logs and explicitly yard-wide logs are included; other plants' logs are excluded. No matching record does not establish that no activity occurred. Photo catalog failure is shown as unavailable, distinct from a successful catalog with no permitted images that day. Hidden gallery photos remain excluded, and yard photos follow the existing sign-in rule. No image is sent to an AI service.
+
+Each log offers its exact original source row through Google's filtered HTML query, using the actual ID-column position from the CSV headers. Missing IDs fall back to the Plants journal. Photos open their original media; modeled weather links to its source year archive. Recorded values retain their source definition/units rather than guessing a unit from a number. User-entered attribution is labeled as the author's record, not a finding of this view. Notes and labels are escaped before HTML rendering.
+
+Weather near an event is context, not proof of its cause. #151 still covers comparisons between years and seasons. #183 still covers saved AI analysis; this scene performs no AI calls and does not claim causal findings.
+
+Validation: `tests/weather-detective.cjs` exercises invalid/future dates, leap/cross-year windows, exact source queries, independent variable coverage, zero rainfall versus missing rainfall, plant/yard matching, failed sources and photo permissions. Browser checks cover live records, source row opening, date keyboard controls, time-window changes, unavailable data, and scene cleanup. `weatherYear()` retains its prior default behavior for the other scenes; this investigation opts into `preserveMissing`.

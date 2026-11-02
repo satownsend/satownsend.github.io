@@ -11,16 +11,27 @@
 (function(){
   const SECTIONS = [
     { href:'/',            label:'Home',        icon:'\u{1F3E0}', key:'home' },
-    { href:'/plants',      label:'Plants',      icon:'\u{1F331}', key:'plants' },
+    { href:'/backyard/',   label:'Backyard',    icon:'\u{1F333}', key:'backyard' },
     { href:'/beer',        label:'Beer',        icon:'\u{1F37A}', key:'beer' },
     { href:'/instruments', label:'Instruments', icon:'\u{1F3B8}', key:'instruments' },
-    { href:'/wildlife',    label:'Wildlife',    icon:'\u{1F989}', key:'wildlife' },
     { href:'/photography', label:'Photography', icon:'\u{1F4F7}', key:'photography' },
-    { href:'/backyard-year/', label:'Backyard year', icon:'\u{1F343}', key:'backyard-year' },
-    { href:'/yard-3d/', label:'Yard in 3D', icon:'\u{1F9CA}', key:'yard-3d' },
     { href:'/photo-frame/', label:'Photo frame', icon:'\u{1F5BC}', key:'photo-frame' },
     { href:'/app/', label:'Install app', icon:'↗', key:'app' },
   ];
+  const BACKYARD = [
+    { href:'/plants/#dashboard', label:'Plants', key:'plants', icon:'🌱' },
+    { href:'/plants/#weather', label:'Weather', key:'weather', icon:'🌦️' },
+    { href:'/plants/#calendar', label:'Care calendar', key:'calendar', icon:'🗓️' },
+    { href:'/plants/#year', label:'Seasons', key:'year', icon:'🍂' },
+    { href:'/yard-3d/', label:'Yard in 3D', key:'yard-3d', icon:'🧊' },
+    { href:'/backyard-year/', label:'Backyard year', key:'backyard-year', icon:'🍃' },
+    { href:'/wildlife/', label:'Wildlife', key:'wildlife', icon:'🦉' },
+  ];
+  function inBackyard(){ return /^\/(backyard|plants|yard-3d|backyard-year|wildlife)(\/|$)/i.test(location.pathname); }
+  function backyardKey(){
+    const section = location.pathname.split('/')[1];
+    return section === 'plants' && ['weather','calendar','year'].includes(location.hash.slice(1)) ? location.hash.slice(1) : section;
+  }
   // Full-screen slideshows (the photo-frame pages, issue #72). Listed under the
   // sections; the current section's own slideshow is marked.
   const SLIDESHOWS = [
@@ -34,6 +45,7 @@
 
   function currentKey(){
     const p = location.pathname.toLowerCase();
+    if(inBackyard()) return 'backyard';
     for(const s of SECTIONS){
       if(s.key !== 'home' && (p === '/'+s.key || p.indexOf('/'+s.key+'/') === 0)) return s.key;
     }
@@ -50,7 +62,7 @@
   .sitenav.open .sitenav-caret{transform:rotate(180deg)}
   .sitenav-menu{position:absolute;top:calc(100% + 6px);left:0;min-width:200px;background:var(--panel);
     border:1px solid var(--line2,var(--line));border-radius:10px;padding:6px;box-shadow:var(--shadow);z-index:80;
-    display:none;flex-direction:column;gap:2px}
+    display:none;flex-direction:column;gap:2px;max-height:70vh;overflow-y:auto}
   .sitenav.open .sitenav-menu{display:flex}
   .sitenav-menu a{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:7px;color:var(--ink);
     text-decoration:none;white-space:nowrap;transition:background .12s}
@@ -61,6 +73,9 @@
   .sitenav-menu .sn-head{margin:6px 12px 2px;padding-top:8px;border-top:1px solid var(--line);font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
   .sitenav-menu a.sn-show{padding:7px 12px;font-size:13px;color:var(--ink-soft)}
   .sitenav-menu a.sn-show .sn-ico{font-size:13px;color:var(--muted)}
+  .backyard-nav{display:flex;flex-wrap:wrap;gap:4px 12px;margin:10px 0;font-size:13px}
+  .backyard-nav a{color:var(--muted);padding:7px 0;text-decoration:none}
+  .backyard-nav a:hover,.backyard-nav a[aria-current]{color:var(--accent);text-decoration:underline;text-underline-offset:4px}
   @media (max-width:520px){
     .sitenav-menu{min-width:210px}
     .sitenav-menu a{padding:12px}
@@ -97,6 +112,21 @@
            + `${s.key===cur?'<span class="sn-check" title="This section">•</span>':''}</a>`).join('')}
        </div>`;
     mount.replaceWith(wrap);
+    if(inBackyard()){
+      const local = document.createElement('nav');
+      local.setAttribute('aria-label', 'Backyard');
+      local.className = 'backyard-nav';
+      local.innerHTML = [{href:'/backyard/',label:'Backyard',key:'backyard'}, ...BACKYARD].map(s=>`<a href="${s.href}" data-backyard-key="${s.key}">${s.label}</a>`).join('');
+      wrap.after(local);
+      const update = ()=>local.querySelectorAll('a').forEach(a=>{
+        if(a.dataset.backyardKey === backyardKey()) a.setAttribute('aria-current','page');
+        else a.removeAttribute('aria-current');
+      });
+      update();
+      window.addEventListener('hashchange',update);
+      window.addEventListener('popstate',update);
+      document.addEventListener('click',()=>queueMicrotask(update));
+    }
 
     const btn = wrap.querySelector('#sitenavBtn');
     const setOpen = (open)=>{ wrap.classList.toggle('open', open); btn.setAttribute('aria-expanded', open?'true':'false'); };

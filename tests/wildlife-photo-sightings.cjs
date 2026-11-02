@@ -41,4 +41,22 @@ async function checkCommit(mode){
   else{await context.commitWildlifeUpload(result,photo);assert.equal(state.photos.length,1);assert(state.sightings.some(r=>r.id===result.sighting.id));}
   assert.equal(posted.requests.length,2);
 }
-(async()=>{for(const mode of ['ok','fail','lost'])await checkCommit(mode);console.log('Wildlife photo sightings: date matching, backfill, atomic save, and recovery passed.');})().catch(e=>{console.error(e);process.exitCode=1;});
+async function checkUpload(){
+  const state={sightings:[old],photos:[]};let writes=0,fail=false;
+  const context={state,WildlifePhotoSightings:api,Date,Blob,File,console,Math,TABS:{wildlife_photos:1},
+    isGsAuthed:()=>true,isVideo:()=>false,isHeic:()=>false,ymdLocal:()=>today,
+    wildlifeCaptureMetadata:async()=>null,resizeImage:async()=>new Blob(['fixture']),gsEnsureTab:async()=>{},
+    MediaStorage:{request:async()=>{if(fail)throw Error('Storage failed');writes++;}},
+    commitWildlifeUpload:async(result,photo)=>{if(result.create)state.sightings.push(result.sighting);state.photos.push(photo);}};
+  vm.createContext(context);
+  vm.runInContext(html.slice(html.indexOf('async function uploadSightingPhoto('),html.indexOf("$('#photoUploadInput').addEventListener('change'")),context);
+  const file=new File(['fixture'],'pileated-2026-10-31.jpg',{type:'image/jpeg'});
+  assert.equal((await context.uploadSightingPhoto(old.species,file,'')).created,true);
+  assert.equal((await context.uploadSightingPhoto(old.species,file,'')).created,false);
+  assert.equal(state.sightings.length,2);assert.equal(state.photos.length,2);assert.equal(writes,4);
+  fail=true;
+  await assert.rejects(context.uploadSightingPhoto(old.species,file,'2026-10-30'));
+  assert.equal(state.sightings.length,2);assert.equal(state.photos.length,2);
+  await assert.rejects(context.uploadSightingPhoto(old.species,new File(['fixture'],'unknown.jpg'),''));
+}
+(async()=>{for(const mode of ['ok','fail','lost'])await checkCommit(mode);await checkUpload();console.log('Wildlife photo sightings: date matching, upload failures, backfill, atomic save, and recovery passed.');})().catch(e=>{console.error(e);process.exitCode=1;});

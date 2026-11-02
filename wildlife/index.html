@@ -343,7 +343,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </label>
       </div>
       <div id="photoStatus" style="display:none;font-size:12px;color:var(--muted);margin-bottom:6px"></div>
+      <div class="edit-row" style="margin-bottom:10px"><label for="photoDateOverride" class="small">Photo date (optional override for the next files)</label><input type="date" id="photoDateOverride" style="width:auto;max-width:100%;margin-left:8px"><p class="small" style="color:var(--muted);margin:6px 0">Each photo creates or joins a sighting on its capture date. If metadata or a dated filename is missing or incorrect, enter the date here before choosing files. The override applies to every file selected next.</p></div>
       <div id="infoPhotos" class="photo-grid"></div>
+      <p class="edit-row"><button type="button" class="ghost tiny" id="repairPhotoSightings">Create missing sightings from existing photos</button><span class="small"> Checks all species using saved photo dates; safe to run again.</span></p>
     </div>
   </div>
 </div>
@@ -429,6 +431,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <script src="/shared/gauth.js"></script>
 <script src="/shared/media-storage.js"></script>
+<script src="/shared/wildlife-photo-sightings.js?v=1"></script>
 <script>
 /* ── Helpers ── */
 const $ = s => document.querySelector(s);
@@ -1014,6 +1017,7 @@ function openInfo(species){
   const sightings = state.sightings.filter(s=>s.species===species);
   if(!sightings.length) return;
 
+  if (state._currentSpecies !== species) $('#photoDateOverride').value = '';
   state._currentSpecies = species;
 
   $('#infoSpecies').textContent = species;
@@ -1516,7 +1520,7 @@ async function exifDateFromFile(file){
           for (let i = 0; i < numExifEntries; i++){
             const e = exifIfdOffset + 2 + i * 12;
             const tag = get16(e);
-            if (tag === 0x9003 || tag === 0x9004){
+            if (tag === 0x9003){
               const valOffset = tiffStart + get32(e + 8);
               const bytes = new Uint8Array(buf, valOffset, 19);
               const str = new TextDecoder().decode(bytes);
@@ -1757,97 +1761,149 @@ function isVideo(fileOrKey){
 function isVideoKey(key){ return /\.(mp4|mov|webm)$/i.test(key||''); }
 
 /* ── Photo/video upload ── */
-function ymd(d){ return d.toISOString().slice(0,10); }
-function ymdLocal(d){
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+function ymdLocal(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+$('#photoDateOverride').max = ymdLocal(new Date());
+let exifrPromise;
+function loadExifReader(){
+  if(window.exifr) return Promise.resolve(window.exifr);
+  if(exifrPromise) return exifrPromise;
+  exifrPromise = new Promise((resolve,reject)=>{
+    const script=document.createElement('script');
+    const timer=setTimeout(()=>{exifrPromise=null;reject(new Error('Metadata reader timed out'));},10000);
+    script.src='https://cdn.jsdelivr.net/npm/exifr@7.1.3/dist/full.umd.js';
+    script.onload=()=>{clearTimeout(timer);window.exifr?resolve(window.exifr):reject(new Error('Metadata reader unavailable'));};
+    script.onerror=()=>{clearTimeout(timer);exifrPromise=null;reject(new Error('Metadata reader unavailable'));};
+    document.head.append(script);
+  });
+  return exifrPromise;
 }
-// Best-effort capture date from the file's own timestamp. Camera-roll photos and
-// videos carry their capture time in lastModified, so this recovers the real
-// date when EXIF isn't available — notably HEIC photos and all videos. Returns
-// null if missing or implausible (future / pre-1990).
-function captureDateFromFile(file){
-  const t = file && file.lastModified;
-  if(!t) return null;
-  const d = new Date(t);
-  if(isNaN(d.getTime())) return null;
-  if(d.getFullYear() < 1990 || d.getTime() > Date.now() + 86400000) return null;
-  return ymdLocal(d);
+async function wildlifeCaptureMetadata(file){
+  if(isVideo(file)) return null;
+  const jpeg=await exifDateFromFile(file);
+  if(jpeg) return jpeg;
+  if(/^image\/jpe?g$/i.test(file.type||'') || /\.jpe?g$/i.test(file.name||'')) return null;
+  try{
+    const reader=await loadExifReader();
+    const metadata=await reader.parse(file,{pick:['DateTimeOriginal'],reviveValues:false,gps:false});
+    const match=String(metadata?.DateTimeOriginal||'').match(/^(\d{4})[:-](\d{2})[:-](\d{2})/);
+    return match?`${match[1]}-${match[2]}-${match[3]}`:null;
+  }catch(_){return null;}
 }
-
-async function uploadSightingPhoto(sightingId, file, onStatus){
-  if (!isGsAuthed()) throw new Error('Sign in with Google to upload photos.');
-  const date = ymd(new Date());
-  const rand = Math.random().toString(36).slice(2,8);
-
-  if(isVideo(file)){
-    if(file.size > 90*1024*1024) throw new Error('Videos must be no larger than 90 MiB.');
-    const ext = (file.name.match(/\.(mp4|mov|webm)$/i)||['.mp4'])[0].toLowerCase();
-    const vidDate = captureDateFromFile(file) || date;
-    const key = `wildlife-photos/${sightingId}/${vidDate}-${rand}${ext}`;
-    const ct = ext==='.webm' ? 'video/webm' : ext==='.mov' ? 'video/quicktime' : 'video/mp4';
-    if(onStatus) onStatus('Uploading video…');
-    const buf = await file.arrayBuffer();
-    await MediaStorage.request({ method:'PUT', key, body: buf, contentType: ct });
-    await gsEnsureTab('wildlife_photos', TABS.wildlife_photos, ['sighting_id','key','date','caption','hideFromGallery']);
-    await gsAppendRow(TABS.wildlife_photos, [sightingId, key, vidDate, '', 'FALSE']);
-    state.photos.push({ sighting_id: sightingId, key, date: vidDate, caption: '' });
-    return { key, date: vidDate };
+async function wildlifeSheetRows(tab){
+  const token=GAuth.token(); if(!token) throw new Error('Sign in with Google first.');
+  const response=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(tab)}?majorDimension=ROWS`,{headers:{Authorization:'Bearer '+token},cache:'no-store'});
+  if(!response.ok) throw new Error(`Could not read ${tab} (${response.status}).`);
+  return (await response.json()).values||[];
+}
+async function commitWildlifeUpload(result, photo){
+  const token=GAuth.token(); if(!token) throw new Error('Sign in with Google first.');
+  let failure;
+  try{
+    const response=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`,{
+      method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+      body:JSON.stringify({requests:WildlifePhotoSightings.appendRequests(result,photo,TABS)}),
+    });
+    if(!response.ok) throw new Error(`Could not save the sighting and photo (${response.status}).`);
+  }catch(error){
+    failure=error;
+    // A lost response can follow a successful atomic write. Verify this exact key
+    // before inviting a retry, so an already saved observation is not duplicated.
+    try{
+      const [sightingRows,photoRows]=await Promise.all([wildlifeSheetRows('sightings'),wildlifeSheetRows('wildlife_photos')]);
+      const saved=csvToObjects(photoRows).find(row=>row.key===photo.key && row.sighting_id===result.sighting.id);
+      if(!saved){state.sightings=csvToObjects(sightingRows);throw error;}
+      const observation=csvToObjects(sightingRows).find(row=>row.id===saved.sighting_id);
+      if(!observation) throw error;
+      result={sighting:observation,create:false};
+      state.sightings=csvToObjects(sightingRows);
+    }catch(_){throw new Error(failure.message+' Refresh the page before retrying if the connection was interrupted.');}
   }
-
-  let exifDate = await exifDateFromFile(file);
-  let workingFile = file;
-  if (isHeic(file)){
-    if (onStatus) onStatus('Converting HEIC…');
-    const converter = await loadHeic2Any();
-    const blob = await converter({ blob: file, toType: 'image/jpeg', quality: 0.9 });
-    workingFile = new File([blob], file.name.replace(/\.hei[cf]$/i, '.jpg'), { type: 'image/jpeg' });
-  }
-  if (onStatus) onStatus('Resizing…');
-  const resized = await resizeImage(workingFile);
-  const photoDate = exifDate || captureDateFromFile(file) || date;
-  const key = `wildlife-photos/${sightingId}/${photoDate}-${rand}.jpg`;
-  if (onStatus) onStatus('Uploading…');
-  const buf = await resized.arrayBuffer();
-  await MediaStorage.request({ method:'PUT', key, body: buf, contentType:'image/jpeg' });
-  // Thumbnail next to the original (issue #20): 640px long edge, ~40 KB, used by
-  // tables, grids and the photo wall; full image stays for lightbox/slideshows.
-  try {
-    const tb = await resizeImage(new Blob([buf], { type:'image/jpeg' }), 640, 0.8);
-    await MediaStorage.request({ method:'PUT', key: key + '.thumb.jpg', body: await tb.arrayBuffer(), contentType:'image/jpeg' });
-  } catch(e){ console.warn('thumbnail upload failed (original is fine):', e); }
-  await gsEnsureTab('wildlife_photos', TABS.wildlife_photos, ['sighting_id','key','date','caption','hideFromGallery']);
-  await gsAppendRow(TABS.wildlife_photos, [sightingId, key, photoDate, '', 'FALSE']);
-  state.photos.push({ sighting_id: sightingId, key, date: photoDate, caption: '' });
-  return { key, date: photoDate };
+  if(!state.sightings.some(row=>row.id===result.sighting.id)) state.sightings.push(result.sighting);
+  if(!state.photos.some(row=>row.key===photo.key)) state.photos.push(photo);
 }
-
-$('#photoUploadInput').addEventListener('change', async e=>{
-  const files = [...e.target.files];
-  if(!files.length) return;
-  /* Attach to most recent sighting for this species */
-  const species = state._currentSpecies;
-  if(!species) return;
-  const speciesSightings = state.sightings
-    .filter(s=>s.species===species)
-    .sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-  const sightingId = speciesSightings[0]?.id;
-  if(!sightingId){ alert('No sighting to attach photos to. Log a sighting first.'); return; }
-  const statusEl = $('#photoStatus');
-  statusEl.style.display = 'block';
-  for(let i=0;i<files.length;i++){
-    try {
-      statusEl.textContent = `File ${i+1}/${files.length}: preparing…`;
-      await uploadSightingPhoto(sightingId, files[i], msg => statusEl.textContent = `File ${i+1}/${files.length}: ${msg}`);
-    } catch(err){
-      statusEl.textContent = `File ${i+1} failed: ${err.message}`;
-      await new Promise(r=>setTimeout(r, 2000));
+function refreshWildlifeViews(){
+  renderSightings();renderStats();renderCalendar();renderLifeList();renderSeasonalPatterns();buildCategoryFilter();refreshGallery();
+  if(state._currentSpecies && $('#infoOverlay').classList.contains('open')) openInfo(state._currentSpecies);
+}
+$('#repairPhotoSightings').addEventListener('click',async()=>{
+  if(state._photoUploadBusy) return;
+  const status=$('#photoStatus'),button=$('#repairPhotoSightings');
+  status.style.display='block';status.setAttribute('role','status');status.textContent='Checking saved photo dates…';
+  button.disabled=true;state._photoUploadBusy=true;
+  try{
+    const [sr,pr]=await Promise.all([wildlifeSheetRows('sightings'),wildlifeSheetRows('wildlife_photos')]);
+    if(!['id','species','category','date','location','notes','firstOfYear'].every((h,i)=>sr[0]?.[i]===h) || !['sighting_id','key','date','caption'].every((h,i)=>pr[0]?.[i]===h)) throw new Error('Sheet columns have changed; no records were updated.');
+    const sightings=csvToObjects(sr),photos=csvToObjects(pr);
+    const repair=WildlifePhotoSightings.reconcile(sightings,photos,ymdLocal(new Date()));
+    const requests=[...(repair.created.length?[{appendCells:{sheetId:TABS.sightings,rows:repair.created.map(row=>({values:WildlifePhotoSightings.sightingValues(row).map(value=>({userEnteredValue:{stringValue:value}}))})),fields:'userEnteredValue'}}]:[]),...repair.links.map(link=>({updateCells:{range:{sheetId:TABS.wildlife_photos,startRowIndex:link.index+1,endRowIndex:link.index+2,startColumnIndex:0,endColumnIndex:1},rows:[{values:[{userEnteredValue:{stringValue:link.sightingId}}]}],fields:'userEnteredValue'}}))];
+    if(requests.length){
+      const response=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`,{method:'POST',headers:{Authorization:'Bearer '+GAuth.token(),'Content-Type':'application/json'},body:JSON.stringify({requests})});
+      if(!response.ok) throw new Error(`Could not repair sightings (${response.status}).`);
     }
+    const [verifiedSightings,verifiedPhotos]=await Promise.all([wildlifeSheetRows('sightings'),wildlifeSheetRows('wildlife_photos')]);
+    state.sightings=csvToObjects(verifiedSightings);state.photos=csvToObjects(verifiedPhotos);
+    const remaining=WildlifePhotoSightings.reconcile(state.sightings,state.photos,ymdLocal(new Date()));
+    if(remaining.created.length || remaining.links.length) throw new Error('Some dates still need repair. Run this check again.');
+    status.textContent=`Verified: ${repair.created.length} sightings created; ${repair.links.length} photos linked to their saved dates.${repair.skipped.length?' '+repair.skipped.length+' photos need a valid saved date or species.':''}`;
+    refreshWildlifeViews();
+  }catch(error){status.textContent=error.message+' You can safely run this check again; saved sightings will be reused.';}
+  finally{button.disabled=false;state._photoUploadBusy=false;}
+});
+async function uploadSightingPhoto(species,file,dateOverride,onStatus){
+  if(!isGsAuthed()) throw new Error('Sign in with Google to upload photos.');
+  if(isVideo(file) && file.size>90*1024*1024) throw new Error('Videos must be no larger than 90 MiB.');
+  const capture=WildlifePhotoSightings.captureDate({override:dateOverride,exif:dateOverride?'':await wildlifeCaptureMetadata(file),filename:file.name,today:ymdLocal(new Date())});
+  const category=state.sightings.find(row=>WildlifePhotoSightings.normalize(row.species)===WildlifePhotoSightings.normalize(species))?.category||'';
+  const result=WildlifePhotoSightings.plan(state.sightings,{species,category,date:capture.date},ymdLocal(new Date()));
+  let body,contentType,extension;
+  if(isVideo(file)){
+    extension=(file.name.match(/\.(mp4|mov|webm)$/i)||['.mp4'])[0].toLowerCase();
+    contentType=extension==='.webm'?'video/webm':extension==='.mov'?'video/quicktime':'video/mp4';
+    body=await file.arrayBuffer();
+  }else{
+    let working=file;
+    if(isHeic(file)){
+      onStatus?.('Converting HEIC…');const converter=await loadHeic2Any();
+      const converted=await converter({blob:file,toType:'image/jpeg',quality:.9});
+      working=new File([Array.isArray(converted)?converted[0]:converted],file.name.replace(/\.hei[cf]$/i,'.jpg'),{type:'image/jpeg'});
+    }
+    onStatus?.('Resizing…');body=await (await resizeImage(working)).arrayBuffer();contentType='image/jpeg';extension='.jpg';
   }
-  statusEl.textContent = 'Done!';
-  setTimeout(()=>{ statusEl.style.display = 'none'; }, 2000);
-  renderSpeciesPhotos(species);
-  refreshGallery();
-  e.target.value = '';
+  await gsEnsureTab('wildlife_photos',TABS.wildlife_photos,['sighting_id','key','date','caption','hideFromGallery']);
+  const key=`wildlife-photos/${result.sighting.id}/${capture.date}-${Math.random().toString(36).slice(2,8)}${extension}`;
+  onStatus?.(`Uploading for ${capture.date} (${capture.source})…`);
+  await MediaStorage.request({method:'PUT',key,body,contentType});
+  if(!isVideo(file)){
+    try{const thumb=await resizeImage(new Blob([body],{type:'image/jpeg'}),640,.8);await MediaStorage.request({method:'PUT',key:key+'.thumb.jpg',body:await thumb.arrayBuffer(),contentType:'image/jpeg'});}
+    catch(error){console.warn('Thumbnail upload failed; original is saved.',error);}
+  }
+  const photo={sighting_id:result.sighting.id,key,date:capture.date,caption:''};
+  onStatus?.(result.create?'Saving photo and new dated sighting…':'Saving photo to the matching dated sighting…');
+  await commitWildlifeUpload(result,photo);
+  return {key,date:capture.date,created:result.create};
+}
+$('#photoUploadInput').addEventListener('change',async event=>{
+  const files=[...event.target.files],species=state._currentSpecies,dateOverride=$('#photoDateOverride').value;
+  if(!files.length || !species || state._photoUploadBusy) return;
+  const status=$('#photoStatus');status.style.display='block';status.setAttribute('role','status');
+  state._photoUploadBusy=true;event.target.disabled=$('#photoDateOverride').disabled=true;
+  let saved=0,created=0;const failures=[];
+  try{
+    status.textContent='Checking existing sightings…';
+    const rows=await wildlifeSheetRows('sightings');
+    if(!['id','species','category','date','location','notes','firstOfYear'].every((header,i)=>rows[0]?.[i]===header)) throw new Error('The sighting columns have changed. No files were uploaded.');
+    state.sightings=csvToObjects(rows);
+    for(let i=0;i<files.length;i++){
+      try{const result=await uploadSightingPhoto(species,files[i],dateOverride,message=>status.textContent=`File ${i+1}/${files.length}: ${message}`);saved++;if(result.created)created++;}
+      catch(error){failures.push(`${files[i].name}: ${error.message}`);}
+    }
+    status.textContent=`${saved}/${files.length} files saved; ${created} new sighting${created===1?'':'s'}.${failures.length?' '+failures.join(' · '):''}`;
+  }catch(error){status.textContent=error.message;}
+  finally{
+    state._photoUploadBusy=false;event.target.disabled=$('#photoDateOverride').disabled=false;event.target.value='';$('#photoDateOverride').value='';
+    renderSightings();renderStats();renderCalendar();renderLifeList();renderSeasonalPatterns();buildCategoryFilter();refreshGallery();
+    if(state._currentSpecies===species && $('#infoOverlay').classList.contains('open')) openInfo(species);
+  }
 });
 
 /* ── Lightbox ── */

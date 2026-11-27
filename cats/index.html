@@ -182,7 +182,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="grid3" id="statsCards"></div>
     <div class="grid2" style="margin-top:20px">
       <div>
-        <div class="stats-chart-label">By category</div>
+        <div class="stats-chart-label">Photos per cat (shared photos count for each cat)</div>
         <div id="chartCategories"></div>
       </div>
       <div>
@@ -213,9 +213,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <h2 style="margin:0 0 16px;font-size:18px;text-transform:none;letter-spacing:0;color:var(--ink)">Add Photos</h2>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <div>
-        <label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Cat name</label>
-        <input type="text" id="addCategory" list="catList" placeholder="Enter a cat’s name" autocomplete="off">
-        <datalist id="catList"></datalist>
+        <label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Cat names</label>
+        <input type="text" id="addCategory" list="catList" placeholder="Tadpole, Clovis" aria-label="Cat names, separated by commas" autocomplete="off">
+        <datalist id="catList"></datalist><p class="small" style="color:var(--muted);margin:6px 0">Separate names with commas. A shared photo appears under each cat.</p>
       </div>
       <div>
         <label class="small" style="color:var(--muted);display:block;margin-bottom:3px">Sub-category <span style="opacity:.6">(optional)</span></label>
@@ -255,7 +255,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <span id="lightboxDate" style="display:inline-block;color:#fff;font-weight:600;padding:5px 10px"></span>
       <div class="edit-row" style="display:flex;gap:8px;justify-content:center;margin-top:6px;flex-wrap:wrap">
         <input type="text" id="lightboxTitle" placeholder="title…" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:6px;padding:6px 10px;width:180px;max-width:44vw">
-        <input type="text" id="lightboxCategory" list="catList" placeholder="category…" autocomplete="off" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:6px;padding:6px 10px;width:150px;max-width:44vw">
+        <input type="text" id="lightboxCategory" list="catList" aria-label="Cat names, separated by commas" title="Cat names, separated by commas" placeholder="Tadpole, Clovis" autocomplete="off" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:6px;padding:6px 10px;width:260px;max-width:75vw">
         <input type="text" id="lightboxSubcategory" list="subList" placeholder="sub-category…" autocomplete="off" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:6px;padding:6px 10px;width:150px;max-width:44vw">
       </div>
       <input type="text" id="lightboxCaption" placeholder="add caption&hellip;" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:6px;padding:6px 10px;margin-top:6px;width:340px;max-width:90vw">
@@ -306,7 +306,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <script src="/shared/gauth.js?v=cats-callback-1"></script>
 <script src="/shared/media-storage.js"></script>
-<script src="/shared/photo-sections.js?v=2"></script>
-<script src="/shared/photography-gallery.js?v=2"></script>
+<script src="/shared/photo-sections.js?v=3"></script>
+<script src="/shared/photography-gallery.js?v=3"></script>
 </body>
 </html>

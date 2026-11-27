@@ -95,7 +95,7 @@
   async function loadSource(key){
     const s = SOURCES[key];
     let photos = s.photosByName ? await byName(s.sheet, s.photosByName) : await byGid(s.sheet, s.photos);
-    if(s.standalone) photos = photos.filter(p=>(/^(?:photography\/(?:cats|puck)\/)/i.test(String(p.key || '')) || String(p.category || '').trim().toLowerCase() === 'puck') === (key === 'cats'));
+    if(s.standalone) photos = photos.filter(p=>(/^(?:photography\/(?:cats|puck)\/)/i.test(String(p.key || '')) || String(p.category || '').split(',').some(name=>name.trim().toLowerCase()==='puck')) === (key === 'cats'));
     const items = s.standalone ? null : await byGid(s.sheet, s.items).catch(()=>[]);
     const byId = items ? new Map(items.map(it => [it.id, it])) : null;
     const out = [];

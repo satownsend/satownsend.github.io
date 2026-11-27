@@ -120,24 +120,30 @@ function setSyncStatus(msg, cls){
 }
 
 /* ── Categories ── */
+function photoCategories(photo){
+  return CAT_PAGE ? PhotoSections.catNames(photo.category) : (photo.category ? [photo.category] : []);
+}
+function hasCategory(photo, name){
+  return photoCategories(photo).some(cat=>cat.toLowerCase()===name.toLowerCase());
+}
 function allCategories(){
   const set = new Set(SEED_CATEGORIES);
-  for(const p of state.photos){ if(p.category) set.add(p.category); }
+  for(const p of state.photos){ for(const name of photoCategories(p)) set.add(name); }
   return [...set].sort((a,b)=>a.localeCompare(b));
 }
 function categoryCounts(){
-  const m = {};
-  for(const p of state.photos){ const c = p.category || 'Uncategorized'; m[c] = (m[c]||0)+1; }
+  const m = Object.create(null);
+  for(const p of state.photos){ const names=photoCategories(p);for(const c of names.length ? names : ['Uncategorized']) m[c]=(m[c]||0)+1; }
   return m;
 }
 function subcategoriesFor(cat){
   const set = new Set(SEED_SUBCATEGORIES[cat] || []);
-  for(const p of state.photos){ if((p.category||'') === cat && p.subcategory) set.add(p.subcategory); }
+  for(const p of state.photos){ if(hasCategory(p,cat) && p.subcategory) set.add(p.subcategory); }
   return [...set].sort((a,b)=>a.localeCompare(b));
 }
 function subCounts(cat){
-  const m = {};
-  for(const p of state.photos){ if((p.category||'') === cat && p.subcategory) m[p.subcategory] = (m[p.subcategory]||0)+1; }
+  const m = Object.create(null);
+  for(const p of state.photos){ if(hasCategory(p,cat) && p.subcategory) m[p.subcategory] = (m[p.subcategory]||0)+1; }
   return m;
 }
 
@@ -162,7 +168,7 @@ function buildSubChips(){
   const subs = activeCategory ? subcategoriesFor(activeCategory) : [];
   if(!activeCategory || !subs.length){ wrap.style.display = 'none'; wrap.innerHTML = ''; return; }
   const counts = subCounts(activeCategory);
-  const catTotal = state.photos.filter(p=>(p.category||'') === activeCategory).length;
+  const catTotal = state.photos.filter(p=>hasCategory(p,activeCategory)).length;
   const chips = [`<button class="cat-chip sub${activeSub===''?' active':''}" data-sub="">All ${escapeHtml(activeCategory)} <span class="cc-count">${catTotal}</span></button>`];
   for(const s of subs){
     chips.push(`<button class="cat-chip sub${activeSub===s?' active':''}" data-sub="${escapeHtml(s)}">${escapeHtml(s)}<span class="cc-count">${counts[s]||0}</span></button>`);
@@ -201,7 +207,7 @@ function filteredSortedPhotos(){
   const q = $('#searchBox').value.toLowerCase().trim();
   let list = state.photos.filter(p=>{
     const cat = p.category || 'Uncategorized';
-    if(activeCategory && cat !== activeCategory) return false;
+    if(activeCategory && !(activeCategory==='Uncategorized' ? !photoCategories(p).length : hasCategory(p,activeCategory))) return false;
     if(activeCategory && activeSub && (p.subcategory||'') !== activeSub) return false;
     if(q){
       const hay = `${p.category} ${p.subcategory||''} ${p.title} ${p.caption} ${p.date}`.toLowerCase();
@@ -409,11 +415,12 @@ function renderStats(){
 
   $('#statsCards').innerHTML = `
     <div class="stat-card"><div class="stat-num">${total}</div><div class="stat-label">Total Photos</div></div>
-    <div class="stat-card"><div class="stat-num">${Object.keys(catCounts).length}</div><div class="stat-label">Categories</div></div>
+    <div class="stat-card"><div class="stat-num">${Object.keys(catCounts).length}</div><div class="stat-label">${CAT_PAGE ? 'Cats' : 'Categories'}</div></div>
     <div class="stat-card"><div class="stat-num">${years.size}</div><div class="stat-label">Years</div></div>
   `;
 
-  drawPie('#chartCategories', new Map(Object.entries(catCounts)));
+  if(CAT_PAGE) drawBars('#chartCategories', Object.entries(catCounts), 'cat tags');
+  else drawPie('#chartCategories', new Map(Object.entries(catCounts)));
 
   const byMonth = new Map();
   const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -476,7 +483,7 @@ function drawBars(target, series, noun){
     return `<g>
       <rect x="${x.toFixed(2)}" y="${yy.toFixed(2)}" width="${wd.toFixed(2)}" height="${bh.toFixed(2)}" fill="var(--accent)" rx="2"/>
       ${n?`<text x="${(x+wd/2).toFixed(2)}" y="${(yy-4).toFixed(2)}" text-anchor="middle" font-size="10" fill="var(--ink-soft)">${n}</text>`:''}
-      <text x="${(x+wd/2).toFixed(2)}" y="${h-padB+14}" text-anchor="middle" font-size="10" fill="var(--ink-soft)">${label}</text>
+      <text x="${(x+wd/2).toFixed(2)}" y="${h-padB+14}" text-anchor="middle" font-size="10" fill="var(--ink-soft)">${escapeHtml(label)}</text>
     </g>`;
   }).join('');
   const axis = `<line x1="${padL}" y1="${h-padB}" x2="${chartW-padR}" y2="${h-padB}" stroke="var(--line)"/>`;
@@ -897,8 +904,8 @@ $('#addCancel').onclick = closeAddPhotos;
 $('#addOverlay').addEventListener('click', e=>{ if(e.target === $('#addOverlay')) closeAddPhotos(); });
 
 $('#addSaveBtn').onclick = async ()=>{
-  const category = $('#addCategory').value.trim();
-  if(CAT_PAGE && !category){ $('#addStatusMsg').textContent='Enter the cat’s name.'; $('#addCategory').focus(); return; }
+  const category = CAT_PAGE ? PhotoSections.catNames($('#addCategory').value).join(', ') : $('#addCategory').value.trim();
+  if(CAT_PAGE && !category){ $('#addStatusMsg').textContent='Enter at least one cat name.'; $('#addCategory').focus(); return; }
   const photoCategory = category || 'Misc';
   if(PhotoSections.isPuck({category}) && !CAT_PAGE){ $('#addStatusMsg').textContent='Add Puck photos on the Cats page.'; return; }
   const subcategory = $('#addSubcategory').value.trim();
@@ -981,8 +988,8 @@ async function saveLbField(){
   if(!p) return;
   const sp = state.photos.find(x=>x.key===p.key) || p;
   sp.title = p.title = $('#lightboxTitle').value.trim();
-  const category = $('#lightboxCategory').value.trim();
-  if(CAT_PAGE && !category){ alert('Enter the cat’s name.'); return; }
+  const category = CAT_PAGE ? PhotoSections.catNames($('#lightboxCategory').value).join(', ') : $('#lightboxCategory').value.trim();
+  if(CAT_PAGE && !category){ alert('Enter at least one cat name.'); return; }
   sp.category = p.category = category;
   sp.subcategory = p.subcategory = $('#lightboxSubcategory').value.trim();
   sp.caption = p.caption = $('#lightboxCaption').value.trim();

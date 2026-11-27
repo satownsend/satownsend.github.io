@@ -21,5 +21,20 @@ console.log('Cat/photography separation, shared scripts, row identity, and page 
  assert.equal(values[2],'Milo');assert.match(values[1],/^photography\/cats\/milo\//);
  const saved={...state.photos[0],category:'Renamed Milo'};
  assert(sections.includes(saved,true));assert(!sections.includes(saved,false));
- console.log('New cat upload persists its name and stays in Cats after reload or rename');
+ await ctx.uploadPhoto({name:'together.mp4',size:10,arrayBuffer:async()=>new ArrayBuffer(1)},'Tadpole, Clovis','','','2026-11-26');
+ assert.equal(values[2],'Tadpole, Clovis');assert.equal(sections.catNames(state.photos[1].category).length,2);
+ console.log('New and shared-cat uploads persist names and stay in Cats after reload or rename');
 })().catch(e=>{console.error(e);process.exitCode=1;});
+
+assert.deepEqual(sections.catNames(' Tadpole, Clovis, tadpole, , Clovis '),['Tadpole','Clovis']);
+const sharedPhoto={category:'Tadpole, Clovis',key:'photography/cats/tadpole-clovis/shared.jpg',date:'2026-11-26'};
+const context={CAT_PAGE:true,PhotoSections:sections,SEED_CATEGORIES:['Puck'],SEED_SUBCATEGORIES:{},state:{photos:[sharedPhoto,{category:'Clovis',key:'photography/cats/clovis/solo.jpg',date:'2026-11-25'}]},activeCategory:'Tadpole',activeSub:'',$:selector=>({value:selector==='#sortSel'?'newest':''})};
+vm.createContext(context);
+vm.runInContext(gallery.slice(gallery.indexOf('function photoCategories('),gallery.indexOf('function buildCategoryChips(')),context);
+vm.runInContext(gallery.slice(gallery.indexOf('function filteredSortedPhotos('),gallery.indexOf('/* Pagination')),context);
+assert.deepEqual({...context.categoryCounts()},{Tadpole:1,Clovis:2});
+assert.equal(context.filteredSortedPhotos().length,1);
+context.activeCategory='Clovis';assert.equal(context.filteredSortedPhotos().length,2);
+context.activeCategory='';assert.equal(context.filteredSortedPhotos().length,2);
+assert(sections.includes(sharedPhoto,true));assert(!sections.includes(sharedPhoto,false));
+console.log('Shared photos match both cats, count once in All, and deduplicate repeated names');

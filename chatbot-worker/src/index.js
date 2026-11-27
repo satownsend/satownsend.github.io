@@ -1,3 +1,5 @@
+import { medicalResponse } from './cat-medical.js';
+export { CatMedicalStore } from './cat-medical.js';
 import { mediaResponse } from './media.js';
 import { archiveResponse, updateArchive } from './weather-archive.js';
 import { loadWeatherContext } from './weather.js';
@@ -515,6 +517,17 @@ export default {
   async fetch(request, env){
     const origin = request.headers.get('Origin') || '';
     const cors = corsHeaders(origin);
+
+    const path = new URL(request.url).pathname;
+    if(path === '/cat-medical' || path.startsWith('/cat-medical/')){
+      const privateHeaders = {...cors, 'Cache-Control':'private, no-store'};
+      if(origin && (!origin.startsWith('https://') || !ALLOW_ORIGINS.includes(origin))){
+        return new Response(null, {status:403, headers:privateHeaders});
+      }
+      if(request.method === 'OPTIONS') return new Response(null, {status:204, headers:privateHeaders});
+      const denied = await authorizeOwner(request, env, privateHeaders);
+      return denied || medicalResponse(request, env, privateHeaders);
+    }
 
     const media = new URL(request.url).pathname.startsWith('/media/');
     if(media && origin && !ALLOW_ORIGINS.includes(origin)) return new Response('Origin not allowed.', {status:403});

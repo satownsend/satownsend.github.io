@@ -17,7 +17,7 @@ const env={ALLOWED_GOOGLE_SUBJECTS:'owner',WEATHER_ARCHIVE:bucket};
 const ctx={Response,Request,URL,FixedLengthStream,AbortController,console,fetch:async()=>{if(googleFails)throw Error('network');return {ok:true,json:async()=>identity}}};
 vm.createContext(ctx);
 vm.runInContext(fs.readFileSync('chatbot-worker/src/media.js','utf8').replace(/^export /gm,''),ctx);
-vm.runInContext(fs.readFileSync('chatbot-worker/src/index.js','utf8').replace(/^import .*;\n/gm,'').replace('export default {','globalThis.worker = {'),ctx);
+vm.runInContext(fs.readFileSync('chatbot-worker/src/index.js','utf8').replace(/^(?:import .*|export \{ .* \} from .*)[;]\n/gm,'').replace('export default {','globalThis.worker = {'),ctx);
 function req(path='object',method='GET',key='photos/maple/a.jpg',extra={}){
  const url=new URL('https://worker.example/media/'+path);if(key!==null)url.searchParams.set('key',key);
  const headers={Authorization:'Bearer test',Origin:'https://satownsend.com',...extra.headers};

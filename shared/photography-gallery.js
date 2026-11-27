@@ -97,6 +97,7 @@ async function loadData(){
     renderGrid();
     renderStats();
     refreshGallery();
+    document.dispatchEvent(new Event('photo-gallery-loaded'));
   } catch(e){
     console.error(e);
     setSyncStatus('failed to load data', 'err');

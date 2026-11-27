@@ -56,10 +56,15 @@
   function authUrl(extra){
     // Persist before navigating; unavailable storage must fail closed.
     const state = Array.from(crypto.getRandomValues(new Uint8Array(32)), b => b.toString(16).padStart(2, '0')).join('');
-    sessionStorage.setItem(STATE_KEY, JSON.stringify({ state, created: Date.now(), path: location.pathname }));
+    // Cats shares Photography's registered callback; adding a gallery must not
+    // require changing the OAuth client's redirect allowlist.
+    const cats = /^\/cats\/?$/.test(location.pathname);
+    const callbackPath = cats ? '/photography/' : location.pathname;
+    const returnTo = cats ? '/cats/' + location.search + location.hash : '';
+    sessionStorage.setItem(STATE_KEY, JSON.stringify({ state, created: Date.now(), path: callbackPath, returnTo }));
     const params = new URLSearchParams(Object.assign({
       client_id: CLIENT_ID,
-      redirect_uri: location.origin + location.pathname,
+      redirect_uri: location.origin + callbackPath,
       response_type: 'token',
       state,
       scope: SCOPE,
@@ -91,6 +96,7 @@
     if (at && !err){
       store(at, expires);
       try { sessionStorage.removeItem(FAILED_FLAG); } catch(e){}
+      if (pending.returnTo && /^\/cats\/(?:[?#]|$)/.test(pending.returnTo)) location.replace(pending.returnTo);
       return 'signed-in';
     }
     if (err){

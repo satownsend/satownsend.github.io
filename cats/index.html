@@ -191,6 +191,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <option value="">All types</option><option>Wet</option><option>Dry</option><option>Treat</option>
         </select>
       </label>
+      <label>Format
+        <select id="cat-food-format">
+          <option value="">All formats</option><option value="freeze-dried">Freeze-dried</option>
+        </select>
+      </label>
       <label>Compare Clovis and Tadpole
         <select id="cat-food-match">
           <option value="">All foods</option>
@@ -208,7 +213,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <label>Brand <input type="text" name="brand" required maxlength="100"></label>
           <label>Flavor or recipe <input type="text" name="flavor" required maxlength="100"></label>
           <label>Type <select name="type"><option>Wet</option><option>Dry</option><option>Treat</option></select></label>
-          <label>Texture <input type="text" name="texture" placeholder="e.g. pâté, shreds, crunchy" maxlength="100"></label>
+          <label>Format or texture <input type="text" name="texture" list="cat-food-formats" placeholder="e.g. Freeze-dried, pâté, shreds" maxlength="100"></label>
+          <datalist id="cat-food-formats"><option value="Freeze-dried"><option value="Pâté"><option value="Shreds"><option value="Kibble"></datalist>
           <button type="submit">Save food</button>
         </form>
       </details>
@@ -425,7 +431,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <script src="/shared/media-storage.js"></script>
 <script src="/shared/photo-sections.js?v=3"></script>
 <script src="/shared/cat-field-guide.js?v=2" defer></script>
-<script src="/shared/cat-food-notebook.js" defer></script>
+<script src="/shared/cat-food-notebook.js?v=2" defer></script>
 <script src="/shared/cat-medical.js" defer></script>
 <script src="/shared/photography-gallery.js?v=5"></script>
 </body>

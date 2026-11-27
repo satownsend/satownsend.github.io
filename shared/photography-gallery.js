@@ -124,7 +124,9 @@ function photoCategories(photo){
   return CAT_PAGE ? PhotoSections.catNames(photo.category) : (photo.category ? [photo.category] : []);
 }
 function hasCategory(photo, name){
-  return photoCategories(photo).some(cat=>cat.toLowerCase()===name.toLowerCase());
+  const names = CAT_PAGE ? PhotoSections.catNames(name) : [name];
+  const tagged = photoCategories(photo).map(cat=>cat.toLowerCase());
+  return names.length > 0 && names.every(cat=>tagged.includes(cat.toLowerCase()));
 }
 function allCategories(){
   const set = new Set(SEED_CATEGORIES);
@@ -156,6 +158,22 @@ function buildCategoryChips(){
   const chips = [`<button class="cat-chip${activeCategory===''?' active':''}" data-cat="">All <span class="cc-count">${state.photos.length}</span></button>`];
   for(const c of shown){
     chips.push(`<button class="cat-chip${activeCategory===c?' active':''}" data-cat="${escapeHtml(c)}">${escapeHtml(c)}<span class="cc-count">${counts[c]||0}</span></button>`);
+  }
+  if(CAT_PAGE){
+    // Offer shared-photo groups in addition to the individual cats. Sorting
+    // gives 'Tadpole, Clovis' and 'Clovis, Tadpole' one group.
+    const groups = new Map();
+    for(const photo of state.photos){
+      const names=photoCategories(photo).sort((a,b)=>a.localeCompare(b));
+      if(names.length<2) continue;
+      const value=names.join(', '), key=names.map(name=>name.toLowerCase()).join(',');
+      if(!groups.has(key)) groups.set(key,{value,label:names.join(' and ')});
+    }
+    for(const {value,label} of [...groups.values()].sort((a,b)=>a.label.localeCompare(b.label))){
+      const count=state.photos.filter(photo=>hasCategory(photo,value)).length;
+      const active=PhotoSections.catNames(activeCategory).map(name=>name.toLowerCase()).sort().join(',') === PhotoSections.catNames(value).map(name=>name.toLowerCase()).sort().join(',');
+      chips.push(`<button class="cat-chip${active?' active':''}" data-cat="${escapeHtml(value)}">${escapeHtml(label)}<span class="cc-count">${count}</span></button>`);
+    }
   }
   $('#catChips').innerHTML = chips.join('');
   buildSubChips();

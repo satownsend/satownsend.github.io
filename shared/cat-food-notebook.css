@@ -1,0 +1,20 @@
+.cat-food { margin: 24px 0; }
+.cat-food h2, .cat-food h3 { margin: 0 0 8px; }
+.cat-food-controls, .cat-food form {
+  display: flex; flex-wrap: wrap; align-items: end; gap: 10px;
+}
+.cat-food label { display: grid; gap: 4px; min-width: min(100%, 150px); }
+.cat-food input, .cat-food select { min-width: 0; width: 100%; }
+.cat-food-list { display: grid; gap: 10px; }
+.cat-food-card, .cat-food-editor details {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px;
+}
+.cat-food-card p { margin: 0; color: var(--muted); }
+.cat-food-comparison { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 10px 0; }
+.cat-food-comparison div { padding: 8px 10px; border-radius: 8px; background: var(--panel2); overflow-wrap: anywhere; }
+.cat-food-comparison dt { font-weight: 600; }
+.cat-food-comparison dd { margin: 0; }
+.cat-food summary { cursor: pointer; }
+.cat-food-editor { display: grid; gap: 8px; margin-top: 12px; }
+.cat-food form { padding-top: 10px; }
+.cat-food [hidden], .cat-food [role="status"]:empty { display: none; }

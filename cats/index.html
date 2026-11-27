@@ -20,6 +20,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <noscript><link rel="stylesheet" href="https://use.typekit.net/twp1irx.css"></noscript>
 <link rel="stylesheet" href="/shared/styles.css?v=readability-1">
 <link rel="stylesheet" href="/shared/cat-field-guide.css?v=2">
+<link rel="stylesheet" href="/shared/cat-food-notebook.css">
 <script src="/shared/themes.js"></script>
 <script defer src="/shared/nav.js?v=app-1"></script>
 <script defer src="/shared/chat.js"></script>
@@ -178,6 +179,49 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </div>
     </form>
     <p id="cat-guide-status" role="status"></p>
+  </section>
+
+  <section class="cat-food" id="food-notebook" aria-labelledby="cat-food-title">
+    <h2 id="cat-food-title">Food notebook</h2>
+    <div class="cat-food-controls">
+      <label>Food type
+        <select id="cat-food-type">
+          <option value="">All types</option><option>Wet</option><option>Dry</option><option>Treat</option>
+        </select>
+      </label>
+      <label>Compare Clovis and Tadpole
+        <select id="cat-food-match">
+          <option value="">All foods</option>
+          <option value="both">Both will eat</option>
+          <option value="differ">They disagree</option>
+        </select>
+      </label>
+    </div>
+    <p id="cat-food-status" role="status">Loading foods…</p>
+    <div id="cat-food-list" class="cat-food-list"></div>
+    <div id="cat-food-editor" class="cat-food-editor" hidden>
+      <details>
+        <summary>Add a food</summary>
+        <form id="cat-food-add">
+          <label>Brand <input type="text" name="brand" required maxlength="100"></label>
+          <label>Flavor or recipe <input type="text" name="flavor" required maxlength="100"></label>
+          <label>Type <select name="type"><option>Wet</option><option>Dry</option><option>Treat</option></select></label>
+          <label>Texture <input type="text" name="texture" placeholder="e.g. pâté, shreds, crunchy" maxlength="100"></label>
+          <button type="submit">Save food</button>
+        </form>
+      </details>
+      <details>
+        <summary>Log a reaction</summary>
+        <form id="cat-food-log">
+          <label>Food <select name="food" required></select></label>
+          <label>Cat <select name="cat"><option>Clovis</option><option>Tadpole</option><option>Puck</option></select></label>
+          <label>Date <input type="date" name="date" required></label>
+          <label>Reaction <select name="reaction"><option>Loved it</option><option>Ate some</option><option>Passed</option></select></label>
+          <button type="submit">Save reaction</button>
+        </form>
+      </details>
+      <p id="cat-food-save-status" role="status"></p>
+    </div>
   </section>
 
   <!-- Gallery -->
@@ -346,6 +390,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <script src="/shared/media-storage.js"></script>
 <script src="/shared/photo-sections.js?v=3"></script>
 <script src="/shared/cat-field-guide.js?v=2" defer></script>
+<script src="/shared/cat-food-notebook.js" defer></script>
 <script src="/shared/photography-gallery.js?v=5"></script>
 </body>
 </html>

@@ -24,5 +24,12 @@
 .cat-guide-form { display: grid; gap: 12px; }
 .cat-guide-form h3 { margin: 0; }
 .cat-guide-form label, .cat-guide-pickers label { display: grid; gap: 5px; }
+.cat-guide-dates {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
+  gap: 12px; min-width: 0; margin: 0; padding: 12px;
+  border: 1px solid var(--line); border-radius: 10px;
+}
+.cat-guide-dates legend { padding: 0 5px; color: var(--muted); }
+.cat-guide-dates input { min-width: 0; }
 .cat-field-guide [hidden] { display: none; }
 #cat-guide-status:empty { display: none; }

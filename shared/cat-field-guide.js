@@ -7,7 +7,10 @@
     clue: 'How to tell them apart',
     habits: 'Signature habits',
   };
-  const columns = ['cat', 'portrait', 'intro', ...Object.keys(fields)];
+  const lifeDates = {born: 'Born', adopted: 'Adoption date', died: 'Died'};
+  // Keep the original columns in place for profiles saved before life dates.
+  const columns = ['cat', 'portrait', 'intro', ...Object.keys(fields), ...Object.keys(lifeDates)];
+  const dateFormat = new Intl.DateTimeFormat('en-US', {dateStyle: 'medium', timeZone: 'UTC'});
   const profiles = new Map();
   const form = $('#cat-guide-form');
   const first = $('#cat-guide-first');
@@ -46,6 +49,17 @@
     copy.append(element('h3', cat));
     if(profile.intro) copy.append(element('p', profile.intro));
     const details = element('dl');
+    for(const [key, label] of Object.entries(lifeDates)){
+      const value = profile[key];
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(value || '')) continue;
+      const date = new Date(value + 'T00:00:00Z');
+      if(!Number.isFinite(date.getTime()) || date.toISOString().slice(0,10) !== value) continue;
+      const time = element('time', dateFormat.format(date));
+      time.dateTime = value;
+      const definition = element('dd');
+      definition.append(time);
+      details.append(element('dt', label), definition);
+    }
     for(const [key, label] of Object.entries(fields)){
       if(profile[key]) details.append(element('dt', label), element('dd', profile[key]));
     }
@@ -79,7 +93,7 @@
       portrait.add(new Option([photo.date, photo.title || photo.caption || photo.key.split('/').pop()].filter(Boolean).join(' · '), photo.key));
     }
     portrait.value = [...portrait.options].some(option => option.value === profile.portrait) ? profile.portrait : '';
-    for(const key of ['intro', ...Object.keys(fields)]) form.elements[key].value = profile[key] || '';
+    for(const key of columns.slice(2)) form.elements[key].value = profile[key] || '';
   }
 
   async function sheetExists(){
@@ -104,8 +118,8 @@
     await sheetsApi(base + '/values:batchUpdate', {
       method:'POST', headers:json,
       body:JSON.stringify({valueInputOption:'RAW', data:[
-        {range:tab+'!A1:G1', values:[columns]},
-        {range:tab+'!A'+row+':G'+row, values:[[cat, ...columns.slice(1).map(key => profile[key])]]},
+        {range:tab+'!A1:J1', values:[columns]},
+        {range:tab+'!A'+row+':J'+row, values:[[cat, ...columns.slice(1).map(key => profile[key])]]},
       ]}),
     });
   }

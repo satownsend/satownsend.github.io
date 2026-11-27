@@ -58,6 +58,11 @@
     return food.history.find(entry => entry.cat === cat);
   }
 
+  function reactionLabel(reaction){
+    // Keep the stored value compatible with existing tastings.
+    return reaction === 'Passed' ? "Didn't Like" : reaction;
+  }
+
   function matches(food){
     const [type, format, filter] = filters.map(select => select.value);
     if(type && food.type !== type) return false;
@@ -75,7 +80,7 @@
     for(const cat of cats.slice(0,2)){
       const entry = latest(food,cat);
       const cell = element('div');
-      cell.append(element('dt',cat),element('dd',entry ? entry.reaction + ' · ' + entry.date : 'Untried'));
+      cell.append(element('dt',cat),element('dd',entry ? reactionLabel(entry.reaction) + ' · ' + entry.date : 'Untried'));
       comparison.append(cell);
     }
     node.append(comparison);
@@ -83,7 +88,7 @@
       const details = element('details');
       const history = element('ul');
       for(const entry of food.history){
-        history.append(element('li',entry.date + ' · ' + entry.cat + ' · ' + entry.reaction));
+        history.append(element('li',entry.date + ' · ' + entry.cat + ' · ' + reactionLabel(entry.reaction)));
       }
       details.append(element('summary','Tasting history (' + food.history.length + ')'),history);
       node.append(details);

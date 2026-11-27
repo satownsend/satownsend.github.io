@@ -188,9 +188,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="card-meta"><span><b id="photographyCount">&mdash;</b> photos</span><span><b id="photographyCategories">&mdash;</b> categories</span></div>
       </div>
     </a>
+    <a class="card" href="/cats/">
+      <div class="card-media"><div class="card-img-placeholder" id="catsImg">🐈</div><div class="card-title"><h2>🐈 Cats</h2></div></div>
+      <div class="card-body"><p class="card-desc">Puck’s photos and videos.</p><div class="card-meta"><span><b id="catsCount">—</b> photos</span></div></div>
+    </a>
   </div>
 </div>
 
+<script src="/shared/photo-sections.js?v=1"></script>
 <script>
 const $ = s => document.querySelector(s);
 function escapeHtml(s){ const d = document.createElement('div'); d.textContent = s==null ? '' : String(s); return d.innerHTML; }
@@ -402,7 +407,10 @@ async function loadPhotography(){
       fetchSheetByName(PHOTOGRAPHY_SHEET, 'photos'),
       fetchConfig(PHOTOGRAPHY_SHEET),
     ]);
-    const valid = photos.filter(p=>p.key);
+    const cats = photos.filter(p=>p.key && PhotoSections.isPuck(p));
+    const valid = photos.filter(p=>p.key && !PhotoSections.isPuck(p));
+    setText('catsCount', cats.length);
+    setCardImage('catsImg', cats.filter(p=>!(/\.(mp4|mov|webm)$/i.test(p.key))).sort((a,b)=>(b.date||'').localeCompare(a.date||'')), cfg);
     setText('photographyCount', valid.length);
     setText('photographyCategories', new Set(valid.map(p=>p.category).filter(Boolean)).size);
     setText('photographyYears', new Set(valid.map(p=>(p.date||'').slice(0,4)).filter(Boolean)).size);
@@ -411,7 +419,7 @@ async function loadPhotography(){
     setCardImage('photographyImg', sorted, cfg);
     // Standalone photos: each row is its own "item" (name = title or category).
     const items = valid.map(p=>({ id:p.key, title:p.title, category:p.category }));
-    return galleryItems(photos, items, 'key', it=>it.title || it.category || '', 'Photography', '📷', '/photography');
+    return [...galleryItems(valid, items, 'key', it=>it.title || it.category || '', 'Photography', '📷', '/photography'), ...galleryItems(cats, cats.map(p=>({id:p.key,title:p.title})), 'key', it=>it.title || 'Puck', 'Cats', '🐈', '/cats/')];
   } catch(e){
     console.warn('Photography load failed:', e);
     return [];

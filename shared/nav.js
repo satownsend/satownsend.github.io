@@ -15,6 +15,7 @@
     { href:'/beer',        label:'Beer',        icon:'\u{1F37A}', key:'beer' },
     { href:'/instruments', label:'Instruments', icon:'\u{1F3B8}', key:'instruments' },
     { href:'/photography', label:'Photography', icon:'\u{1F4F7}', key:'photography' },
+    { href:'/cats/', label:'Cats', icon:'🐈', key:'cats' },
     { href:'/photo-frame/', label:'Photo frame', icon:'\u{1F5BC}', key:'photo-frame' },
     { href:'/app/', label:'Install app', icon:'↗', key:'app' },
   ];
@@ -40,6 +41,7 @@
     { href:'/beer-slideshow/',        label:'Beer',        key:'beer' },
     { href:'/instruments-slideshow/', label:'Instruments', key:'instruments' },
     { href:'/wildlife-slideshow/',    label:'Wildlife',    key:'wildlife' },
+    { href:'/cats-slideshow/', label:'Cats', key:'cats' },
     { href:'/photography-slideshow/', label:'Photography', key:'photography' },
   ];
 

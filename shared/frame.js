@@ -27,7 +27,7 @@
     beer:        { label:'Beer',        icon:'🍺', sheet:'1BXFTqV6xCZU63IutRAeAFPrZKLyDPkuGQ-SykIdAy_k', items:0, photos:1135128185, idField:'brew_id',       nameOf:b=>b.name },
     instruments: { label:'Instruments', icon:'🎸', sheet:'1dWWWIFBpWvNOIBuxA1EIoaffKckDFhsHvPDzhbxdnYg', items:0, photos:617283945,  idField:'instrument_id', nameOf:i=>i.name || i.type || '' },
     wildlife:    { label:'Wildlife',    icon:'🦉', sheet:'1Uq2Fgzron3yDZqYFWsUx1cYigp4w8GmQP2pmk33DG54', items:0, photos:518293746,  idField:'sighting_id',   nameOf:s=>s.species },
-    cats: { label:'Cats', icon:'🐈', sheet:'1JXlI9RgLfwrpYgMZxyo8TipEiEn675Bwpnr9ORxUJFA', photosByName:'photos', standalone:true, nameOf:p=>p.title || 'Puck' },
+    cats: { label:'Cats', icon:'🐈', sheet:'1JXlI9RgLfwrpYgMZxyo8TipEiEn675Bwpnr9ORxUJFA', photosByName:'photos', standalone:true, nameOf:p=>p.title || p.category || 'Cats' },
     photography: { label:'Photography', icon:'📷', sheet:'1JXlI9RgLfwrpYgMZxyo8TipEiEn675Bwpnr9ORxUJFA', photosByName:'photos', standalone:true, nameOf:p=>p.title || p.category || '' },
   };
   const ALL = Object.keys(SOURCES);
@@ -95,7 +95,7 @@
   async function loadSource(key){
     const s = SOURCES[key];
     let photos = s.photosByName ? await byName(s.sheet, s.photosByName) : await byGid(s.sheet, s.photos);
-    if(s.standalone) photos = photos.filter(p=>(String(p.category || '').trim().toLowerCase() === 'puck') === (key === 'cats'));
+    if(s.standalone) photos = photos.filter(p=>(/^(?:photography\/(?:cats|puck)\/)/i.test(String(p.key || '')) || String(p.category || '').trim().toLowerCase() === 'puck') === (key === 'cats'));
     const items = s.standalone ? null : await byGid(s.sheet, s.items).catch(()=>[]);
     const byId = items ? new Map(items.map(it => [it.id, it])) : null;
     const out = [];

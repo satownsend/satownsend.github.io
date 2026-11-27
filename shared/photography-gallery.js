@@ -823,7 +823,8 @@ async function uploadPhoto(file, category, subcategory, caption, dateOverride, o
   const rand = Math.random().toString(36).slice(2,8);
   const catSlug = slug(category);
   const subSlug = subcategory ? slug(subcategory) : '';
-  const prefix = subSlug ? `photography/${catSlug}/${subSlug}` : `photography/${catSlug}`;
+  const folder = CAT_PAGE ? 'photography/cats' : 'photography';
+  const prefix = subSlug ? `${folder}/${catSlug}/${subSlug}` : `${folder}/${catSlug}`;
   const id = Math.random().toString(36).slice(2,10);
   // Row values follow PHOTO_HEADERS order: id,key,category,title,date,caption,hideFromGallery,subcategory
   const row = (key, date) => [id, key, category, '', date, caption, 'FALSE', subcategory];
@@ -871,8 +872,8 @@ async function uploadPhoto(file, category, subcategory, caption, dateOverride, o
 function openAddPhotos(){
   if (!isGsAuthed()){ alert('Sign in with Google first (Settings).'); return; }
   const cat = activeCategory && activeCategory !== 'Uncategorized' ? activeCategory : '';
-  $('#addCategory').value = CAT_PAGE ? 'Puck' : cat;
-  $('#addCategory').readOnly = CAT_PAGE;
+  $('#addCategory').value = cat;
+  $('#addCategory').readOnly = false;
   $('#addSubcategory').value = cat && activeSub ? activeSub : '';
   $('#addCaption').value = '';
   $('#addDate').value = '';
@@ -896,7 +897,9 @@ $('#addCancel').onclick = closeAddPhotos;
 $('#addOverlay').addEventListener('click', e=>{ if(e.target === $('#addOverlay')) closeAddPhotos(); });
 
 $('#addSaveBtn').onclick = async ()=>{
-  const category = CAT_PAGE ? 'Puck' : ($('#addCategory').value.trim() || 'Misc');
+  const category = $('#addCategory').value.trim();
+  if(CAT_PAGE && !category){ $('#addStatusMsg').textContent='Enter the cat’s name.'; $('#addCategory').focus(); return; }
+  const photoCategory = category || 'Misc';
   if(PhotoSections.isPuck({category}) && !CAT_PAGE){ $('#addStatusMsg').textContent='Add Puck photos on the Cats page.'; return; }
   const subcategory = $('#addSubcategory').value.trim();
   const caption = $('#addCaption').value.trim();
@@ -910,7 +913,7 @@ $('#addSaveBtn').onclick = async ()=>{
     for(let i=0;i<files.length;i++){
       st.textContent = `File ${i+1}/${files.length}: preparing…`;
       try {
-        await uploadPhoto(files[i], category, subcategory, caption, dateOverride, msg => st.textContent = `File ${i+1}/${files.length}: ${msg}`);
+        await uploadPhoto(files[i], photoCategory, subcategory, caption, dateOverride, msg => st.textContent = `File ${i+1}/${files.length}: ${msg}`);
       } catch(err){
         st.textContent = `File ${i+1} failed: ${err.message}`;
         await new Promise(r=>setTimeout(r, 2200));
@@ -950,7 +953,7 @@ function showLightbox(){
   $('#lightboxDate').textContent = p.date || '';
   $('#lightboxTitle').value = p.title || '';
   $('#lightboxCategory').value = p.category || '';
-  $('#lightboxCategory').readOnly = CAT_PAGE;
+  $('#lightboxCategory').readOnly = false;
   $('#lightboxSubcategory').value = p.subcategory || '';
   buildSubDatalist(p.category || '');
   $('#lightboxCaption').value = p.caption || '';
@@ -978,7 +981,9 @@ async function saveLbField(){
   if(!p) return;
   const sp = state.photos.find(x=>x.key===p.key) || p;
   sp.title = p.title = $('#lightboxTitle').value.trim();
-  sp.category = p.category = CAT_PAGE ? 'Puck' : $('#lightboxCategory').value.trim();
+  const category = $('#lightboxCategory').value.trim();
+  if(CAT_PAGE && !category){ alert('Enter the cat’s name.'); return; }
+  sp.category = p.category = category;
   sp.subcategory = p.subcategory = $('#lightboxSubcategory').value.trim();
   sp.caption = p.caption = $('#lightboxCaption').value.trim();
   await updatePhotoRow(sp);

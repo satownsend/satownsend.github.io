@@ -190,12 +190,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </a>
     <a class="card" href="/cats/">
       <div class="card-media"><div class="card-img-placeholder" id="catsImg">🐈</div><div class="card-title"><h2>🐈 Cats</h2></div></div>
-      <div class="card-body"><p class="card-desc">Puck’s photos and videos.</p><div class="card-meta"><span><b id="catsCount">—</b> photos</span></div></div>
+      <div class="card-body"><p class="card-desc">Photos and videos of the cats.</p><div class="card-meta"><span><b id="catsCount">—</b> photos</span></div></div>
     </a>
   </div>
 </div>
 
-<script src="/shared/photo-sections.js?v=1"></script>
+<script src="/shared/photo-sections.js?v=2"></script>
 <script>
 const $ = s => document.querySelector(s);
 function escapeHtml(s){ const d = document.createElement('div'); d.textContent = s==null ? '' : String(s); return d.innerHTML; }
@@ -407,8 +407,8 @@ async function loadPhotography(){
       fetchSheetByName(PHOTOGRAPHY_SHEET, 'photos'),
       fetchConfig(PHOTOGRAPHY_SHEET),
     ]);
-    const cats = photos.filter(p=>p.key && PhotoSections.isPuck(p));
-    const valid = photos.filter(p=>p.key && !PhotoSections.isPuck(p));
+    const cats = photos.filter(p=>p.key && PhotoSections.isCat(p));
+    const valid = photos.filter(p=>p.key && !PhotoSections.isCat(p));
     setText('catsCount', cats.length);
     setCardImage('catsImg', cats.filter(p=>!(/\.(mp4|mov|webm)$/i.test(p.key))).sort((a,b)=>(b.date||'').localeCompare(a.date||'')), cfg);
     setText('photographyCount', valid.length);

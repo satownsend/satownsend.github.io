@@ -21,6 +21,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <link rel="stylesheet" href="/shared/styles.css?v=readability-1">
 <link rel="stylesheet" href="/shared/cat-field-guide.css?v=2">
 <link rel="stylesheet" href="/shared/cat-food-notebook.css">
+<link rel="stylesheet" href="/shared/cat-medical.css">
 <script src="/shared/themes.js"></script>
 <script defer src="/shared/nav.js?v=app-1"></script>
 <script defer src="/shared/chat.js"></script>
@@ -183,6 +184,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
   <section class="cat-food" id="food-notebook" aria-labelledby="cat-food-title">
     <h2 id="cat-food-title">Food notebook</h2>
+    <aside id="cat-feeding-reminders" class="cat-medical-panel" hidden aria-label="Private feeding reminders"></aside>
     <div class="cat-food-controls">
       <label>Food type
         <select id="cat-food-type">
@@ -221,6 +223,39 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </form>
       </details>
       <p id="cat-food-save-status" role="status"></p>
+    </div>
+  </section>
+
+  <section class="cat-medical" id="medical-records" aria-labelledby="cat-medical-title">
+    <h2 id="cat-medical-title">Medical records</h2>
+    <p id="cat-medical-status" role="status"></p>
+    <button id="cat-medical-sign-in" type="button" class="ghost" hidden>Sign in to view medical records</button>
+    <div id="cat-medical-owner" hidden>
+      <div class="cat-medical-controls">
+        <label>Cat <select id="cat-medical-filter"><option>Clovis</option><option>Tadpole</option><option>Puck</option></select></label>
+        <button type="button" id="cat-medical-add">Add record</button>
+      </div>
+      <form id="cat-medical-form" class="cat-medical-panel" hidden>
+        <h3 id="cat-medical-form-title">Add record</h3>
+        <div class="cat-medical-controls">
+          <label>Cat <select name="cat"><option>Clovis</option><option>Tadpole</option><option>Puck</option></select></label>
+          <label>Type <select name="type">
+            <option>Vet visit</option><option>Vaccination</option><option>Medication</option><option>Vet document</option>
+            <option>Allergy</option><option>Prescription diet</option><option>Feeding restriction</option>
+          </select></label>
+          <label>Date <input name="date" type="date" required></label>
+        </div>
+        <label>Title <input name="title" type="text" maxlength="120" required></label>
+        <label>Notes <textarea name="notes" rows="4" maxlength="4000"></textarea></label>
+        <label id="cat-medical-reminder-option" hidden><input type="checkbox" name="feedingReminder"> Show in my private feeding reminders</label>
+        <label>Document (optional PDF, JPG, or PNG, up to 5 MiB) <input name="document" type="file" accept="application/pdf,image/jpeg,image/png"></label>
+        <label id="cat-medical-remove-document" hidden><input type="checkbox" name="removeDocument"> Remove the existing document</label>
+        <div class="cat-medical-controls">
+          <button type="submit">Save record</button>
+          <button type="button" class="ghost" id="cat-medical-cancel">Cancel</button>
+        </div>
+      </form>
+      <div id="cat-medical-list" class="cat-medical-list"></div>
     </div>
   </section>
 
@@ -391,6 +426,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <script src="/shared/photo-sections.js?v=3"></script>
 <script src="/shared/cat-field-guide.js?v=2" defer></script>
 <script src="/shared/cat-food-notebook.js" defer></script>
+<script src="/shared/cat-medical.js" defer></script>
 <script src="/shared/photography-gallery.js?v=5"></script>
 </body>
 </html>

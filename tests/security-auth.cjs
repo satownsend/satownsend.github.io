@@ -30,7 +30,7 @@ b=browser();state=b.begin();b.sessionStorage.removeItem=()=>{throw Error('storag
 b=browser();b.sessionStorage.setItem=()=>{throw Error('storage blocked')};assert.throws(()=>b.begin(),/storage blocked/);assert.equal(b.location.href,'');
 
 // Exercise the actual Worker request handler with mocked Google and no model/data access.
-const workerSource=fs.readFileSync('chatbot-worker/src/index.js','utf8').replace(/^import .*;\n/gm,'').replace('export default {','globalThis.worker = {');
+const workerSource=fs.readFileSync('chatbot-worker/src/index.js','utf8').replace(/^(?:import .*|export \{ .* \} from .*)[;]\n/gm,'').replace('export default {','globalThis.worker = {');
 const client='936411146633-16fq9oc08auslfprvgbl9bpoafbvo9uk.apps.googleusercontent.com';
 let info, calls=0, fail=false;
 const ctx={Response,Request,URL,console,fetch:async url=>{

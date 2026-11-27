@@ -24,3 +24,11 @@ bucket_name = "plant-photos"
 # Small resumable bootstrap batches; after bootstrap only daily data checks occur.
 [triggers]
 crons = ["7,22,37,52 * * * *"]
+
+[[durable_objects.bindings]]
+name = "CAT_MEDICAL"
+class_name = "CatMedicalStore"
+
+[[migrations]]
+tag = "cat-medical-v1"
+new_sqlite_classes = ["CatMedicalStore"]

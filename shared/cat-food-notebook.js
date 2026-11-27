@@ -9,7 +9,8 @@
   const saveStatus = $('#cat-food-save-status');
   const addForm = $('#cat-food-add');
   const logForm = $('#cat-food-log');
-  const filters = [$('#cat-food-type'), $('#cat-food-match')];
+  const formatFilter = $('#cat-food-format');
+  const filters = [$('#cat-food-type'), formatFilter, $('#cat-food-match')];
   let rows = [];
 
   function element(tag, value, className){
@@ -19,8 +20,13 @@
     return node;
   }
 
+  function formatLabel(value){
+    const label = String(value || '').trim().replace(/\s+/g, ' ');
+    return /^freeze[\s\u2010-\u2015-]*dried$/i.test(label) ? 'Freeze-dried' : label;
+  }
+
   function foodId(food){
-    return JSON.stringify([food.brand,food.flavor,food.type,food.texture]
+    return JSON.stringify([food.brand,food.flavor,food.type,formatLabel(food.texture)]
       .map(value => value.trim().toLowerCase().replace(/\s+/g, ' ')));
   }
 
@@ -53,8 +59,9 @@
   }
 
   function matches(food){
-    const [type, filter] = filters.map(select => select.value);
+    const [type, format, filter] = filters.map(select => select.value);
     if(type && food.type !== type) return false;
+    if(format && formatLabel(food.texture).toLowerCase() !== format) return false;
     if(!filter) return true;
     const [clovis,tadpole] = cats.slice(0,2).map(cat => latest(food,cat)?.reaction);
     if(!clovis || !tadpole) return false;
@@ -63,7 +70,7 @@
 
   function card(food){
     const node = element('article','','cat-food-card');
-    node.append(element('h3',foodLabel(food)),element('p',[food.type,food.texture].filter(Boolean).join(' · ')));
+    node.append(element('h3',foodLabel(food)),element('p',[food.type,formatLabel(food.texture)].filter(Boolean).join(' · ')));
     const comparison = element('dl','','cat-food-comparison');
     for(const cat of cats.slice(0,2)){
       const entry = latest(food,cat);
@@ -86,12 +93,22 @@
 
   function render(){
     const foods = readNotebook();
+    const selectedFormat = formatFilter.value;
+    const formats = new Map([['freeze-dried','Freeze-dried']]);
+    for(const food of foods){
+      const label = formatLabel(food.texture);
+      if(label && !formats.has(label.toLowerCase())) formats.set(label.toLowerCase(),label);
+    }
+    const formatOptions = [...formats].sort((a,b) => a[1].localeCompare(b[1]));
+    formatFilter.replaceChildren(new Option('All formats',''),
+      ...formatOptions.map(([value,label]) => new Option(label,value)));
+    formatFilter.value = formats.has(selectedFormat) ? selectedFormat : '';
     list.replaceChildren(...foods.filter(matches).map(card));
     status.textContent = list.childElementCount ? '' : foods.length ? 'No foods match these filters.' : 'No foods have been added yet.';
     const select = logForm.elements.food;
     const selected = select.value;
     select.replaceChildren(new Option('Choose a food',''));
-    for(const food of foods) select.add(new Option([foodLabel(food),food.type,food.texture].filter(Boolean).join(' · '),food.food_id));
+    for(const food of foods) select.add(new Option([foodLabel(food),food.type,formatLabel(food.texture)].filter(Boolean).join(' · '),food.food_id));
     select.value = foods.some(food => food.food_id === selected) ? selected : '';
     logForm.querySelector('button').disabled = !foods.length;
   }
@@ -142,7 +159,10 @@
         form.reset();
         if(form === logForm) logForm.elements.date.value = ymdLocal(new Date());
         render();
-        if(form === addForm) logForm.elements.food.value = foodId(data);
+        if(form === addForm){
+          const food = readNotebook().find(food => foodId(food) === foodId(data));
+          if(food) logForm.elements.food.value = food.food_id;
+        }
         saveStatus.textContent = row ? confirmation : 'That food is already in the notebook.';
       } catch(error){
         console.error(error);
@@ -159,7 +179,8 @@
   handleSave(addForm, data => {
     if(!data.brand || !data.flavor || !types.includes(data.type)) throw new Error('Food details are required');
     const id = foodId(data);
-    return readNotebook().some(food => food.food_id === id) ? null : {...data,kind:'food',food_id:id};
+    if(readNotebook().some(food => foodId(food) === id)) return null;
+    return {...data,texture:formatLabel(data.texture),kind:'food',food_id:id};
   }, 'Food saved. You can log a reaction for it now.');
   handleSave(logForm, data => ({
     kind:'reaction',food_id:data.food,cat:data.cat,date:data.date,reaction:data.reaction,

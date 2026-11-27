@@ -38,3 +38,15 @@ context.activeCategory='Clovis';assert.equal(context.filteredSortedPhotos().leng
 context.activeCategory='';assert.equal(context.filteredSortedPhotos().length,2);
 assert(sections.includes(sharedPhoto,true));assert(!sections.includes(sharedPhoto,false));
 console.log('Shared photos match both cats, count once in All, and deduplicate repeated names');
+
+context.activeCategory='Clovis, Tadpole';assert.equal(context.filteredSortedPhotos().length,1);
+context.activeCategory='Tadpole, Clovis';assert.equal(context.filteredSortedPhotos().length,1);
+context.state.photos.push({...sharedPhoto,key:'photography/cats/reversed.jpg',category:'Clovis, Tadpole'});
+assert.equal(context.filteredSortedPhotos().length,2);
+const chipElement={innerHTML:''};context.$=()=>chipElement;context.escapeHtml=s=>s;context.buildSubChips=()=>{};
+vm.runInContext(gallery.slice(gallery.indexOf('function buildCategoryChips('),gallery.indexOf('// Second-level chips:')),context);
+context.buildCategoryChips();
+assert.equal((chipElement.innerHTML.match(/Clovis and Tadpole/g)||[]).length,1);
+assert(chipElement.innerHTML.includes('data-cat="Clovis, Tadpole"'));
+assert(chipElement.innerHTML.includes('Clovis and Tadpole<span class="cc-count">2'));
+console.log('Combined-cat chip groups reversed name order, filters shared photos, and excludes solo photos');

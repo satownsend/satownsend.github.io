@@ -19,6 +19,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <link rel="preload" href="https://use.typekit.net/twp1irx.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
 <noscript><link rel="stylesheet" href="https://use.typekit.net/twp1irx.css"></noscript>
 <link rel="stylesheet" href="/shared/styles.css?v=readability-1">
+<link rel="stylesheet" href="/shared/cat-field-guide.css">
 <script src="/shared/themes.js"></script>
 <script defer src="/shared/nav.js?v=app-1"></script>
 <script defer src="/shared/chat.js"></script>
@@ -141,6 +142,37 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
   <!-- Owner setup note (only if the sheet id isn't set yet) -->
   <div class="setup-note" id="setupNote" style="display:none"></div>
+
+  <section class="cat-field-guide" aria-labelledby="cat-guide-title">
+    <div class="cat-guide-heading">
+      <h2 id="cat-guide-title">Field guide</h2>
+      <button type="button" class="ghost tiny" id="cat-guide-edit" hidden>Edit profiles</button>
+    </div>
+    <div class="cat-guide-profiles" id="cat-guide-profiles"></div>
+    <details class="cat-guide-compare">
+      <summary>Compare two cats</summary>
+      <div class="cat-guide-pickers">
+        <label>First cat <select id="cat-guide-first"></select></label>
+        <label>Second cat <select id="cat-guide-second"></select></label>
+      </div>
+      <div class="cat-guide-profiles" id="cat-guide-comparison"></div>
+    </details>
+    <form class="cat-guide-form" id="cat-guide-form" hidden>
+      <h3>Edit public profile</h3>
+      <label>Cat <select name="cat"></select></label>
+      <label>Portrait <select name="portrait"></select></label>
+      <label>Introduction <textarea name="intro" maxlength="600" rows="3"></textarea></label>
+      <label>Nicknames <input name="nicknames" maxlength="200"></label>
+      <label>Identifying markings <textarea name="markings" maxlength="400" rows="2"></textarea></label>
+      <label>How to tell them apart <input name="clue" maxlength="200"></label>
+      <label>Signature habits <textarea name="habits" maxlength="400" rows="2"></textarea></label>
+      <div class="cat-guide-actions">
+        <button type="submit">Save profile</button>
+        <button type="button" class="ghost" id="cat-guide-cancel">Cancel</button>
+      </div>
+    </form>
+    <p id="cat-guide-status" role="status"></p>
+  </section>
 
   <!-- Gallery -->
   <div class="gallery" id="galleryPanel" style="display:none">
@@ -307,6 +339,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <script src="/shared/gauth.js?v=cats-callback-1"></script>
 <script src="/shared/media-storage.js"></script>
 <script src="/shared/photo-sections.js?v=3"></script>
-<script src="/shared/photography-gallery.js?v=4"></script>
+<script src="/shared/cat-field-guide.js" defer></script>
+<script src="/shared/photography-gallery.js?v=5"></script>
 </body>
 </html>
